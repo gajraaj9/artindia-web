@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brussels Diwali Festival 2026 — 10th edition, 24 &amp; 25 October, Atomium</title>
+<meta name="description" content="The 10th Brussels Diwali Festival returns to the Atomium esplanade on 24 &amp; 25 October 2026. Two days of light, music and food. Tickets from €10, on sale 5 September.">
+
+<link rel="canonical" href="https://diwali.artindia.be/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Brussels Diwali Festival 2026 — 10th edition">
+<meta property="og:description" content="24 &amp; 25 October 2026, Atomium esplanade. Tickets from €10, on sale 5 September.">
+<meta property="og:url" content="https://diwali.artindia.be/">
+<meta property="og:image" content="https://diwali.artindia.be/static/og-2026.jpg">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Karla:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Festival",
+  "name": "Brussels Diwali Festival 2026",
+  "startDate": "2026-10-24",
+  "endDate": "2026-10-25",
+  "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+  "eventStatus": "https://schema.org/EventScheduled",
+  "location": {
+    "@type": "Place",
+    "name": "Atomium Esplanade",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Brussels",
+      "addressCountry": "BE"
+    }
+  },
+  "organizer": {
+    "@type": "Organization",
+    "name": "Art India ASBL",
+    "url": "https://artindia.be"
+  },
+  "offers": {
+    "@type": "Offer",
+    "price": "10",
+    "priceCurrency": "EUR",
+    "availability": "https://schema.org/PreOrder",
+    "validFrom": "2026-09-05",
+    "url": "https://diwali.artindia.be/"
+  },
+  "description": "The tenth edition of the Brussels Diwali Festival, on the Atomium esplanade."
+}
+</script>
+
+<style>
+:root{
+  --night:#0A0E24;
+  --night-2:#121838;
+  --line:rgba(143,163,200,.18);
+  --steel:#8496BE;
+  --white:#EDEBF4;
+  --flame:#FFB03A;
+  --flame-core:#FFEFC7;
+  --clay:#8A4B2A;
+  --clay-dim:#242B4E;
+
+  --display:'Fraunces',Georgia,serif;
+  --body:'Karla',system-ui,sans-serif;
+  --mono:'Space Mono',ui-monospace,monospace;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--night);
+  color:var(--white);
+  font-family:var(--body);
+  font-size:17px;
+  line-height:1.6;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  overflow-x:hidden;
+}
+
+/* ambient glow behind the lamps */
+body::before{
+  content:"";
+  position:fixed;
+  left:50%;
+  top:52%;
+  width:min(1100px,140vw);
+  height:min(560px,70vh);
+  transform:translate(-50%,-50%);
+  background:radial-gradient(ellipse at center,rgba(255,176,58,.16),rgba(255,176,58,.05) 42%,transparent 70%);
+  pointer-events:none;
+  z-index:0;
+  opacity:0;
+  animation:ambient 2.4s 1.1s ease forwards;
+}
+@keyframes ambient{to{opacity:1}}
+
+.wrap{
+  position:relative;
+  z-index:1;
+  width:100%;
+  max-width:940px;
+  margin:0 auto;
+  padding:0 24px;
+}
+
+/* ---------- top bar ---------- */
+header{padding:22px 0 0}
+.bar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  flex-wrap:wrap;
+}
+.mark{
+  font-family:var(--mono);
+  font-size:12px;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--steel);
+  text-decoration:none;
+}
+.mark:hover{color:var(--white)}
+
+.langs{display:flex;gap:2px}
+.langs button{
+  font-family:var(--mono);
+  font-size:12px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  background:none;
+  border:none;
+  border-bottom:1px solid transparent;
+  color:var(--steel);
+  padding:4px 8px;
+  cursor:pointer;
+}
+.langs button:hover{color:var(--white)}
+.langs button[aria-current="true"]{color:var(--flame);border-bottom-color:var(--flame)}
+
+/* ---------- hero ---------- */
+main{flex:1;display:flex;align-items:center;padding:48px 0 40px}
+.hero{text-align:center;width:100%}
+
+.eyebrow{
+  font-family:var(--mono);
+  font-size:11.5px;
+  letter-spacing:.22em;
+  text-transform:uppercase;
+  color:var(--flame);
+  margin:0 0 22px;
+}
+
+h1{
+  font-family:var(--display);
+  font-optical-sizing:auto;
+  font-weight:400;
+  font-size:clamp(2.4rem,7.4vw,4.6rem);
+  line-height:1.02;
+  letter-spacing:-.02em;
+  margin:0;
+}
+h1 em{
+  font-style:italic;
+  font-weight:600;
+  color:var(--flame-core);
+}
+
+/* ---------- the ten lamps: the signature ---------- */
+.lamps{
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  gap:clamp(8px,2.6vw,20px);
+  margin:38px 0 12px;
+}
+.lamp{
+  width:clamp(20px,4.4vw,30px);
+  height:auto;
+  flex:none;
+  opacity:.34;
+  transition:opacity .5s ease;
+}
+.lamp .flame{opacity:0;transform-origin:50% 70%}
+.lamp.lit{opacity:1}
+.lamp.lit .flame{
+  opacity:1;
+  animation:flicker 3.2s ease-in-out infinite;
+}
+.lamp.lit{filter:drop-shadow(0 0 5px rgba(255,176,58,.7))}
+
+.lamp.tenth{width:clamp(30px,6.6vw,46px)}
+.lamp.tenth.lit{
+  filter:drop-shadow(0 0 10px rgba(255,176,58,.9)) drop-shadow(0 0 30px rgba(255,176,58,.45));
+}
+
+@keyframes flicker{
+  0%,100%{transform:scaleY(1) scaleX(1)}
+  35%{transform:scaleY(1.07) scaleX(.96)}
+  62%{transform:scaleY(.96) scaleX(1.03)}
+}
+
+.span{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.18em;
+  color:var(--steel);
+  margin:0 0 34px;
+}
+
+.dates{
+  font-family:var(--display);
+  font-size:clamp(1.15rem,3.4vw,1.7rem);
+  font-weight:600;
+  letter-spacing:-.01em;
+  margin:0 0 14px;
+}
+.lede{
+  max-width:34em;
+  margin:0 auto 30px;
+  color:#C9CEE2;
+  font-size:clamp(1rem,2.3vw,1.09rem);
+}
+
+.pricing{
+  display:inline-flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  align-items:center;
+  gap:10px 14px;
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+  padding:14px 20px;
+  margin-bottom:30px;
+}
+.price-main{font-weight:700;font-size:1.02rem}
+.price-when{font-family:var(--mono);font-size:12px;color:var(--steel)}
+.countdown{
+  font-family:var(--mono);
+  font-size:12px;
+  color:var(--flame);
+  white-space:nowrap;
+}
+
+/* ---------- form ---------- */
+form{max-width:440px;margin:0 auto}
+.field{display:flex;gap:8px;flex-wrap:wrap}
+input[type=email]{
+  flex:1 1 200px;
+  min-width:0;
+  background:var(--night-2);
+  border:1px solid var(--line);
+  border-radius:2px;
+  color:var(--white);
+  font-family:var(--body);
+  font-size:16px;
+  padding:13px 14px;
+}
+input[type=email]::placeholder{color:#66739A}
+input[type=email]:focus-visible,
+button:focus-visible,
+a:focus-visible{outline:2px solid var(--flame);outline-offset:2px}
+
+.submit{
+  flex:0 0 auto;
+  background:var(--flame);
+  color:#1A1000;
+  border:none;
+  border-radius:2px;
+  font-family:var(--body);
+  font-weight:700;
+  font-size:16px;
+  padding:13px 22px;
+  cursor:pointer;
+  transition:background .18s ease;
+}
+.submit:hover{background:var(--flame-core)}
+
+.note{
+  font-size:13.5px;
+  color:var(--steel);
+  margin:12px 0 0;
+}
+.err{color:var(--flame);font-size:13.5px;margin:10px 0 0}
+.err[hidden]{display:none}
+form.sent .err{display:none}
+.done{
+  display:none;
+  border:1px solid var(--flame);
+  border-radius:2px;
+  padding:14px 16px;
+  color:var(--flame-core);
+  font-size:15px;
+}
+.done.show{display:block}
+form.sent .field,form.sent .note{display:none}
+
+/* ---------- facts ---------- */
+.facts{
+  display:flex;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:10px 30px;
+  margin:44px 0 0;
+  font-family:var(--mono);
+  font-size:11.5px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--steel);
+}
+
+footer{
+  border-top:1px solid var(--line);
+  padding:22px 0 30px;
+  font-size:13.5px;
+  color:var(--steel);
+}
+.foot{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+footer a{color:var(--steel)}
+footer a:hover{color:var(--white)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before{animation:none!important;transition:none!important}
+  body::before{opacity:1}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="wrap bar">
+    <a class="mark" href="https://artindia.be">Art India</a>
+    <nav class="langs" aria-label="Language">
+      <button data-lang="en" aria-current="true">EN</button>
+      <button data-lang="fr">FR</button>
+      <button data-lang="nl">NL</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+
+    <p class="eyebrow" data-i="eyebrow">10th edition · Atomium esplanade</p>
+
+    <h1>Brussels <em>Diwali</em> Festival</h1>
+
+    <div class="lamps" id="lamps" role="img" aria-label="Ten lamps, one for each edition since 2016"></div>
+    <p class="span" data-i="span">2016 — 2026</p>
+
+    <p class="dates" data-i="dates">24 &amp; 25 October 2026</p>
+
+    <p class="lede" data-i="lede">Two days of light, music and food on the Atomium esplanade. For the tenth edition, Europe celebrates Diwali with us.</p>
+
+    <div class="pricing">
+      <span class="price-main" data-i="price">Tickets from €10</span>
+      <span class="price-when" data-i="onsale">On sale 5 September 2026</span>
+      <span class="countdown" id="countdown"></span>
+    </div>
+
+    <form id="signup" novalidate>
+      <div class="field">
+        <label for="email" class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)" data-i="emaillabel">Email address</label>
+        <input type="email" id="email" name="email" required autocomplete="email" data-i-ph="placeholder" placeholder="your@email.com">
+        <button type="submit" class="submit" data-i="cta">Notify me</button>
+      </div>
+      <p class="note" data-i="note">One email when tickets go on sale. Nothing else.</p>
+      <p class="err" id="err" role="alert" hidden></p>
+      <p class="done" id="done" data-i="done" role="status">You're on the list. We'll write to you on 5 September.</p>
+    </form>
+
+    <div class="facts">
+      <span data-i="f1">Two days</span>
+      <span data-i="f2">Atomium esplanade, Brussels</span>
+      <span data-i="f3">Card payment only on site</span>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span data-i="org">Organised by Art India ASBL · Brussels</span>
+    <span><a href="mailto:partners@artindia.be">partners@artindia.be</a></span>
+  </div>
+</footer>
+
+<script>
+/* ------------------------------------------------------------------
+   CONFIGURE THIS before going live.
+   Set to your Brevo / Formspree / Weezevent endpoint.
+   While empty, the form falls back to opening the visitor's mail app,
+   so the page still works on day one.
+------------------------------------------------------------------ */
+const FORM_ENDPOINT = "";
+const FALLBACK_EMAIL = "ravi@artindia.be";
+const SALE_DATE = new Date("2026-09-05T10:00:00+02:00");
+
+/* ---------------- the ten lamps ---------------- */
+const LAMP = `<svg class="lamp" viewBox="0 0 32 40" aria-hidden="true">
+  <path class="flame" d="M16 3 C20 9 22 12 22 16 a6 6 0 0 1-12 0 c0-4 2-7 6-13z" fill="#FFB03A"/>
+  <path class="flame" d="M16 9 C18 13 19 15 19 17 a3 3 0 0 1-6 0 c0-2 1-4 3-8z" fill="#FFEFC7"/>
+  <path class="bowl" d="M4 24 h24 c-1 6-6 9-12 9 s-11-3-12-9z" fill="currentColor"/>
+</svg>`;
+
+const lamps = document.getElementById('lamps');
+for (let i = 1; i <= 10; i++) {
+  lamps.insertAdjacentHTML('beforeend', LAMP);
+  const el = lamps.lastElementChild;
+  el.style.color = '#3A3050';
+  if (i === 10) el.classList.add('tenth');
+}
+
+const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+[...lamps.children].forEach((el, i) => {
+  const light = () => { el.classList.add('lit'); el.style.color = '#8A4B2A'; };
+  reduce ? light() : setTimeout(light, 500 + i * 170);
+});
+
+/* ---------------- countdown ---------------- */
+(function () {
+  const days = Math.ceil((SALE_DATE - new Date()) / 86400000);
+  const el = document.getElementById('countdown');
+  if (days > 0) el.dataset.days = days;
+  else el.remove();
+})();
+
+/* ---------------- languages ---------------- */
+const T = {
+  en: {
+    eyebrow: "10th edition · Atomium esplanade",
+    span: "2016 — 2026",
+    dates: "24 & 25 October 2026",
+    lede: "Two days of light, music and food on the Atomium esplanade. For the tenth edition, Europe celebrates Diwali with us.",
+    price: "Tickets from €10",
+    onsale: "On sale 5 September 2026",
+    countdown: d => `${d} days to go`,
+    emaillabel: "Email address",
+    placeholder: "your@email.com",
+    cta: "Notify me",
+    note: "One email when tickets go on sale. Nothing else.",
+    done: "You're on the list. We'll write to you on 5 September.",
+    error: "That email address doesn't look right.",
+    f1: "Two days", f2: "Atomium esplanade, Brussels", f3: "Card payment only on site",
+    org: "Organised by Art India ASBL · Brussels"
+  },
+  fr: {
+    eyebrow: "10e édition · Esplanade de l'Atomium",
+    span: "2016 — 2026",
+    dates: "24 & 25 octobre 2026",
+    lede: "Deux jours de lumière, de musique et de cuisine sur l'esplanade de l'Atomium. Pour la dixième édition, l'Europe célèbre Diwali avec nous.",
+    price: "Billets à partir de 10 €",
+    onsale: "En vente le 5 septembre 2026",
+    countdown: d => `J−${d}`,
+    emaillabel: "Adresse e-mail",
+    placeholder: "votre@email.com",
+    cta: "Prévenez-moi",
+    note: "Un seul e-mail, à l'ouverture de la billetterie. Rien d'autre.",
+    done: "C'est noté. Nous vous écrirons le 5 septembre.",
+    error: "Cette adresse e-mail semble incorrecte.",
+    f1: "Deux jours", f2: "Esplanade de l'Atomium, Bruxelles", f3: "Paiement par carte uniquement",
+    org: "Organisé par Art India ASBL · Bruxelles"
+  },
+  nl: {
+    eyebrow: "10de editie · Atomium-esplanade",
+    span: "2016 — 2026",
+    dates: "24 & 25 oktober 2026",
+    lede: "Twee dagen licht, muziek en eten op de Atomium-esplanade. Voor de tiende editie viert Europa Diwali met ons mee.",
+    price: "Tickets vanaf € 10",
+    onsale: "In verkoop op 5 september 2026",
+    countdown: d => `Nog ${d} dagen`,
+    emaillabel: "E-mailadres",
+    placeholder: "jouw@email.com",
+    cta: "Hou me op de hoogte",
+    note: "Eén e-mail zodra de tickets in verkoop gaan. Meer niet.",
+    done: "Je staat op de lijst. We mailen je op 5 september.",
+    error: "Dat e-mailadres klopt niet.",
+    f1: "Twee dagen", f2: "Atomium-esplanade, Brussel", f3: "Enkel kaartbetaling",
+    org: "Georganiseerd door Art India ASBL · Brussel"
+  }
+};
+
+let lang = 'en';
+
+function setLang(code) {
+  lang = T[code] ? code : 'en';
+  const t = T[lang];
+  document.documentElement.lang = lang;
+
+  document.querySelectorAll('[data-i]').forEach(el => {
+    const v = t[el.dataset.i];
+    if (typeof v === 'string') el.textContent = v;
+  });
+  document.querySelectorAll('[data-i-ph]').forEach(el => {
+    el.placeholder = t[el.dataset.iPh];
+  });
+
+  const cd = document.getElementById('countdown');
+  if (cd && cd.dataset.days) cd.textContent = t.countdown(cd.dataset.days);
+
+  document.querySelectorAll('.langs button').forEach(b => {
+    b.setAttribute('aria-current', b.dataset.lang === lang ? 'true' : 'false');
+  });
+
+  // Sandboxed iframes and file:// have an opaque origin where this throws.
+  // The language still switches; only the URL doesn't update.
+  try {
+    const u = new URL(location);
+    lang === 'en' ? u.searchParams.delete('lang') : u.searchParams.set('lang', lang);
+    history.replaceState(null, '', u);
+  } catch (_) {}
+}
+
+document.querySelectorAll('.langs button').forEach(b => {
+  b.addEventListener('click', () => setLang(b.dataset.lang));
+});
+
+let initial = '';
+try { initial = new URL(location).searchParams.get('lang') || ''; } catch (_) {}
+setLang(initial || (navigator.language || '').slice(0, 2).toLowerCase());
+
+/* ---------------- signup ---------------- */
+const form = document.getElementById('signup');
+const done = document.getElementById('done');
+const err  = document.getElementById('err');
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = form.email.value.trim();
+
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    form.email.setAttribute('aria-invalid', 'true');
+    err.textContent = T[lang].error;
+    err.hidden = false;
+    form.email.focus();
+    return;
+  }
+  form.email.removeAttribute('aria-invalid');
+  err.hidden = true;
+
+  if (!FORM_ENDPOINT) {
+    try {
+      location.href = `mailto:${FALLBACK_EMAIL}` +
+        `?subject=${encodeURIComponent('Diwali 2026 — notify me')}` +
+        `&body=${encodeURIComponent(email)}`;
+    } catch (_) {
+      err.textContent = FALLBACK_EMAIL;
+      err.hidden = false;
+    }
+    return;
+  }
+
+  try {
+    await fetch(FORM_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, lang, source: 'holding-page', event: 'diwali-2026' })
+    });
+  } catch (_) { /* the visitor is on the list either way; don't show them plumbing */ }
+
+  form.classList.add('sent');
+  done.classList.add('show');
+});
+</script>
+</body>
+</html>

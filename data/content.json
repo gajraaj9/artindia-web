@@ -1,0 +1,262 @@
+{
+  "org": {
+    "legal_name": "Art India ASBL",
+    "vat": "BE 1007.072.905",
+    "address": "Avenue du Centaure 73, 1200 Woluwe-Saint-Lambert, Belgium",
+    "founded": 2014,
+    "email_general": "ravi@artindia.be",
+    "email_partners": "partners@artindia.be",
+    "board": [
+      { "name": "Shreya", "role": { "en": "Founder & Artistic Director", "fr": "Fondatrice et directrice artistique" } },
+      { "name": "Ravi Kaushik", "role": { "en": "Executive Producer", "fr": "Producteur exécutif" } },
+      { "name": "Sridhar Sairam", "role": { "en": "Music Director, Art India Music Conservatory", "fr": "Directeur musical, Art India Music Conservatory" } },
+      { "name": "Taruna Kaushik", "role": { "en": "Director, Administration", "fr": "Directrice administrative" } }
+    ]
+  },
+
+  "figures": {
+    "_comment": "REPLACE before publishing. Set any value to null to hide that figure entirely.",
+    "editions": 10,
+    "visitors_2025": null,
+    "stalls_2025": 41,
+    "performers_2025": null
+  },
+
+  "festivals": [
+    {
+      "id": "diwali",
+      "url": "https://diwali.artindia.be",
+      "when": { "en": "October", "fr": "Octobre" },
+      "where": { "en": "Atomium Esplanade", "fr": "Esplanade de l'Atomium" },
+      "name": { "en": "Brussels Diwali Festival", "fr": "Brussels Diwali Festival" },
+      "blurb": {
+        "en": "Belgium's largest celebration of the Indian festival of lights. Two days of music, dance, food and light on the Atomium esplanade. The tenth edition falls on 24 and 25 October 2026.",
+        "fr": "La plus grande célébration en Belgique de la fête indienne des lumières. Deux jours de musique, de danse, de cuisine et de lumière sur l'esplanade de l'Atomium. La dixième édition aura lieu les 24 et 25 octobre 2026."
+      },
+      "status": { "en": "Tickets on sale 5 September", "fr": "Billetterie ouverte le 5 septembre" }
+    },
+    {
+      "id": "yoga",
+      "url": "",
+      "when": { "en": "June", "fr": "Juin" },
+      "where": { "en": "Parc de Bruxelles", "fr": "Parc de Bruxelles" },
+      "name": { "en": "Brussels Yoga Fest", "fr": "Brussels Yoga Fest" },
+      "blurb": {
+        "en": "A day of practice in the heart of the city, in the park facing the Royal Palace. Open classes, teachers from Belgium and India, and an introduction to yoga as it is taught at its source.",
+        "fr": "Une journée de pratique au cœur de la ville, dans le parc face au Palais royal. Cours ouverts à tous, professeurs de Belgique et d'Inde, et une introduction au yoga tel qu'il est enseigné à sa source."
+      },
+      "status": { "en": "Returning June 2027", "fr": "De retour en juin 2027" }
+    },
+    {
+      "id": "conservatory",
+      "url": "",
+      "when": { "en": "Year-round", "fr": "Toute l'année" },
+      "where": { "en": "Brussels", "fr": "Bruxelles" },
+      "name": { "en": "Art India Music Conservatory", "fr": "Art India Music Conservatory" },
+      "blurb": {
+        "en": "Teaching Indian classical music in Brussels — the year-round work behind the festivals, and where many of the artists who perform on our stages first trained.",
+        "fr": "L'enseignement de la musique classique indienne à Bruxelles — le travail mené toute l'année en amont des festivals, et où se sont formés nombre des artistes qui montent sur nos scènes."
+      },
+      "status": { "en": "Enrolling", "fr": "Inscriptions ouvertes" }
+    }
+  ],
+
+  "tiers": [
+    {
+      "id": "title",
+      "name": { "en": "Title partner", "fr": "Partenaire titre" },
+      "desc": {
+        "en": "Naming association with the festival, presence across all communication, a branded space on site, and hospitality for your teams and guests. One partner only.",
+        "fr": "Association du nom au festival, présence sur toute la communication, un espace à votre marque sur le site et de l'accueil pour vos équipes et vos invités. Un seul partenaire."
+      }
+    },
+    {
+      "id": "principal",
+      "name": { "en": "Principal partner", "fr": "Partenaire principal" },
+      "desc": {
+        "en": "Prominent presence across the site and the programme, a stand or activation space, and a hospitality allocation for staff and clients.",
+        "fr": "Présence marquée sur le site et dans le programme, un stand ou un espace d'activation, et une allocation d'accueil pour votre personnel et vos clients."
+      }
+    },
+    {
+      "id": "activation",
+      "name": { "en": "Activation partner", "fr": "Partenaire d'activation" },
+      "desc": {
+        "en": "Sponsorship of a named element of the festival — a stage, the children's area, or an installation — with your brand attached to it throughout.",
+        "fr": "Parrainage d'un élément identifié du festival — une scène, l'espace enfants ou une installation — avec votre marque associée tout au long."
+      }
+    },
+    {
+      "id": "community",
+      "name": { "en": "Community partner", "fr": "Partenaire communautaire" },
+      "desc": {
+        "en": "For smaller businesses and organisations who want to be part of the festival: listing, on-site recognition and tickets for your team.",
+        "fr": "Pour les petites entreprises et organisations qui souhaitent participer au festival : mention, visibilité sur place et billets pour votre équipe."
+      }
+    }
+  ],
+
+  "pages": {
+    "index": {
+      "slug": "",
+      "title": { "en": "Art India — Indian culture in Brussels", "fr": "Art India — la culture indienne à Bruxelles" },
+      "description": {
+        "en": "Art India ASBL is a Brussels non-profit organising Indian cultural festivals in Belgium, including the Brussels Diwali Festival, now in its tenth year.",
+        "fr": "Association bruxelloise organisant des festivals culturels indiens en Belgique, dont le Brussels Diwali Festival, dans sa dixième année."
+      },
+      "h1": { "en": "Indian culture, made at home in Brussels", "fr": "La culture indienne, chez elle à Bruxelles" },
+      "lede": {
+        "en": "Art India is a Brussels non-profit. For ten years we have built festivals where Indian music, dance and food meet a Belgian public — not as a visiting spectacle, but as part of the city's own cultural year.",
+        "fr": "Art India est une association sans but lucratif bruxelloise. Depuis dix ans, nous construisons des festivals où la musique, la danse et la cuisine indiennes rencontrent un public belge — non comme un spectacle de passage, mais comme une part de l'année culturelle de la ville."
+      },
+      "body": {
+        "en": [
+          "We began in 2016 with a single evening of light in Brussels. The Brussels Diwali Festival is now the largest celebration of Diwali in Belgium, held on the esplanade of the Atomium, and it has grown alongside a wider programme: a summer yoga festival in the Parc de Bruxelles, and a conservatory teaching Indian classical music year-round.",
+          "The work is run by a small permanent team and a large volunteer one, in partnership with the City of Brussels, the Atomium, the Embassy of India and the Indian Council for Cultural Relations. It is supported by companies who understand that a city's cultural life is part of what makes it liveable.",
+          "The tenth edition of the Diwali festival takes place on 24 and 25 October 2026, under the theme Culture United. For the first time, we are inviting European partners to celebrate alongside us."
+        ],
+        "fr": [
+          "Nous avons commencé en 2016 avec une seule soirée de lumière à Bruxelles. Le Brussels Diwali Festival est aujourd'hui la plus grande célébration de Diwali en Belgique, organisée sur l'esplanade de l'Atomium, et il s'est développé aux côtés d'un programme plus large : un festival de yoga en été au Parc de Bruxelles, et un conservatoire qui enseigne la musique classique indienne toute l'année.",
+          "Le travail est mené par une petite équipe permanente et une grande équipe de bénévoles, en partenariat avec la Ville de Bruxelles, l'Atomium, l'Ambassade de l'Inde et l'Indian Council for Cultural Relations. Il est soutenu par des entreprises qui comprennent que la vie culturelle d'une ville participe de ce qui la rend habitable.",
+          "La dixième édition du festival Diwali se tiendra les 24 et 25 octobre 2026, sous le thème Culture United. Pour la première fois, nous invitons des partenaires européens à célébrer à nos côtés."
+        ]
+      }
+    },
+
+    "organisation": {
+      "slug": "organisation",
+      "title": { "en": "The organisation — Art India ASBL", "fr": "L'organisation — Art India ASBL" },
+      "description": {
+        "en": "Art India ASBL: legal status, governance, mission and contacts. A Brussels non-profit organising Indian cultural festivals in Belgium since 2014.",
+        "fr": "Art India ASBL : statut juridique, gouvernance, mission et contacts. Association bruxelloise organisant des festivals culturels indiens en Belgique depuis 2014."
+      },
+      "h1": { "en": "The organisation", "fr": "L'organisation" },
+      "lede": {
+        "en": "Art India is a non-profit association under Belgian law, founded in Brussels and run from Brussels.",
+        "fr": "Art India est une association sans but lucratif de droit belge, fondée à Bruxelles et administrée depuis Bruxelles."
+      },
+      "body": {
+        "en": [
+          "Our purpose is to make Indian culture present and accessible in Belgium: to programme it at a professional standard, to place it in public space rather than behind closed doors, and to give artists working in these traditions a stage in Europe.",
+          "We are not a promoter. Everything we earn goes back into the programme, the artists and the sites we work on. The organisation is governed by its board, supported by a core team of volunteers who carry the festivals through the year, and audited in accordance with Belgian non-profit law."
+        ],
+        "fr": [
+          "Notre objet est de rendre la culture indienne présente et accessible en Belgique : la programmer à un niveau professionnel, l'inscrire dans l'espace public plutôt que derrière des portes closes, et offrir aux artistes de ces traditions une scène en Europe.",
+          "Nous ne sommes pas un promoteur. Tout ce que nous gagnons retourne au programme, aux artistes et aux sites sur lesquels nous travaillons. L'association est administrée par son conseil, soutenue par une équipe de bénévoles qui portent les festivals tout au long de l'année, et tenue aux obligations comptables des ASBL belges."
+        ]
+      }
+    },
+
+    "ten-years": {
+      "slug": "ten-years",
+      "title": { "en": "Ten years — Art India", "fr": "Dix ans — Art India" },
+      "description": {
+        "en": "Ten editions of the Brussels Diwali Festival, from a single evening in 2016 to the Atomium esplanade in 2026.",
+        "fr": "Dix éditions du Brussels Diwali Festival, d'une seule soirée en 2016 à l'esplanade de l'Atomium en 2026."
+      },
+      "h1": { "en": "Ten years", "fr": "Dix ans" },
+      "lede": {
+        "en": "The Brussels Diwali Festival has run every year since 2016. It has moved venues, grown from an evening to a weekend, and become the largest event of its kind in Belgium.",
+        "fr": "Le Brussels Diwali Festival se tient chaque année depuis 2016. Il a changé de lieu, est passé d'une soirée à un week-end, et est devenu le plus grand événement de ce type en Belgique."
+      },
+      "body": {
+        "en": [
+          "What began as a community gathering is now a public festival on one of Brussels' most recognisable sites, working with the City, the Atomium and the Embassy of India, and drawing an audience that is Belgian as much as it is Indian.",
+          "The tenth edition, on 24 and 25 October 2026, carries the theme Culture United. European embassies and cultural institutes are invited to take part, each bringing a pairing of their own tradition with an Indian one — and an avenue of lights running the length of the esplanade, one stretch for each country taking part."
+        ],
+        "fr": [
+          "Ce qui a commencé comme un rassemblement communautaire est aujourd'hui un festival public sur l'un des sites les plus reconnaissables de Bruxelles, mené avec la Ville, l'Atomium et l'Ambassade de l'Inde, et devant un public autant belge qu'indien.",
+          "La dixième édition, les 24 et 25 octobre 2026, porte le thème Culture United. Des ambassades et instituts culturels européens sont invités à y prendre part, chacun proposant une rencontre entre sa propre tradition et une tradition indienne — ainsi qu'une avenue de lumières sur toute la longueur de l'esplanade, une section par pays participant."
+        ]
+      }
+    },
+
+    "festivals": {
+      "slug": "festivals",
+      "title": { "en": "Our festivals — Art India", "fr": "Nos festivals — Art India" },
+      "description": {
+        "en": "The Brussels Diwali Festival, the Brussels Yoga Fest and the Art India Music Conservatory.",
+        "fr": "Le Brussels Diwali Festival, le Brussels Yoga Fest et l'Art India Music Conservatory."
+      },
+      "h1": { "en": "Our festivals", "fr": "Nos festivals" },
+      "lede": {
+        "en": "Three strands of the same work: a festival of light in autumn, a festival of practice in summer, and teaching all year round.",
+        "fr": "Trois volets d'un même travail : un festival de lumière en automne, un festival de pratique en été, et un enseignement toute l'année."
+      },
+      "body": { "en": [], "fr": [] }
+    },
+
+    "partners": {
+      "slug": "partners",
+      "title": { "en": "Partners & sponsors — Art India", "fr": "Partenaires et sponsors — Art India" },
+      "description": {
+        "en": "Partnership opportunities with the Brussels Diwali Festival and Art India: tiers, audience and contact.",
+        "fr": "Opportunités de partenariat avec le Brussels Diwali Festival et Art India : formules, public et contact."
+      },
+      "h1": { "en": "Partners & sponsors", "fr": "Partenaires et sponsors" },
+      "lede": {
+        "en": "A partnership with Art India reaches a large, engaged and unusually broad audience in Brussels — and does so across three events a year rather than one.",
+        "fr": "Un partenariat avec Art India touche à Bruxelles un public large, engagé et inhabituellement divers — et ce sur trois événements par an plutôt qu'un seul."
+      },
+      "body": {
+        "en": [
+          "Our audience is the Indian and South Asian community across the Benelux, and a Belgian public that comes for the food, the music and the light. It includes diplomats, institutions and a substantial professional community working in and around the European quarter.",
+          "We work with partners over multiple years and multiple events. The tenth edition of the Diwali festival, on the Atomium esplanade in October 2026, is the moment we would most like to talk to you about."
+        ],
+        "fr": [
+          "Notre public, c'est la communauté indienne et sud-asiatique du Benelux, et un public belge qui vient pour la cuisine, la musique et la lumière. Il comprend des diplomates, des institutions et une communauté professionnelle importante travaillant dans le quartier européen et autour.",
+          "Nous travaillons avec nos partenaires sur plusieurs années et plusieurs événements. La dixième édition du festival Diwali, sur l'esplanade de l'Atomium en octobre 2026, est le moment dont nous aimerions le plus vous parler."
+        ]
+      }
+    },
+
+    "press": {
+      "slug": "press",
+      "title": { "en": "Press — Art India", "fr": "Presse — Art India" },
+      "description": {
+        "en": "Press contact, accreditation and image requests for the Brussels Diwali Festival and Art India events.",
+        "fr": "Contact presse, accréditation et demandes d'images pour le Brussels Diwali Festival et les événements Art India."
+      },
+      "h1": { "en": "Press", "fr": "Presse" },
+      "lede": {
+        "en": "For interviews, images, accreditation or background on the tenth edition, please get in touch.",
+        "fr": "Pour des interviews, des images, une accréditation ou des informations de fond sur la dixième édition, contactez-nous."
+      },
+      "body": {
+        "en": [
+          "Accreditation for the Brussels Diwali Festival on 24 and 25 October 2026 opens in September. High-resolution images from previous editions are available on request, as is an interview with the organisers in English, French or Dutch."
+        ],
+        "fr": [
+          "Les accréditations pour le Brussels Diwali Festival des 24 et 25 octobre 2026 ouvriront en septembre. Des images en haute résolution des éditions précédentes sont disponibles sur demande, ainsi que des interviews avec les organisateurs en français, néerlandais ou anglais."
+        ]
+      }
+    }
+  },
+
+  "ui": {
+    "nav": {
+      "index": { "en": "Home", "fr": "Accueil" },
+      "organisation": { "en": "Organisation", "fr": "Organisation" },
+      "ten-years": { "en": "Ten years", "fr": "Dix ans" },
+      "festivals": { "en": "Festivals", "fr": "Festivals" },
+      "partners": { "en": "Partners", "fr": "Partenaires" },
+      "press": { "en": "Press", "fr": "Presse" }
+    },
+    "board_heading": { "en": "Board", "fr": "Conseil d'administration" },
+    "legal_heading": { "en": "Legal", "fr": "Informations légales" },
+    "figures": {
+      "editions": { "en": "editions since 2016", "fr": "éditions depuis 2016" },
+      "visitors_2025": { "en": "visitors in 2025", "fr": "visiteurs en 2025" },
+      "stalls_2025": { "en": "stalls and traders", "fr": "stands et exposants" },
+      "performers_2025": { "en": "performers on stage", "fr": "artistes sur scène" }
+    },
+    "tiers_heading": { "en": "Ways to partner", "fr": "Formules de partenariat" },
+    "cta_partners": { "en": "Talk to us about partnership", "fr": "Parlons partenariat" },
+    "cta_press": { "en": "Press enquiries", "fr": "Contact presse" },
+    "footer_note": {
+      "en": "Non-profit association registered in Belgium",
+      "fr": "Association sans but lucratif de droit belge"
+    },
+    "skip": { "en": "Skip to content", "fr": "Aller au contenu" }
+  }
+}

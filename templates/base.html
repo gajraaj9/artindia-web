@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="{{LANG}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<meta name="description" content="{{DESCRIPTION}}">
+<link rel="canonical" href="{{CANONICAL}}">
+{{ALTERNATES}}
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{TITLE}}">
+<meta property="og:description" content="{{DESCRIPTION}}">
+<meta property="og:url" content="{{CANONICAL}}">
+<meta property="og:site_name" content="Art India">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Karla:wght@400;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ROOT}}static/style.css">
+<script type="application/ld+json">{{ORGJSONLD}}</script>
+</head>
+<body>
+<a class="skip" href="#content">{{SKIP}}</a>
+
+<header>
+  <div class="wrap head">
+    <a class="brand" href="{{HOME}}">Art India<span>.</span></a>
+    <nav class="main" aria-label="Main">{{NAV}}</nav>
+    <div class="langs">{{LANGS}}</div>
+  </div>
+</header>
+
+<main id="content">
+  <div class="wrap">
+{{CONTENT}}
+  </div>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div>
+      <h2>Art India ASBL</h2>
+      <ul>
+        <li>{{ADDRESS}}</li>
+        <li>VAT {{VAT}}</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Contact</h2>
+      <ul>
+        <li><a href="mailto:{{EMAIL_GENERAL}}">{{EMAIL_GENERAL}}</a></li>
+        <li><a href="mailto:{{EMAIL_PARTNERS}}">{{EMAIL_PARTNERS}}</a></li>
+      </ul>
+    </div>
+    <div>
+      <h2>{{NAV_HEADING}}</h2>
+      <ul>{{FOOTNAV}}</ul>
+    </div>
+    <p class="fine">{{FOOTER_NOTE}} · © {{YEAR}} Art India ASBL</p>
+  </div>
+</footer>
+</body>
+</html>
