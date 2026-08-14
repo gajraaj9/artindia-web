@@ -41,7 +41,8 @@
       "fr": "Partager l'Inde avec le monde",
       "nl": "India delen met de wereld"
     },
-    "hero_image": ""
+    "hero_image": "",
+    "hero_video": ""
   },
   "figures": {
     "_comment": "REPLACE before publishing. Set any value to null to hide that figure entirely.",

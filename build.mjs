@@ -104,6 +104,22 @@ function tiersBlock(lang) {
 }
 
 
+const TRI = '<div class="tri"><i></i><i></i><i></i></div>';
+
+function heroMedia(lang) {
+  const v = data.org.hero_video, img = data.org.hero_image;
+  const wait = lang === 'fr' ? 'Vidéo d’archive à venir' : 'Archive film to come';
+  if (v) {
+    return `<section class="hero bleed"><div class="hero-inner">
+      <video autoplay muted loop playsinline ${img ? `poster="${img}"` : ''}>
+        <source src="${v}" type="video/mp4"></video></div></section>`;
+  }
+  if (img) {
+    return `<section class="hero bleed"><div class="hero-inner"><img src="${img}" alt=""></div></section>`;
+  }
+  return '';
+}
+
 function plate(img, caption, lang, cls = '') {
   const wanted = lang === 'fr' ? 'Image d’archive à venir' : 'Archive image to come';
   if (!img) {
@@ -115,6 +131,7 @@ function plate(img, caption, lang, cls = '') {
 
 function armsBlock(lang) {
   const items = data.ui.arms.map(a => `<article class="arm">
+      ${TRI}
       <p class="tag">${esc(t(a.tag, lang, 'arm tag'))}</p>
       <h3>${esc(t(a.name, lang, 'arm name'))}</h3>
       <p>${esc(t(a.desc, lang, 'arm desc'))}</p>
@@ -127,7 +144,7 @@ function presentersBlock(lang) {
   const items = data.presenters.map(x =>
     `<li><span class="v">${esc(x.name)}</span>${x.city ? `<span class="c">${esc(x.city)}</span>` : ''}</li>`
   ).join('');
-  return `<section class="venues">
+  return `<section class="venues band band-night">
     <p class="label">${esc(t(data.ui.presenters_heading, lang, 'presenters_heading'))}</p>
     <ol>${items}</ol></section>`;
 }
@@ -179,10 +196,11 @@ function buildContent(key, page, lang) {
     ? `<p class="eyebrow">Art India ASBL · ${lang === 'fr' ? 'Bruxelles' : 'Brussels'}</p>`
     : `<p class="eyebrow">${esc(t(data.org.motto, lang, 'org.motto'))}</p>`);
   parts.push(`<h1>${esc(t(page.h1, lang, `${key}.h1`))}</h1>`);
+  parts.push(`<div class="tri full-rule"><i></i><i></i><i></i></div>`);
   parts.push(`<p class="lede">${esc(t(page.lede, lang, `${key}.lede`))}</p>`);
 
   if (key === 'index') {
-    parts.push(`<section class="bleed">${plate(data.org.hero_image, '', lang, 'wide')}</section>`);
+    parts.push(heroMedia(lang));
     parts.push(`<section>${prose(page, lang)}</section>`);
     parts.push(`<section>${decadeSpine()}<p class="decade-cap">${lang === 'fr' ? 'Dix éditions du Brussels Diwali Festival' : 'Ten editions of the Brussels Diwali Festival'}</p></section>`);
     parts.push(armsBlock(lang));

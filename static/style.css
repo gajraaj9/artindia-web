@@ -1,248 +1,252 @@
 /* ------------------------------------------------------------------
    Art India — visual system
-   A frame, not a decoration. The photographs carry the colour;
-   the typography stays disciplined and gives them room.
+   Type from Indian Type Foundry. Indigo from the dye, not the palette.
+   The tricolour reduced to three hairlines, used as structure.
 ------------------------------------------------------------------ */
 
 :root{
-  --paper:#E9E5DC;
-  --paper-2:#DFD9CD;
-  --ink:#171410;
-  --ink-2:#4A443B;
-  --ink-3:#7C7468;
-  --rule:#C7C0B2;
-  --brass:#8C6111;
+  --paper:#F2EFE6;
+  --paper-2:#E4DFD1;
+  --indigo:#171B3D;
+  --indigo-2:#232A54;
+  --ink:#14110D;
+  --ink-2:#4B453C;
+  --ink-3:#7E7668;
+  --rule:#CFC8B8;
 
-  --display:'Fraunces',Georgia,serif;
-  --text:'Newsreader',Georgia,serif;
+  --saffron:#E8792B;
+  --rust:#B4531C;
+  --green:#1E7A46;
+  --marigold:#E8A33B;
 
-  --col:33em;
+  --onnight:#F2EFE6;
+  --onnight-2:#AEB3CE;
+
+  --display:'Rozha One',Georgia,serif;
+  --text:Mukta,system-ui,-apple-system,sans-serif;
+
+  --col:34em;
   --pad:26px;
   --max:1180px;
 }
 
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;background:var(--paper)}
 body{
   margin:0;background:var(--paper);color:var(--ink);
+  font-family:var(--text);font-weight:400;font-size:18px;line-height:1.66;
   overflow-x:hidden;
-  font-family:var(--text);font-size:18px;line-height:1.62;
-  font-optical-sizing:auto;
   display:flex;flex-direction:column;min-height:100vh;
 }
-img{max-width:100%;height:auto;display:block}
+img,video{max-width:100%;display:block}
 
-.wrap{width:100%;max-width:var(--max);margin:0 auto;padding:0 var(--pad)}
+.wrap{width:100%;max-width:var(--max);margin:0 auto;padding-left:var(--pad);padding-right:var(--pad)}
 
-a{color:var(--ink);text-decoration:none;
-  border-bottom:1px solid var(--rule);padding-bottom:1px}
-a:hover{border-bottom-color:var(--brass)}
-:focus-visible{outline:2px solid var(--brass);outline-offset:3px}
+a{color:inherit;text-decoration:none;border-bottom:1px solid var(--rule);padding-bottom:1px}
+a:hover{border-bottom-color:var(--rust)}
+:focus-visible{outline:2px solid var(--rust);outline-offset:3px}
 
 .skip{position:absolute;left:-9999px}
-.skip:focus{left:8px;top:8px;background:var(--ink);color:var(--paper);
+.skip:focus{left:8px;top:8px;background:var(--indigo);color:var(--onnight);
   padding:10px 14px;z-index:99;border:none}
 
-/* ---------------- header ---------------- */
-header{border-bottom:1px solid var(--rule);background:var(--paper);
-  position:sticky;top:0;z-index:20}
-.head{display:flex;align-items:baseline;justify-content:space-between;
-  gap:14px 28px;padding-block:18px;flex-wrap:wrap}
-.brand{font-family:var(--display);font-weight:600;font-size:21px;
-  letter-spacing:-.02em;border:none;padding:0;white-space:nowrap}
-.brand span{color:var(--brass)}
-nav.main{display:flex;gap:4px 20px;flex-wrap:wrap;align-items:baseline}
-@media(max-width:719px){
-  .head{gap:10px 16px}
-  .brand{order:1}
-  .langs{order:2;margin-left:auto}
-  nav.main{order:3;width:100%;gap:2px 18px}
-  nav.main a{font-size:15.5px}
+/* ---------------- the tricolour rule: the structural device ------------- */
+.tri{display:flex;flex-direction:column;width:min(340px,60%);margin:0}
+.tri i{display:block;height:3px}
+.tri i:nth-child(1){background:var(--saffron)}
+.tri i:nth-child(2){background:var(--rule)}
+.tri i:nth-child(3){background:var(--green)}
+.tri.full{width:100%}
+.tri.full-rule{width:100%;margin:0 0 30px}
+@media(min-width:960px){.tri.full-rule{width:30%;margin-bottom:0;
+  position:relative;top:-6px}}
+.band-night .tri i:nth-child(2){background:rgba(242,239,230,.35)}
+
+/* ---------------- full-bleed colour bands ------------------------------ */
+.band{position:relative;isolation:isolate}
+.band::before{
+  content:"";position:absolute;top:0;bottom:0;left:50%;
+  width:100vw;margin-left:-50vw;z-index:-1;
 }
-@media(min-width:720px){nav.main{flex:1;justify-content:flex-end}
-  .langs{flex:0 0 auto}}
-nav.main a{font-size:16.5px;color:var(--ink-2);border:none;padding:0}
+.band-night::before{background:var(--indigo)}
+.band-night{color:var(--onnight)}
+.band-night a{color:var(--onnight);border-bottom-color:rgba(242,239,230,.3)}
+.band-night a:hover{border-bottom-color:var(--marigold)}
+
+/* ---------------- header ----------------------------------------------- */
+header{border-bottom:1px solid var(--rule);background:var(--paper);position:sticky;top:0;z-index:20}
+.head{display:flex;align-items:baseline;justify-content:space-between;
+  gap:12px 28px;padding-block:16px;flex-wrap:wrap}
+.brand{font-family:var(--display);font-size:26px;letter-spacing:-.005em;
+  border:none;padding:0;white-space:nowrap;line-height:1}
+.brand span{color:var(--rust)}
+nav.main{display:flex;gap:2px 22px;flex-wrap:wrap;align-items:baseline}
+nav.main a{font-size:15.5px;font-weight:500;color:var(--ink-2);border:none;padding:0;
+  letter-spacing:.01em}
 nav.main a:hover{color:var(--ink)}
-nav.main a[aria-current=page]{color:var(--ink);font-style:italic}
-.langs{display:flex;gap:10px;font-size:14px;font-style:italic}
+nav.main a[aria-current=page]{color:var(--rust)}
+.langs{display:flex;gap:12px;font-size:12.5px;font-weight:600;letter-spacing:.14em}
 .langs a{color:var(--ink-3);border:none}
-.langs a[aria-current=true]{color:var(--brass)}
+.langs a[aria-current=true]{color:var(--rust)}
+@media(max-width:719px){
+  .brand{order:1}.langs{order:2;margin-left:auto}
+  nav.main{order:3;width:100%;gap:2px 18px}
+}
+@media(min-width:720px){nav.main{flex:1;justify-content:flex-end}}
 
-/* ---------------- page opening ---------------- */
-main{flex:1;padding:0 0 96px}
-.opening{padding-top:52px}
-@media(min-width:900px){.opening{padding-top:78px}}
+/* ---------------- openings ---------------------------------------------- */
+main{flex:1;padding-bottom:0}
+.opening{padding-top:64px;padding-bottom:8px}
+@media(min-width:900px){.opening{padding-top:88px}}
 
-.eyebrow{font-family:var(--display);font-style:italic;font-weight:400;
-  font-size:16px;color:var(--brass);margin:0 0 22px}
+.eyebrow{
+  font-family:var(--text);font-weight:600;font-size:12.5px;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--rust);margin:0 0 26px;
+}
+.band-night .eyebrow{color:var(--marigold)}
 
 h1{font-family:var(--display);font-weight:400;
-  font-size:clamp(2.05rem,7vw,5.6rem);
-  line-height:.98;letter-spacing:-.035em;margin:0 0 26px;max-width:14em}
-.lede{font-size:clamp(1.16rem,2.5vw,1.42rem);line-height:1.42;
-  max-width:30em;margin:0;color:var(--ink)}
-@media(min-width:900px){
-  .lede{margin-left:36%}
+  font-size:clamp(2.6rem,7.4vw,5.9rem);line-height:1.0;letter-spacing:-.012em;
+  margin:0 0 28px;max-width:13em}
+.lede{font-size:clamp(1.1rem,2.2vw,1.34rem);line-height:1.52;max-width:31em;
+  margin:0;color:var(--ink-2)}
+@media(min-width:960px){
+  .lede{margin-left:34%;margin-top:-42px}
   h1{max-width:11em}
 }
+
 .prose{max-width:var(--col);color:var(--ink-2)}
-@media(min-width:900px){.prose{margin-left:36%}}
-.prose p{margin:0 0 1.15em}
+.prose p{margin:0 0 1.1em}
 .prose p:last-child{margin-bottom:0}
+@media(min-width:960px){.prose{margin-left:34%}}
 
 h2{font-family:var(--display);font-weight:400;
-  font-size:clamp(1.6rem,3.6vw,2.3rem);
-  letter-spacing:-.028em;line-height:1.08;margin:0 0 26px}
-h3{font-family:var(--display);font-weight:600;font-size:1.15rem;
-  letter-spacing:-.015em;margin:0 0 8px}
+  font-size:clamp(1.7rem,3.8vw,2.7rem);letter-spacing:-.01em;line-height:1.1;margin:0 0 28px}
+h3{font-family:var(--display);font-weight:400;font-size:1.4rem;letter-spacing:-.005em;margin:0 0 10px}
 
-section{margin-top:56px}
-@media(min-width:900px){section{margin-top:84px}}
-@media(min-width:900px){
-  .venues{margin-top:84px}
-  .split{display:grid;grid-template-columns:34% 1fr;gap:0 4%}
-  .split h2{margin-top:0}
-  .split .prose{margin-left:0}
-}
+section{margin-top:60px}
+@media(min-width:900px){section{margin-top:92px}}
 
-/* ---------------- signature: the venue band ---------------- */
-.venues{margin:56px 0 0;
-  border-top:1.5px solid var(--brass);border-bottom:1.5px solid var(--brass);
-  padding:34px 0 38px}
-.venues .label{font-family:var(--display);font-style:italic;font-size:16px;
-  color:var(--brass);margin:0 0 22px}
-.venues ol{list-style:none;margin:0;padding:0;
-  display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 0}
-.venues li{display:flex;align-items:baseline}
-.venues li + li::before{content:"·";color:var(--brass);
-  font-size:clamp(1.24rem,3.6vw,2.4rem);padding:0 .38em;line-height:1}
-.venues .v{font-family:var(--display);font-weight:400;
-  font-size:clamp(1.24rem,3.6vw,2.4rem);letter-spacing:-.03em;line-height:1.14}
-.venues .c{font-family:var(--display);font-style:italic;
-  font-size:clamp(.82rem,1.5vw,1rem);color:var(--ink-3);
-  padding-left:.45em;white-space:nowrap}
-
-/* ---------------- images ---------------- */
-figure{margin:0}
-.plate img{width:100%;object-fit:cover}
-figcaption{font-family:var(--display);font-style:italic;font-size:15px;
-  color:var(--ink-3);margin-top:12px;max-width:34em;line-height:1.4}
-.awaiting{background:var(--paper-2);
-  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
-  aspect-ratio:16/9;display:flex;align-items:flex-end;padding:20px 22px}
-.awaiting.wide{aspect-ratio:2.4/1;max-height:62vh}
-.awaiting span{font-family:var(--display);font-style:italic;
-  font-size:15px;color:var(--ink-3)}
-.awaiting.tall{aspect-ratio:4/5}
-.bleed{margin-left:calc(var(--pad) * -1);margin-right:calc(var(--pad) * -1);
-  max-width:100vw}
+/* ---------------- hero media ------------------------------------------- */
+.hero{margin-top:52px}
+.hero-inner{position:relative;width:100%;aspect-ratio:2.35/1;max-height:66vh;
+  background:var(--indigo);overflow:hidden}
+.hero-inner video,.hero-inner img{width:100%;height:100%;object-fit:cover}
+.hero-inner.awaiting{display:flex;align-items:flex-end;background:var(--paper-2)}
+.hero-inner.awaiting span{font-size:14.5px;font-weight:500;color:var(--ink-3);padding:20px 24px}
+.bleed{margin-left:calc(var(--pad) * -1);margin-right:calc(var(--pad) * -1);max-width:100vw}
 @media(min-width:1232px){.bleed{margin-left:0;margin-right:0}}
+@media (prefers-reduced-motion:reduce){.hero-inner video{display:none}}
 
-/* ---------------- three strands ---------------- */
-.arms{display:grid;gap:36px;grid-template-columns:1fr;margin:0}
+/* ---------------- signature: the venue band ---------------------------- */
+.venues{padding:60px 0 66px;margin-top:60px}
+@media(min-width:900px){.venues{margin-top:92px;padding:76px 0 82px}}
+.venues .label{font-weight:600;font-size:12.5px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--marigold);margin:0 0 30px}
+.venues ol{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;align-items:baseline}
+.venues li{display:flex;align-items:baseline}
+.venues li + li::before{content:"·";color:var(--marigold);
+  font-size:clamp(1.4rem,3.4vw,2.7rem);padding:0 .4em;line-height:1}
+.venues .v{font-family:var(--display);font-weight:400;
+  font-size:clamp(1.4rem,3.4vw,2.7rem);letter-spacing:-.005em;line-height:1.3}
+.venues .c{font-size:12.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--onnight-2);padding-left:.6em;white-space:nowrap}
+
+/* ---------------- three strands ---------------------------------------- */
+.arms{display:grid;gap:34px;grid-template-columns:1fr;margin:0}
 @media(min-width:760px){.arms{grid-template-columns:repeat(3,1fr);gap:40px}}
-.arm{border-top:1.5px solid var(--brass);padding:16px 0 0}
-.arm .tag{font-family:var(--display);font-style:italic;font-size:15px;
-  color:var(--brass);margin:0 0 10px}
-.arm h3{font-size:1.34rem;font-weight:400;letter-spacing:-.022em;margin:0 0 10px}
-.arm p:last-child{margin:0;color:var(--ink-2);font-size:16.5px;line-height:1.5}
+.arm .tri{width:100%;margin-bottom:18px}
+.arm .tag{font-weight:600;font-size:12.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--rust);margin:0 0 10px}
+.arm h3{margin:0 0 10px}
+.arm p:last-child{margin:0;color:var(--ink-2);font-size:16.5px;line-height:1.55}
 
-/* ---------------- the decade ---------------- */
-.decade{margin:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
-.decade ol{display:flex;list-style:none;margin:0;padding:0 0 6px;
-  min-width:max-content;border-top:1px solid var(--ink)}
-.decade li{font-family:var(--display);font-size:14px;color:var(--ink-3);
-  padding:12px 0 0;position:relative;flex:1 0 auto;min-width:70px}
-.decade li::before{content:"";position:absolute;top:-1px;left:0;
-  width:1px;height:9px;background:var(--ink-3)}
-.decade li.now{color:var(--ink)}
-.decade li.now::before{height:24px;width:2px;background:var(--brass)}
-.decade-cap{font-family:var(--display);font-style:italic;font-size:15px;
-  color:var(--ink-3);margin:16px 0 0}
+/* ---------------- the decade -------------------------------------------- */
+.decade{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.decade ol{display:flex;list-style:none;margin:0;padding:0 0 6px;min-width:max-content;
+  border-top:1px solid var(--rule)}
+.decade li{font-family:var(--display);font-size:15px;color:var(--ink-3);padding:12px 0 0;
+  position:relative;flex:1 0 auto;min-width:72px}
+.decade li::before{content:"";position:absolute;top:-1px;left:0;width:1px;height:9px;background:var(--ink-3)}
+.decade li.now{color:var(--rust)}
+.decade li.now::before{height:26px;width:2px;background:var(--rust)}
+.decade-cap{font-size:14.5px;font-weight:500;color:var(--ink-3);margin:16px 0 0}
 
-/* ---------------- figures ---------------- */
-.figures{display:flex;flex-wrap:wrap;gap:26px 72px;margin:0}
+/* ---------------- figures ----------------------------------------------- */
+.figures{display:flex;flex-wrap:wrap;gap:28px 76px;margin:0}
 .fig{margin:0}
 .fig dt{font-family:var(--display);font-weight:400;
-  font-size:clamp(2.6rem,6vw,3.8rem);line-height:.9;letter-spacing:-.04em}
-.fig dd{margin:10px 0 0;font-family:var(--display);font-style:italic;
-  font-size:15.5px;color:var(--ink-3)}
+  font-size:clamp(2.8rem,6.4vw,4.4rem);line-height:.94;letter-spacing:-.01em;color:var(--rust)}
+.fig dd{margin:8px 0 0;font-size:12.5px;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink-3)}
 
-/* ---------------- festivals ---------------- */
+/* ---------------- festivals --------------------------------------------- */
 .fests{display:grid;gap:0;margin:0}
-.fest{display:grid;gap:20px 40px;grid-template-columns:1fr;
-  padding:38px 0;border-top:1px solid var(--rule)}
+.fest{display:grid;gap:20px 44px;grid-template-columns:1fr;padding:40px 0;
+  border-top:1px solid var(--rule)}
 .fest:last-child{border-bottom:1px solid var(--rule)}
 @media(min-width:760px){.fest{grid-template-columns:1.05fr 1fr;align-items:start}}
-.fest h3{font-family:var(--display);font-weight:400;
-  font-size:clamp(1.5rem,3.2vw,2rem);letter-spacing:-.028em;margin:0 0 8px}
-.fest .when{font-family:var(--display);font-style:italic;font-size:15.5px;
-  color:var(--brass);margin:0 0 16px}
-.fest p{margin:0 0 14px;color:var(--ink-2);font-size:16.5px;line-height:1.5}
-.fest .status{font-family:var(--display);font-style:italic;font-size:15.5px;
-  color:var(--ink-3);margin:0}
+.fest h3{font-size:clamp(1.5rem,3vw,2.1rem);margin:0 0 10px}
+.fest .when{font-weight:600;font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--rust);margin:0 0 16px}
+.fest p{margin:0 0 14px;color:var(--ink-2);font-size:16.5px;line-height:1.55}
+.fest .status{font-size:15.5px;font-weight:500;color:var(--green);margin:0}
+.awaiting{background:var(--paper-2);aspect-ratio:16/9;display:flex;align-items:flex-end;padding:18px 20px}
+.awaiting span{font-size:14px;font-weight:500;color:var(--ink-3)}
+.awaiting.tall{aspect-ratio:4/5}
 
-/* ---------------- productions ---------------- */
+/* ---------------- productions -------------------------------------------- */
 .prods{margin:0}
 .prod{padding:56px 0;border-top:1px solid var(--rule)}
 .prod:last-child{border-bottom:1px solid var(--rule)}
-.prod-grid{display:grid;gap:24px 44px;grid-template-columns:1fr}
-@media(min-width:820px){.prod-grid{grid-template-columns:1.15fr 1fr;align-items:start}}
-.prod h3{font-family:var(--display);font-weight:400;
-  font-size:clamp(1.9rem,4.6vw,2.9rem);letter-spacing:-.035em;
-  line-height:1.02;margin:0 0 10px}
-.prod-sub{font-family:var(--display);font-style:italic;
-  font-size:clamp(1.05rem,2.2vw,1.24rem);color:var(--brass);margin:0 0 20px}
-.prod-blurb{color:var(--ink-2);margin:0 0 20px;font-size:17px;line-height:1.5}
-.prod .meta{font-family:var(--display);font-style:italic;font-size:15px;
+.prod-grid{display:grid;gap:24px 46px;grid-template-columns:1fr}
+@media(min-width:820px){.prod-grid{grid-template-columns:1.1fr 1fr;align-items:start}}
+.prod h3{font-size:clamp(2rem,4.8vw,3.2rem);line-height:1.05;margin:0 0 10px}
+.prod-sub{font-size:clamp(1rem,2vw,1.16rem);font-weight:500;color:var(--rust);margin:0 0 22px}
+.prod-blurb{color:var(--ink-2);margin:0 0 20px;font-size:17px;line-height:1.58}
+.prod .meta{font-size:12.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
   color:var(--ink-3);margin:0 0 20px}
-.perf{list-style:none;margin:0;padding:0;max-width:26em}
-.perf li{display:flex;gap:18px;align-items:baseline;
-  border-top:1px solid var(--rule);padding:9px 0}
+.perf{list-style:none;margin:0;padding:0;max-width:27em}
+.perf li{display:flex;gap:18px;align-items:baseline;border-top:1px solid var(--rule);padding:10px 0}
 .perf li:last-child{border-bottom:1px solid var(--rule)}
-.perf .py{font-family:var(--display);font-size:15px;color:var(--brass);flex:0 0 3.2em}
+.perf .py{font-family:var(--display);font-size:16px;color:var(--rust);flex:0 0 3.2em}
 .perf .pw{font-size:16.5px}
-.perf-none{font-family:var(--display);font-style:italic;font-size:15px;
-  color:var(--ink-3);margin:0}
-.touring{display:inline-block;margin:22px 0 0;
-  font-family:var(--display);font-style:italic;font-size:15px;color:var(--brass);
-  border-bottom:1px solid var(--brass);padding-bottom:2px}
+.perf-none{font-size:14.5px;font-weight:500;color:var(--ink-3);margin:0}
+.touring{display:inline-block;margin:22px 0 0;font-size:12.5px;font-weight:600;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--green);
+  border-bottom:2px solid var(--green);padding-bottom:4px}
 
-/* ---------------- rows ---------------- */
+/* ---------------- rows / tiers ------------------------------------------- */
 .rows{list-style:none;margin:0;padding:0;max-width:44em}
-.rows li{border-top:1px solid var(--rule);padding:16px 0;
-  display:flex;gap:6px 32px;flex-wrap:wrap}
+.rows li{border-top:1px solid var(--rule);padding:16px 0;display:flex;gap:6px 32px;flex-wrap:wrap}
 .rows li:last-child{border-bottom:1px solid var(--rule)}
-.rows .k{flex:0 0 200px;font-family:var(--display);font-style:italic;color:var(--ink-3)}
+.rows .k{flex:0 0 210px;font-size:12.5px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-3);padding-top:4px}
 .rows .v{flex:1 1 240px;min-width:0}
 
-/* ---------------- tiers ---------------- */
 .tiers{list-style:none;margin:0;padding:0}
-.tiers li{border-top:1px solid var(--rule);padding:26px 0;max-width:46em}
+.tiers li{border-top:1px solid var(--rule);padding:28px 0;max-width:46em}
 .tiers li:last-child{border-bottom:1px solid var(--rule)}
-.tiers h3{font-family:var(--display);font-weight:400;font-size:1.44rem;
-  letter-spacing:-.025em;margin:0 0 8px}
-.tiers p{margin:0;color:var(--ink-2);font-size:16.5px;line-height:1.5}
+.tiers h3{font-size:1.6rem;margin:0 0 10px}
+.tiers p{margin:0;color:var(--ink-2);font-size:16.5px;line-height:1.55}
 
-/* ---------------- call to action ---------------- */
+/* ---------------- call to action ------------------------------------------ */
 .cta{display:inline-block;font-family:var(--display);
-  font-size:clamp(1.24rem,2.8vw,1.7rem);letter-spacing:-.025em;
-  color:var(--ink);border:none;border-bottom:1.5px solid var(--brass);padding:0 0 5px}
-.cta:hover{color:var(--brass)}
+  font-size:clamp(1.3rem,3vw,2rem);letter-spacing:-.005em;
+  border:none;border-bottom:2px solid var(--rust);padding:0 0 6px}
+.cta:hover{color:var(--rust)}
 
-/* ---------------- footer ---------------- */
-footer{border-top:1px solid var(--rule);background:var(--paper);
-  padding:56px 0 44px;font-size:16px;color:var(--ink-2)}
-.foot{display:grid;gap:34px 56px;grid-template-columns:1fr}
+/* ---------------- footer --------------------------------------------------- */
+footer{background:var(--indigo);color:var(--onnight-2);padding:60px 0 46px;font-size:16px}
+.foot{display:grid;gap:32px 56px;grid-template-columns:1fr}
 @media(min-width:760px){.foot{grid-template-columns:1.4fr 1fr 1fr}}
-.foot h2{font-family:var(--display);font-style:italic;font-weight:400;
-  font-size:15px;color:var(--ink-3);margin:0 0 12px}
+.foot h2{font-size:12.5px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--marigold);margin:0 0 14px;font-family:var(--text)}
 .foot ul{list-style:none;margin:0;padding:0}
-.foot li{margin:0 0 5px}
-.foot a{border-bottom-color:var(--rule)}
-.foot .motto{font-family:var(--display);font-size:1.32rem;
-  letter-spacing:-.025em;color:var(--ink);margin:0 0 14px}
-.foot .fine{grid-column:1/-1;font-size:14.5px;color:var(--ink-3);
-  margin:22px 0 0;border-top:1px solid var(--rule);padding-top:20px}
+.foot li{margin:0 0 6px}
+.foot a{color:var(--onnight);border-bottom-color:rgba(242,239,230,.25)}
+.foot .motto{font-family:var(--display);font-size:1.6rem;color:var(--onnight);margin:0 0 16px;line-height:1.2}
+.foot .fine{grid-column:1/-1;font-size:14px;color:var(--onnight-2);margin:26px 0 0;
+  border-top:1px solid rgba(242,239,230,.2);padding-top:22px}
 
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
