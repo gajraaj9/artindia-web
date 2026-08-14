@@ -9,7 +9,7 @@
  * and filling in the strings — the build fails loudly if any are missing.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -71,7 +71,7 @@ function festivalCards(lang) {
         <p>${esc(t(f.blurb, lang, `festival ${f.id} blurb`))}</p>
         <p class="status">${esc(t(f.status, lang, 'status'))}</p>
       </div>
-      ${plate(f.image, '', lang)}
+      ${plate(image(f.id, f.image), '', lang)}
     </article>`;
   }).join('') + `</div>`;
 }
@@ -104,10 +104,32 @@ function tiersBlock(lang) {
 }
 
 
+/* ------------------------------------------------------------------
+   Media by convention. Drop a file into static/media named after the
+   thing it belongs to and it appears — no JSON editing needed.
+     hero.mp4 / hero.jpg        the homepage hero
+     diwali.jpg  yoga.jpg  ...  named after the festival id
+     taj.jpg  rama.jpg  ...     named after the production id
+   An explicit "image" or "hero_video" in content.json still wins.
+------------------------------------------------------------------ */
+const MEDIA_DIR = join(HERE, 'static/media');
+const MEDIA = existsSync(MEDIA_DIR) ? readdirSync(MEDIA_DIR) : [];
+
+function media(stem, exts) {
+  for (const e of exts) {
+    const f = MEDIA.find(m => m.toLowerCase() === `${stem}.${e}`);
+    if (f) return `/static/media/${f}`;
+  }
+  return '';
+}
+const image = (stem, explicit) => explicit || media(stem, ['jpg', 'jpeg', 'png', 'webp', 'avif']);
+const video = (stem, explicit) => explicit || media(stem, ['mp4', 'webm']);
+
 const TRI = '<div class="tri"><i></i><i></i><i></i></div>';
 
 function heroMedia(lang) {
-  const v = data.org.hero_video, img = data.org.hero_image;
+  const v = video('hero', data.org.hero_video);
+  const img = image('hero', data.org.hero_image);
   const wait = lang === 'fr' ? 'Vidéo d’archive à venir' : 'Archive film to come';
   if (v) {
     return `<section class="hero bleed"><div class="hero-inner">
@@ -170,7 +192,7 @@ function productionsBlock(lang) {
       <p class="prod-sub">${esc(t(p.subtitle, lang, `production ${p.id} subtitle`))}</p>
       <div class="prod-grid">
         <div>
-          ${plate(p.image, '', lang, 'tall')}
+          ${plate(image(p.id, p.image), '', lang, 'tall')}
         </div>
         <div>
           <p class="prod-blurb">${esc(t(p.blurb, lang, `production ${p.id} blurb`))}</p>
@@ -327,6 +349,8 @@ writeFileSync(join(out, 'sitemap.xml'),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`);
 writeFileSync(join(out, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`);
 
+const found = MEDIA.filter(f => !f.startsWith('.') && f !== 'README.md');
+if (found.length) console.log(`\nMedia in use: ${found.join(', ')}`);
 console.log(`\nBuilt ${count} pages across ${LANGS.length} languages → dist/`);
 if (problems.length) {
   console.error(`\n${problems.length} problem(s):`);
