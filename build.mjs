@@ -17,7 +17,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SITE = 'https://artindia.be';
 const LANGS = ['en', 'fr'];
 const DEFAULT = 'en';
-const ORDER = ['index', 'organisation', 'ten-years', 'festivals', 'partners', 'press'];
+const ORDER = ['index', 'productions', 'festivals', 'organisation', 'ten-years', 'partners', 'press'];
 
 const data = JSON.parse(readFileSync(join(HERE, 'data/content.json'), 'utf8'));
 const base = readFileSync(join(HERE, 'templates/base.html'), 'utf8');
@@ -61,16 +61,17 @@ function figuresBlock(lang) {
 }
 
 function festivalCards(lang) {
-  return `<div class="cards">` + data.festivals.map(f => {
+  return `<div class="fests">` + data.festivals.map(f => {
     const name = esc(t(f.name, lang, `festival ${f.id} name`));
-    const head = f.url
-      ? `<h3><a href="${f.url}">${name}</a></h3>`
-      : `<h3>${name}</h3>`;
-    return `<article class="card">
-      <p class="meta">${esc(t(f.when, lang, 'when'))} · ${esc(t(f.where, lang, 'where'))}</p>
-      ${head}
-      <p>${esc(t(f.blurb, lang, `festival ${f.id} blurb`))}</p>
-      <p class="status">${esc(t(f.status, lang, 'status'))}</p>
+    const head = f.url ? `<h3><a href="${f.url}">${name}</a></h3>` : `<h3>${name}</h3>`;
+    return `<article class="fest">
+      <div>
+        ${head}
+        <p class="when">${esc(t(f.when, lang, 'when'))} · ${esc(t(f.where, lang, 'where'))}</p>
+        <p>${esc(t(f.blurb, lang, `festival ${f.id} blurb`))}</p>
+        <p class="status">${esc(t(f.status, lang, 'status'))}</p>
+      </div>
+      ${plate(f.image, '', lang)}
     </article>`;
   }).join('') + `</div>`;
 }
@@ -102,6 +103,70 @@ function tiersBlock(lang) {
   return `<section><h2>${esc(t(data.ui.tiers_heading, lang, 'tiers_heading'))}</h2><ul class="tiers">${items}</ul></section>`;
 }
 
+
+function plate(img, caption, lang, cls = '') {
+  const wanted = lang === 'fr' ? 'Image d’archive à venir' : 'Archive image to come';
+  if (!img) {
+    return `<div class="awaiting ${cls}"><span>${esc(caption || wanted)}</span></div>`;
+  }
+  return `<figure class="plate"><img src="${img}" alt="${esc(caption || '')}" loading="lazy">${
+    caption ? `<figcaption>${esc(caption)}</figcaption>` : ''}</figure>`;
+}
+
+function armsBlock(lang) {
+  const items = data.ui.arms.map(a => `<article class="arm">
+      <p class="tag">${esc(t(a.tag, lang, 'arm tag'))}</p>
+      <h3>${esc(t(a.name, lang, 'arm name'))}</h3>
+      <p>${esc(t(a.desc, lang, 'arm desc'))}</p>
+    </article>`).join('');
+  return `<section><h2>${esc(t(data.ui.arms_heading, lang, 'arms_heading'))}</h2><div class="arms">${items}</div></section>`;
+}
+
+function presentersBlock(lang) {
+  if (!data.presenters || !data.presenters.length) return '';
+  const items = data.presenters.map(x =>
+    `<li><span class="v">${esc(x.name)}</span>${x.city ? `<span class="c">${esc(x.city)}</span>` : ''}</li>`
+  ).join('');
+  return `<section class="venues">
+    <p class="label">${esc(t(data.ui.presenters_heading, lang, 'presenters_heading'))}</p>
+    <ol>${items}</ol></section>`;
+}
+
+function productionsBlock(lang) {
+  const items = data.productions.map(p => {
+    const perf = (p.performances || []).map(x => {
+      const where = x.venue ? `${esc(x.venue)}, ${esc(x.city)}` : esc(x.city);
+      return `<li><span class="py">${x.year || '·'}</span><span class="pw">${where}</span></li>`;
+    }).join('');
+    const perfBlock = perf
+      ? `<ul class="perf">${perf}</ul>`
+      : `<p class="perf-none">${lang === 'fr' ? 'Historique à confirmer' : 'Performance history to be confirmed'}</p>`;
+    const tour = p.touring
+      ? `<p class="touring">${esc(t(data.ui.touring_label, lang, 'touring_label'))}</p>` : '';
+    const meta = [
+      p.premiere ? (lang === 'fr' ? `Créé en ${p.premiere}` : `First staged ${p.premiere}`) : '',
+      (p.languages && p.languages[lang]) ? p.languages[lang] : '',
+      p.cast ? (lang === 'fr' ? `${p.cast} artistes` : `${p.cast} performers`) : ''
+    ].filter(Boolean).join(' · ');
+    return `<article class="prod">
+      <h3>${esc(p.title)}</h3>
+      <p class="prod-sub">${esc(t(p.subtitle, lang, `production ${p.id} subtitle`))}</p>
+      <div class="prod-grid">
+        <div>
+          ${plate(p.image, '', lang, 'tall')}
+        </div>
+        <div>
+          <p class="prod-blurb">${esc(t(p.blurb, lang, `production ${p.id} blurb`))}</p>
+          <p class="meta">${esc(meta)}</p>
+          ${perfBlock}
+          ${tour}
+        </div>
+      </div>
+    </article>`;
+  }).join('');
+  return `<section class="prods">${items}</section>`;
+}
+
 function prose(page, lang) {
   const paras = t(page.body, lang, 'body');
   if (!Array.isArray(paras) || !paras.length) return '';
@@ -110,14 +175,18 @@ function prose(page, lang) {
 
 function buildContent(key, page, lang) {
   const parts = [];
-  parts.push(`<p class="eyebrow">Art India ASBL · Brussels</p>`);
+  parts.push(key === 'index'
+    ? `<p class="eyebrow">Art India ASBL · ${lang === 'fr' ? 'Bruxelles' : 'Brussels'}</p>`
+    : `<p class="eyebrow">${esc(t(data.org.motto, lang, 'org.motto'))}</p>`);
   parts.push(`<h1>${esc(t(page.h1, lang, `${key}.h1`))}</h1>`);
   parts.push(`<p class="lede">${esc(t(page.lede, lang, `${key}.lede`))}</p>`);
 
   if (key === 'index') {
-    parts.push(decadeSpine());
-    parts.push(`<p class="decade-cap">${lang === 'fr' ? 'Dix éditions du Brussels Diwali Festival' : 'Ten editions of the Brussels Diwali Festival'}</p>`);
+    parts.push(`<section class="bleed">${plate(data.org.hero_image, '', lang, 'wide')}</section>`);
     parts.push(`<section>${prose(page, lang)}</section>`);
+    parts.push(`<section>${decadeSpine()}<p class="decade-cap">${lang === 'fr' ? 'Dix éditions du Brussels Diwali Festival' : 'Ten editions of the Brussels Diwali Festival'}</p></section>`);
+    parts.push(armsBlock(lang));
+    parts.push(presentersBlock(lang));
     const figs = figuresBlock(lang);
     if (figs) parts.push(`<section>${figs}</section>`);
     parts.push(`<section><h2>${esc(t(data.ui.nav.festivals, lang, 'nav.festivals'))}</h2>${festivalCards(lang)}</section>`);
@@ -129,14 +198,21 @@ function buildContent(key, page, lang) {
   } else if (key === 'ten-years') {
     parts.push(decadeSpine());
     parts.push(`<section>${prose(page, lang)}</section>`);
+    parts.push(presentersBlock(lang));
     const figs = figuresBlock(lang);
     if (figs) parts.push(`<section>${figs}</section>`);
+  } else if (key === 'productions') {
+    parts.push(`<section>${prose(page, lang)}</section>`);
+    parts.push(productionsBlock(lang));
+    parts.push(presentersBlock(lang));
+    parts.push(`<section><a class="cta" href="mailto:${data.org.email_partners}">${esc(t(data.ui.cta_productions, lang, 'cta_productions'))}</a></section>`);
   } else if (key === 'festivals') {
     parts.push(`<section>${festivalCards(lang)}</section>`);
   } else if (key === 'partners') {
     parts.push(`<section>${prose(page, lang)}</section>`);
     const figs = figuresBlock(lang);
     if (figs) parts.push(`<section>${figs}</section>`);
+    parts.push(presentersBlock(lang));
     parts.push(tiersBlock(lang));
     parts.push(`<section><a class="cta" href="mailto:${data.org.email_partners}">${esc(t(data.ui.cta_partners, lang, 'cta_partners'))}</a></section>`);
   } else if (key === 'press') {
@@ -209,6 +285,7 @@ for (const lang of LANGS) {
       .replace(/{{EMAIL_GENERAL}}/g, esc(data.org.email_general))
       .replace(/{{EMAIL_PARTNERS}}/g, esc(data.org.email_partners))
       .replace(/{{FOOTER_NOTE}}/g, esc(t(data.ui.footer_note, lang, 'footer_note')))
+      .replace(/{{MOTTO}}/g, esc(t(data.org.motto, lang, 'org.motto')))
       .replace(/{{YEAR}}/g, new Date().getFullYear());
 
     const dir = join(out, lang === DEFAULT ? '' : lang, page.slug);

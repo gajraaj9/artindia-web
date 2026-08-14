@@ -7,13 +7,42 @@
     "email_general": "ravi@artindia.be",
     "email_partners": "partners@artindia.be",
     "board": [
-      { "name": "Shreya", "role": { "en": "Founder & Artistic Director", "fr": "Fondatrice et directrice artistique" } },
-      { "name": "Ravi Kaushik", "role": { "en": "Executive Producer", "fr": "Producteur exécutif" } },
-      { "name": "Sridhar Sairam", "role": { "en": "Music Director, Art India Music Conservatory", "fr": "Directeur musical, Art India Music Conservatory" } },
-      { "name": "Taruna Kaushik", "role": { "en": "Director, Administration", "fr": "Directrice administrative" } }
-    ]
+      {
+        "name": "Shreya",
+        "role": {
+          "en": "Founder & Artistic Director",
+          "fr": "Fondatrice et directrice artistique"
+        }
+      },
+      {
+        "name": "Ravi Kaushik",
+        "role": {
+          "en": "Executive Producer",
+          "fr": "Producteur exécutif"
+        }
+      },
+      {
+        "name": "Sridhar Sairam",
+        "role": {
+          "en": "Music Director, Art India Music Conservatory",
+          "fr": "Directeur musical, Art India Music Conservatory"
+        }
+      },
+      {
+        "name": "Taruna Kaushik",
+        "role": {
+          "en": "Director, Administration",
+          "fr": "Directrice administrative"
+        }
+      }
+    ],
+    "motto": {
+      "en": "Sharing India with the world",
+      "fr": "Partager l'Inde avec le monde",
+      "nl": "India delen met de wereld"
+    },
+    "hero_image": ""
   },
-
   "figures": {
     "_comment": "REPLACE before publishing. Set any value to null to hide that figure entirely.",
     "editions": 10,
@@ -21,50 +50,90 @@
     "stalls_2025": 41,
     "performers_2025": null
   },
-
   "festivals": [
     {
       "id": "diwali",
       "url": "https://diwali.artindia.be",
-      "when": { "en": "October", "fr": "Octobre" },
-      "where": { "en": "Atomium Esplanade", "fr": "Esplanade de l'Atomium" },
-      "name": { "en": "Brussels Diwali Festival", "fr": "Brussels Diwali Festival" },
+      "when": {
+        "en": "October",
+        "fr": "Octobre"
+      },
+      "where": {
+        "en": "Atomium Esplanade",
+        "fr": "Esplanade de l'Atomium"
+      },
+      "name": {
+        "en": "Brussels Diwali Festival",
+        "fr": "Brussels Diwali Festival"
+      },
       "blurb": {
         "en": "Belgium's largest celebration of the Indian festival of lights. Two days of music, dance, food and light on the Atomium esplanade. The tenth edition falls on 24 and 25 October 2026.",
         "fr": "La plus grande célébration en Belgique de la fête indienne des lumières. Deux jours de musique, de danse, de cuisine et de lumière sur l'esplanade de l'Atomium. La dixième édition aura lieu les 24 et 25 octobre 2026."
       },
-      "status": { "en": "Tickets on sale 5 September", "fr": "Billetterie ouverte le 5 septembre" }
+      "status": {
+        "en": "Tickets on sale 5 September",
+        "fr": "Billetterie ouverte le 5 septembre"
+      },
+      "image": ""
     },
     {
       "id": "yoga",
       "url": "",
-      "when": { "en": "June", "fr": "Juin" },
-      "where": { "en": "Parc de Bruxelles", "fr": "Parc de Bruxelles" },
-      "name": { "en": "Brussels Yoga Fest", "fr": "Brussels Yoga Fest" },
+      "when": {
+        "en": "June",
+        "fr": "Juin"
+      },
+      "where": {
+        "en": "Parc de Bruxelles",
+        "fr": "Parc de Bruxelles"
+      },
+      "name": {
+        "en": "Brussels Yoga Fest",
+        "fr": "Brussels Yoga Fest"
+      },
       "blurb": {
         "en": "A day of practice in the heart of the city, in the park facing the Royal Palace. Open classes, teachers from Belgium and India, and an introduction to yoga as it is taught at its source.",
         "fr": "Une journée de pratique au cœur de la ville, dans le parc face au Palais royal. Cours ouverts à tous, professeurs de Belgique et d'Inde, et une introduction au yoga tel qu'il est enseigné à sa source."
       },
-      "status": { "en": "Returning June 2027", "fr": "De retour en juin 2027" }
+      "status": {
+        "en": "Returning June 2027",
+        "fr": "De retour en juin 2027"
+      },
+      "image": ""
     },
     {
       "id": "conservatory",
       "url": "",
-      "when": { "en": "Year-round", "fr": "Toute l'année" },
-      "where": { "en": "Brussels", "fr": "Bruxelles" },
-      "name": { "en": "Art India Music Conservatory", "fr": "Art India Music Conservatory" },
-      "blurb": {
-        "en": "Teaching Indian classical music in Brussels — the year-round work behind the festivals, and where many of the artists who perform on our stages first trained.",
-        "fr": "L'enseignement de la musique classique indienne à Bruxelles — le travail mené toute l'année en amont des festivals, et où se sont formés nombre des artistes qui montent sur nos scènes."
+      "when": {
+        "en": "Year-round",
+        "fr": "Toute l'année"
       },
-      "status": { "en": "Enrolling", "fr": "Inscriptions ouvertes" }
+      "where": {
+        "en": "Brussels",
+        "fr": "Bruxelles"
+      },
+      "name": {
+        "en": "Art India Music Conservatory",
+        "fr": "Art India Music Conservatory"
+      },
+      "blurb": {
+        "en": "Teaching Indian classical music and dance in Brussels — Kathak, Bharatanatyam, vocal and instrumental. The year-round work behind the festivals, and where many of the artists who appear in our productions first trained.",
+        "fr": "L'enseignement de la musique et de la danse classiques indiennes à Bruxelles — kathak, bharatanatyam, chant et instruments. Le travail mené toute l'année en amont des festivals, et où se sont formés nombre des artistes de nos productions."
+      },
+      "status": {
+        "en": "Enrolling",
+        "fr": "Inscriptions ouvertes"
+      },
+      "image": ""
     }
   ],
-
   "tiers": [
     {
       "id": "title",
-      "name": { "en": "Title partner", "fr": "Partenaire titre" },
+      "name": {
+        "en": "Title partner",
+        "fr": "Partenaire titre"
+      },
       "desc": {
         "en": "Naming association with the festival, presence across all communication, a branded space on site, and hospitality for your teams and guests. One partner only.",
         "fr": "Association du nom au festival, présence sur toute la communication, un espace à votre marque sur le site et de l'accueil pour vos équipes et vos invités. Un seul partenaire."
@@ -72,7 +141,10 @@
     },
     {
       "id": "principal",
-      "name": { "en": "Principal partner", "fr": "Partenaire principal" },
+      "name": {
+        "en": "Principal partner",
+        "fr": "Partenaire principal"
+      },
       "desc": {
         "en": "Prominent presence across the site and the programme, a stand or activation space, and a hospitality allocation for staff and clients.",
         "fr": "Présence marquée sur le site et dans le programme, un stand ou un espace d'activation, et une allocation d'accueil pour votre personnel et vos clients."
@@ -80,7 +152,10 @@
     },
     {
       "id": "activation",
-      "name": { "en": "Activation partner", "fr": "Partenaire d'activation" },
+      "name": {
+        "en": "Activation partner",
+        "fr": "Partenaire d'activation"
+      },
       "desc": {
         "en": "Sponsorship of a named element of the festival — a stage, the children's area, or an installation — with your brand attached to it throughout.",
         "fr": "Parrainage d'un élément identifié du festival — une scène, l'espace enfants ou une installation — avec votre marque associée tout au long."
@@ -88,136 +163,176 @@
     },
     {
       "id": "community",
-      "name": { "en": "Community partner", "fr": "Partenaire communautaire" },
+      "name": {
+        "en": "Community partner",
+        "fr": "Partenaire communautaire"
+      },
       "desc": {
         "en": "For smaller businesses and organisations who want to be part of the festival: listing, on-site recognition and tickets for your team.",
         "fr": "Pour les petites entreprises et organisations qui souhaitent participer au festival : mention, visibilité sur place et billets pour votre équipe."
       }
     }
   ],
-
   "pages": {
     "index": {
       "slug": "",
-      "title": { "en": "Art India — Indian culture in Brussels", "fr": "Art India — la culture indienne à Bruxelles" },
-      "description": {
-        "en": "Art India ASBL is a Brussels non-profit organising Indian cultural festivals in Belgium, including the Brussels Diwali Festival, now in its tenth year.",
-        "fr": "Association bruxelloise organisant des festivals culturels indiens en Belgique, dont le Brussels Diwali Festival, dans sa dixième année."
+      "title": {
+        "en": "Art India — sharing India with the world",
+        "fr": "Art India — partager l'Inde avec le monde"
       },
-      "h1": { "en": "Indian culture, made at home in Brussels", "fr": "La culture indienne, chez elle à Bruxelles" },
+      "description": {
+        "en": "We create, stage and teach the arts of India in Europe. Productions at Bozar, Wolubilis and the Gasteig in Munich, and Belgium's largest Diwali festival.",
+        "fr": "Nous créons, présentons et transmettons les arts de l'Inde en Europe. Productions à Bozar, Wolubilis, Munich, et le plus grand festival de Diwali de Belgique."
+      },
+      "h1": {
+        "en": "Sharing India with the world",
+        "fr": "Partager l'Inde avec le monde"
+      },
       "lede": {
-        "en": "Art India is a Brussels non-profit. For ten years we have built festivals where Indian music, dance and food meet a Belgian public — not as a visiting spectacle, but as part of the city's own cultural year.",
-        "fr": "Art India est une association sans but lucratif bruxelloise. Depuis dix ans, nous construisons des festivals où la musique, la danse et la cuisine indiennes rencontrent un public belge — non comme un spectacle de passage, mais comme une part de l'année culturelle de la ville."
+        "en": "Art India creates, stages and teaches the arts of India in Europe. From a child's first kathak lesson in Brussels to a full production on a national stage.",
+        "fr": "Art India crée, présente et transmet les arts de l'Inde en Europe. Du premier cours de kathak d'un enfant à Bruxelles jusqu'à une production sur une scène nationale."
       },
       "body": {
         "en": [
-          "We began in 2016 with a single evening of light in Brussels. The Brussels Diwali Festival is now the largest celebration of Diwali in Belgium, held on the esplanade of the Atomium, and it has grown alongside a wider programme: a summer yoga festival in the Parc de Bruxelles, and a conservatory teaching Indian classical music year-round.",
-          "The work is run by a small permanent team and a large volunteer one, in partnership with the City of Brussels, the Atomium, the Embassy of India and the Indian Council for Cultural Relations. It is supported by companies who understand that a city's cultural life is part of what makes it liveable.",
-          "The tenth edition of the Diwali festival takes place on 24 and 25 October 2026, under the theme Culture United. For the first time, we are inviting European partners to celebrate alongside us."
+          "Since 2015 our productions have been performed at Bozar and Wolubilis in Brussels and at the Gasteig in Munich. Our festivals fill the esplanade of the Atomium each autumn, are programmed into the City of Brussels' own cultural calendar, and have reached the esplanade of the European Parliament. Our conservatory teaches Indian classical music and dance in Brussels, year-round.",
+          "The Brussels Diwali Festival is the most visible of this work: the largest celebration of Diwali in Belgium, held every year since 2016 and now in its tenth edition. It is one of three strands, alongside a repertoire of original stage productions and the teaching that feeds them.",
+          "The tenth edition takes place on 24 and 25 October 2026 under the theme Culture United. For the first time, European embassies and cultural institutes are invited to celebrate Diwali alongside us — sharing their own traditions in return."
         ],
         "fr": [
-          "Nous avons commencé en 2016 avec une seule soirée de lumière à Bruxelles. Le Brussels Diwali Festival est aujourd'hui la plus grande célébration de Diwali en Belgique, organisée sur l'esplanade de l'Atomium, et il s'est développé aux côtés d'un programme plus large : un festival de yoga en été au Parc de Bruxelles, et un conservatoire qui enseigne la musique classique indienne toute l'année.",
-          "Le travail est mené par une petite équipe permanente et une grande équipe de bénévoles, en partenariat avec la Ville de Bruxelles, l'Atomium, l'Ambassade de l'Inde et l'Indian Council for Cultural Relations. Il est soutenu par des entreprises qui comprennent que la vie culturelle d'une ville participe de ce qui la rend habitable.",
-          "La dixième édition du festival Diwali se tiendra les 24 et 25 octobre 2026, sous le thème Culture United. Pour la première fois, nous invitons des partenaires européens à célébrer à nos côtés."
+          "Depuis 2015, nos productions ont été jouées à Bozar et à Wolubilis à Bruxelles, ainsi qu'au Gasteig de Munich. Nos festivals emplissent chaque automne l'esplanade de l'Atomium, s'inscrivent dans le calendrier culturel de la Ville de Bruxelles et ont atteint l'esplanade du Parlement européen. Notre conservatoire enseigne toute l'année la musique et la danse classiques indiennes à Bruxelles.",
+          "Le Brussels Diwali Festival est la part la plus visible de ce travail : la plus grande célébration de Diwali en Belgique, organisée chaque année depuis 2016 et aujourd'hui à sa dixième édition. C'est l'un de nos trois volets, aux côtés d'un répertoire de créations scéniques et de l'enseignement qui les nourrit.",
+          "La dixième édition se tiendra les 24 et 25 octobre 2026 sous le thème Culture United. Pour la première fois, des ambassades et instituts culturels européens sont invités à célébrer Diwali à nos côtés — en partageant à leur tour leurs propres traditions."
         ]
       }
     },
-
     "organisation": {
       "slug": "organisation",
-      "title": { "en": "The organisation — Art India ASBL", "fr": "L'organisation — Art India ASBL" },
-      "description": {
-        "en": "Art India ASBL: legal status, governance, mission and contacts. A Brussels non-profit organising Indian cultural festivals in Belgium since 2014.",
-        "fr": "Art India ASBL : statut juridique, gouvernance, mission et contacts. Association bruxelloise organisant des festivals culturels indiens en Belgique depuis 2014."
+      "title": {
+        "en": "The organisation — Art India ASBL",
+        "fr": "L'organisation — Art India ASBL"
       },
-      "h1": { "en": "The organisation", "fr": "L'organisation" },
+      "description": {
+        "en": "Art India ASBL: legal status, governance, mission and contacts. Sharing India with the world from Brussels since 2014.",
+        "fr": "Art India ASBL : statut juridique, gouvernance, mission et contacts. Partager l'Inde avec le monde, depuis Bruxelles, depuis 2014."
+      },
+      "h1": {
+        "en": "The organisation",
+        "fr": "L'organisation"
+      },
       "lede": {
-        "en": "Art India is a non-profit association under Belgian law, founded in Brussels and run from Brussels.",
-        "fr": "Art India est une association sans but lucratif de droit belge, fondée à Bruxelles et administrée depuis Bruxelles."
+        "en": "Art India is a non-profit association under Belgian law, founded in Brussels and run from Brussels. Our work runs across three strands: creating, staging and teaching.",
+        "fr": "Art India est une association sans but lucratif de droit belge, fondée à Bruxelles et administrée depuis Bruxelles. Notre travail se déploie sur trois volets : créer, présenter et transmettre."
       },
       "body": {
         "en": [
-          "Our purpose is to make Indian culture present and accessible in Belgium: to programme it at a professional standard, to place it in public space rather than behind closed doors, and to give artists working in these traditions a stage in Europe.",
-          "We are not a promoter. Everything we earn goes back into the programme, the artists and the sites we work on. The organisation is governed by its board, supported by a core team of volunteers who carry the festivals through the year, and audited in accordance with Belgian non-profit law."
+          "Sharing India with the world is what we set out to do, and it is meant literally. These art forms belong to everyone who wants them. Our purpose is to make them present and accessible in Europe — programmed at a professional standard, placed in public space rather than behind closed doors, and taught to anyone who wishes to learn.",
+          "The three strands support one another. The conservatory trains performers; the festivals give them an audience of thousands; the productions are where the work travels beyond Belgium. Few organisations in Europe hold all three for Indian art forms, and it is that range — from a first lesson to a national stage — rather than the size of any single event that describes what we are.",
+          "We are not a promoter. Everything we earn returns to the programme, the artists and the sites we work on. The association is governed by its board, supported by a core team of volunteers who carry the work through the year, and held to the accounting obligations of Belgian non-profits."
         ],
         "fr": [
-          "Notre objet est de rendre la culture indienne présente et accessible en Belgique : la programmer à un niveau professionnel, l'inscrire dans l'espace public plutôt que derrière des portes closes, et offrir aux artistes de ces traditions une scène en Europe.",
-          "Nous ne sommes pas un promoteur. Tout ce que nous gagnons retourne au programme, aux artistes et aux sites sur lesquels nous travaillons. L'association est administrée par son conseil, soutenue par une équipe de bénévoles qui portent les festivals tout au long de l'année, et tenue aux obligations comptables des ASBL belges."
+          "Partager l'Inde avec le monde : c'est ce que nous nous sommes fixé, et il faut l'entendre au sens propre. Ces formes artistiques appartiennent à quiconque les désire. Notre objet est de les rendre présentes et accessibles en Europe — programmées à un niveau professionnel, inscrites dans l'espace public plutôt que derrière des portes closes, et enseignées à qui souhaite les apprendre.",
+          "Les trois volets se nourrissent mutuellement. Le conservatoire forme les interprètes ; les festivals leur donnent un public de plusieurs milliers de personnes ; les productions sont le moment où le travail voyage au-delà de la Belgique. Peu d'organisations en Europe réunissent ces trois dimensions pour les arts indiens, et c'est cette amplitude — du premier cours à la scène nationale — plutôt que la taille d'un événement isolé, qui dit ce que nous sommes.",
+          "Nous ne sommes pas un promoteur. Tout ce que nous gagnons retourne au programme, aux artistes et aux sites sur lesquels nous travaillons. L'association est administrée par son conseil, soutenue par une équipe de bénévoles qui portent le travail tout au long de l'année, et tenue aux obligations comptables des ASBL belges."
         ]
       }
     },
-
     "ten-years": {
       "slug": "ten-years",
-      "title": { "en": "Ten years — Art India", "fr": "Dix ans — Art India" },
+      "title": {
+        "en": "Ten years — Art India",
+        "fr": "Dix ans — Art India"
+      },
       "description": {
         "en": "Ten editions of the Brussels Diwali Festival, from a single evening in 2016 to the Atomium esplanade in 2026.",
         "fr": "Dix éditions du Brussels Diwali Festival, d'une seule soirée en 2016 à l'esplanade de l'Atomium en 2026."
       },
-      "h1": { "en": "Ten years", "fr": "Dix ans" },
+      "h1": {
+        "en": "Ten years",
+        "fr": "Dix ans"
+      },
       "lede": {
-        "en": "The Brussels Diwali Festival has run every year since 2016. It has moved venues, grown from an evening to a weekend, and become the largest event of its kind in Belgium.",
-        "fr": "Le Brussels Diwali Festival se tient chaque année depuis 2016. Il a changé de lieu, est passé d'une soirée à un week-end, et est devenu le plus grand événement de ce type en Belgique."
+        "en": "Art India has been staging work in Europe since 2015. The Brussels Diwali Festival has run every year since 2016 and reaches its tenth edition in 2026.",
+        "fr": "Art India crée et joue en Europe depuis 2015. Le Brussels Diwali Festival se tient chaque année depuis 2016 et atteint sa dixième édition en 2026."
       },
       "body": {
         "en": [
-          "What began as a community gathering is now a public festival on one of Brussels' most recognisable sites, working with the City, the Atomium and the Embassy of India, and drawing an audience that is Belgian as much as it is Indian.",
-          "The tenth edition, on 24 and 25 October 2026, carries the theme Culture United. European embassies and cultural institutes are invited to take part, each bringing a pairing of their own tradition with an Indian one — and an avenue of lights running the length of the esplanade, one stretch for each country taking part."
+          "Art India's first year was 2015. Ticket 2 Bollywood filled a Brussels venue and showed there was an audience well beyond the Indian community; Taj — the eternal love was performed at the Gasteig in Munich; and Mad About Madras was staged at Wolubilis in aid of the Chennai flood relief. The following year the company presented It Doesn't Hurt To Be Nice at Bozar and held the first Brussels Diwali celebration. Since 2017 the festival has taken place on the esplanade of the Atomium.",
+          "Alongside it, the work has grown outward: Rama at Wolubilis, Taj at Bozar and in Stuttgart, Bollywood programmed into the City of Brussels' summer season, the Brussels Yoga Fest, Diversity of India, and — in 2025 — yoga on the esplanade of the European Parliament.",
+          "The tenth Diwali edition, on 24 and 25 October 2026, carries the theme Culture United. European embassies and cultural institutes are invited to take part, each pairing their own tradition with an Indian one, along an avenue of lights running the length of the esplanade."
         ],
         "fr": [
-          "Ce qui a commencé comme un rassemblement communautaire est aujourd'hui un festival public sur l'un des sites les plus reconnaissables de Bruxelles, mené avec la Ville, l'Atomium et l'Ambassade de l'Inde, et devant un public autant belge qu'indien.",
-          "La dixième édition, les 24 et 25 octobre 2026, porte le thème Culture United. Des ambassades et instituts culturels européens sont invités à y prendre part, chacun proposant une rencontre entre sa propre tradition et une tradition indienne — ainsi qu'une avenue de lumières sur toute la longueur de l'esplanade, une section par pays participant."
+          "La première année d'Art India fut 2015. Ticket 2 Bollywood a rempli une salle bruxelloise et montré qu'il existait un public bien au-delà de la communauté indienne ; Taj — the eternal love a été joué au Gasteig de Munich ; et Mad About Madras a été présenté à Wolubilis au profit des victimes des inondations de Chennai. L'année suivante, la compagnie présentait It Doesn't Hurt To Be Nice à Bozar et organisait la première célébration bruxelloise de Diwali. Depuis 2017, le festival se tient sur l'esplanade de l'Atomium.",
+          "En parallèle, le travail s'est élargi : Rama à Wolubilis, Taj à Bozar et à Stuttgart, du Bollywood inscrit dans la saison d'été de la Ville de Bruxelles, le Brussels Yoga Fest, Diversity of India et, en 2025, du yoga sur l'esplanade du Parlement européen.",
+          "La dixième édition de Diwali, les 24 et 25 octobre 2026, porte le thème Culture United. Des ambassades et instituts culturels européens sont invités à y prendre part, chacun associant sa propre tradition à une tradition indienne, le long d'une avenue de lumières traversant toute l'esplanade."
         ]
       }
     },
-
     "festivals": {
       "slug": "festivals",
-      "title": { "en": "Our festivals — Art India", "fr": "Nos festivals — Art India" },
+      "title": {
+        "en": "Our festivals — Art India",
+        "fr": "Nos festivals — Art India"
+      },
       "description": {
         "en": "The Brussels Diwali Festival, the Brussels Yoga Fest and the Art India Music Conservatory.",
         "fr": "Le Brussels Diwali Festival, le Brussels Yoga Fest et l'Art India Music Conservatory."
       },
-      "h1": { "en": "Our festivals", "fr": "Nos festivals" },
-      "lede": {
-        "en": "Three strands of the same work: a festival of light in autumn, a festival of practice in summer, and teaching all year round.",
-        "fr": "Trois volets d'un même travail : un festival de lumière en automne, un festival de pratique en été, et un enseignement toute l'année."
+      "h1": {
+        "en": "Our festivals",
+        "fr": "Nos festivals"
       },
-      "body": { "en": [], "fr": [] }
+      "lede": {
+        "en": "Three festivals a year, in the public space of Brussels: a festival of light in autumn, a festival of practice in summer, and a celebration of India's diversity.",
+        "fr": "Trois festivals par an, dans l'espace public bruxellois : un festival de lumière en automne, un festival de pratique en été, et une célébration de la diversité de l'Inde."
+      },
+      "body": {
+        "en": [],
+        "fr": []
+      }
     },
-
     "partners": {
       "slug": "partners",
-      "title": { "en": "Partners & sponsors — Art India", "fr": "Partenaires et sponsors — Art India" },
+      "title": {
+        "en": "Partners & sponsors — Art India",
+        "fr": "Partenaires et sponsors — Art India"
+      },
       "description": {
         "en": "Partnership opportunities with the Brussels Diwali Festival and Art India: tiers, audience and contact.",
         "fr": "Opportunités de partenariat avec le Brussels Diwali Festival et Art India : formules, public et contact."
       },
-      "h1": { "en": "Partners & sponsors", "fr": "Partenaires et sponsors" },
+      "h1": {
+        "en": "Partners & sponsors",
+        "fr": "Partenaires et sponsors"
+      },
       "lede": {
-        "en": "A partnership with Art India reaches a large, engaged and unusually broad audience in Brussels — and does so across three events a year rather than one.",
-        "fr": "Un partenariat avec Art India touche à Bruxelles un public large, engagé et inhabituellement divers — et ce sur trois événements par an plutôt qu'un seul."
+        "en": "Partnership with Art India means a share in something people genuinely look forward to — across three events a year, and across work that travels beyond Belgium.",
+        "fr": "Être partenaire d'Art India, c'est prendre part à quelque chose que le public attend vraiment — sur trois événements par an, et sur un travail qui voyage au-delà de la Belgique."
       },
       "body": {
         "en": [
-          "Our audience is the Indian and South Asian community across the Benelux, and a Belgian public that comes for the food, the music and the light. It includes diplomats, institutions and a substantial professional community working in and around the European quarter.",
+          "Our audience is the Indian and South Asian community across the Benelux, and a Belgian and European public that comes for the food, the music and the light. It includes diplomats, institutions and a substantial professional community working in and around the European quarter.",
           "We work with partners over multiple years and multiple events. The tenth edition of the Diwali festival, on the Atomium esplanade in October 2026, is the moment we would most like to talk to you about."
         ],
         "fr": [
-          "Notre public, c'est la communauté indienne et sud-asiatique du Benelux, et un public belge qui vient pour la cuisine, la musique et la lumière. Il comprend des diplomates, des institutions et une communauté professionnelle importante travaillant dans le quartier européen et autour.",
+          "Notre public, c'est la communauté indienne et sud-asiatique du Benelux, et un public belge et européen qui vient pour la cuisine, la musique et la lumière. Il comprend des diplomates, des institutions et une importante communauté professionnelle travaillant dans le quartier européen et autour.",
           "Nous travaillons avec nos partenaires sur plusieurs années et plusieurs événements. La dixième édition du festival Diwali, sur l'esplanade de l'Atomium en octobre 2026, est le moment dont nous aimerions le plus vous parler."
         ]
       }
     },
-
     "press": {
       "slug": "press",
-      "title": { "en": "Press — Art India", "fr": "Presse — Art India" },
+      "title": {
+        "en": "Press — Art India",
+        "fr": "Presse — Art India"
+      },
       "description": {
         "en": "Press contact, accreditation and image requests for the Brussels Diwali Festival and Art India events.",
         "fr": "Contact presse, accréditation et demandes d'images pour le Brussels Diwali Festival et les événements Art India."
       },
-      "h1": { "en": "Press", "fr": "Presse" },
+      "h1": {
+        "en": "Press",
+        "fr": "Presse"
+      },
       "lede": {
         "en": "For interviews, images, accreditation or background on the tenth edition, please get in touch.",
         "fr": "Pour des interviews, des images, une accréditation ou des informations de fond sur la dixième édition, contactez-nous."
@@ -230,33 +345,401 @@
           "Les accréditations pour le Brussels Diwali Festival des 24 et 25 octobre 2026 ouvriront en septembre. Des images en haute résolution des éditions précédentes sont disponibles sur demande, ainsi que des interviews avec les organisateurs en français, néerlandais ou anglais."
         ]
       }
+    },
+    "productions": {
+      "slug": "productions",
+      "title": {
+        "en": "Productions — Art India",
+        "fr": "Productions — Art India"
+      },
+      "description": {
+        "en": "Original stage works by Art India, performed in Belgium and Germany. Repertoire available for programming by European venues and festivals.",
+        "fr": "Créations scéniques d'Art India, jouées en Belgique et en Allemagne. Répertoire disponible pour la programmation en Europe."
+      },
+      "h1": {
+        "en": "Productions",
+        "fr": "Productions"
+      },
+      "lede": {
+        "en": "We create original work. Five productions have been staged since 2015, in Belgium and Germany.",
+        "fr": "Nous créons des œuvres originales. Cinq productions ont été portées à la scène depuis 2015, en Belgique et en Allemagne."
+      },
+      "body": {
+        "en": [
+          "Each production takes an Indian story, form or text and stages it for a European audience — performed in English, by casts drawn from our own conservatory and from professional artists working in these traditions across Europe and India.",
+          "Our repertoire is available for programming. Venues and festivals interested in presenting a production are warmly invited to get in touch."
+        ],
+        "fr": [
+          "Chaque production part d'un récit, d'une forme ou d'un texte indien et le porte à la scène pour un public européen — en anglais, avec des distributions issues de notre propre conservatoire et d'artistes professionnels travaillant ces traditions en Europe et en Inde.",
+          "Notre répertoire est disponible pour la programmation. Les salles et festivals souhaitant présenter une production sont chaleureusement invités à nous écrire."
+        ]
+      }
     }
   },
-
   "ui": {
     "nav": {
-      "index": { "en": "Home", "fr": "Accueil" },
-      "organisation": { "en": "Organisation", "fr": "Organisation" },
-      "ten-years": { "en": "Ten years", "fr": "Dix ans" },
-      "festivals": { "en": "Festivals", "fr": "Festivals" },
-      "partners": { "en": "Partners", "fr": "Partenaires" },
-      "press": { "en": "Press", "fr": "Presse" }
+      "index": {
+        "en": "Home",
+        "fr": "Accueil"
+      },
+      "organisation": {
+        "en": "Organisation",
+        "fr": "Organisation"
+      },
+      "ten-years": {
+        "en": "Ten years",
+        "fr": "Dix ans"
+      },
+      "festivals": {
+        "en": "Festivals",
+        "fr": "Festivals"
+      },
+      "partners": {
+        "en": "Partners",
+        "fr": "Partenaires"
+      },
+      "press": {
+        "en": "Press",
+        "fr": "Presse"
+      },
+      "productions": {
+        "en": "Productions",
+        "fr": "Productions"
+      }
     },
-    "board_heading": { "en": "Board", "fr": "Conseil d'administration" },
-    "legal_heading": { "en": "Legal", "fr": "Informations légales" },
+    "board_heading": {
+      "en": "Board",
+      "fr": "Conseil d'administration"
+    },
+    "legal_heading": {
+      "en": "Legal",
+      "fr": "Informations légales"
+    },
     "figures": {
-      "editions": { "en": "editions since 2016", "fr": "éditions depuis 2016" },
-      "visitors_2025": { "en": "visitors in 2025", "fr": "visiteurs en 2025" },
-      "stalls_2025": { "en": "stalls and traders", "fr": "stands et exposants" },
-      "performers_2025": { "en": "performers on stage", "fr": "artistes sur scène" }
+      "editions": {
+        "en": "editions since 2016",
+        "fr": "éditions depuis 2016"
+      },
+      "visitors_2025": {
+        "en": "visitors in 2025",
+        "fr": "visiteurs en 2025"
+      },
+      "stalls_2025": {
+        "en": "stalls and traders",
+        "fr": "stands et exposants"
+      },
+      "performers_2025": {
+        "en": "performers on stage",
+        "fr": "artistes sur scène"
+      }
     },
-    "tiers_heading": { "en": "Ways to partner", "fr": "Formules de partenariat" },
-    "cta_partners": { "en": "Talk to us about partnership", "fr": "Parlons partenariat" },
-    "cta_press": { "en": "Press enquiries", "fr": "Contact presse" },
+    "tiers_heading": {
+      "en": "Ways to partner",
+      "fr": "Formules de partenariat"
+    },
+    "cta_partners": {
+      "en": "Talk to us about partnership",
+      "fr": "Parlons partenariat"
+    },
+    "cta_press": {
+      "en": "Press enquiries",
+      "fr": "Contact presse"
+    },
     "footer_note": {
       "en": "Non-profit association registered in Belgium",
       "fr": "Association sans but lucratif de droit belge"
     },
-    "skip": { "en": "Skip to content", "fr": "Aller au contenu" }
-  }
+    "skip": {
+      "en": "Skip to content",
+      "fr": "Aller au contenu"
+    },
+    "presenters_heading": {
+      "en": "Where our work has been staged",
+      "fr": "Où notre travail a été présenté"
+    },
+    "performances_heading": {
+      "en": "Performance history",
+      "fr": "Historique des représentations"
+    },
+    "touring_label": {
+      "en": "Available for programming",
+      "fr": "Disponible pour la programmation"
+    },
+    "cta_productions": {
+      "en": "Enquire about programming a production",
+      "fr": "Programmer une production : nous contacter"
+    },
+    "arms_heading": {
+      "en": "What we do",
+      "fr": "Ce que nous faisons"
+    },
+    "arms": [
+      {
+        "tag": {
+          "en": "Create",
+          "fr": "Créer"
+        },
+        "name": {
+          "en": "Productions",
+          "fr": "Productions"
+        },
+        "desc": {
+          "en": "Original stage works, performed in Belgium and Germany.",
+          "fr": "Créations scéniques, jouées en Belgique et en Allemagne."
+        }
+      },
+      {
+        "tag": {
+          "en": "Stage",
+          "fr": "Présenter"
+        },
+        "name": {
+          "en": "Festivals",
+          "fr": "Festivals"
+        },
+        "desc": {
+          "en": "Diwali, Yoga Fest and Diversity of India, in the public space of Brussels.",
+          "fr": "Diwali, Yoga Fest et Diversity of India, dans l'espace public bruxellois."
+        }
+      },
+      {
+        "tag": {
+          "en": "Teach",
+          "fr": "Transmettre"
+        },
+        "name": {
+          "en": "Conservatory",
+          "fr": "Conservatoire"
+        },
+        "desc": {
+          "en": "Indian classical music and dance, taught in Brussels year-round.",
+          "fr": "Musique et danse classiques indiennes, enseignées toute l'année à Bruxelles."
+        }
+      }
+    ]
+  },
+  "productions": [
+    {
+      "id": "rama",
+      "title": "Rama",
+      "subtitle": {
+        "en": "The Ramayana, staged in three hours",
+        "fr": "Le Ramayana, porté à la scène en trois heures"
+      },
+      "blurb": {
+        "en": "The Indian epic condensed into a single evening, performed in English by a cast of more than thirty. Ramleela — traditionally told over ten nights — reshaped for a European theatre audience without losing the form it comes from.",
+        "fr": "L'épopée indienne condensée en une seule soirée, interprétée en anglais par plus de trente artistes. Le Ramleela — traditionnellement joué sur dix nuits — repensé pour un public de théâtre européen sans rien perdre de la forme dont il est issu."
+      },
+      "premiere": 2018,
+      "languages": {
+        "en": "English",
+        "fr": "Anglais"
+      },
+      "cast": "30+",
+      "touring": true,
+      "performances": [
+        {
+          "venue": "Wolubilis",
+          "city": "Brussels",
+          "country": "BE",
+          "year": 2018
+        },
+        {
+          "venue": "Wolubilis",
+          "city": "Brussels",
+          "country": "BE",
+          "year": 2018
+        }
+      ],
+      "image": ""
+    },
+    {
+      "id": "taj",
+      "title": "Taj — the eternal love",
+      "subtitle": {
+        "en": "The Taj Mahal, and the story behind it",
+        "fr": "Le Taj Mahal, et l'histoire qui l'a fait naître"
+      },
+      "blurb": {
+        "en": "Art India's most travelled production. The story of Shah Jahan and Mumtaz Mahal told through classical and semi-classical dance, staged in Germany and Belgium.",
+        "fr": "La production la plus voyageuse d'Art India. L'histoire de Shah Jahan et de Mumtaz Mahal racontée par la danse classique et semi-classique, présentée en Allemagne et en Belgique."
+      },
+      "premiere": 2015,
+      "languages": {
+        "en": "English",
+        "fr": "Anglais"
+      },
+      "cast": "",
+      "touring": true,
+      "performances": [
+        {
+          "venue": "Gasteig",
+          "city": "Munich",
+          "country": "DE",
+          "year": 2015
+        },
+        {
+          "venue": "",
+          "city": "Stuttgart",
+          "country": "DE",
+          "year": null
+        },
+        {
+          "venue": "Wolubilis",
+          "city": "Brussels",
+          "country": "BE",
+          "year": 2016
+        },
+        {
+          "venue": "Bozar",
+          "city": "Brussels",
+          "country": "BE",
+          "year": 2017
+        }
+      ],
+      "image": ""
+    },
+    {
+      "id": "it-doesnt-hurt-to-be-nice",
+      "title": "It Doesn't Hurt To Be Nice",
+      "subtitle": {
+        "en": "After the book by Amisha Sethi",
+        "fr": "D'après le livre d'Amisha Sethi"
+      },
+      "blurb": {
+        "en": "An adaptation of Amisha Sethi's book, staged as a concert at Bozar on 1 November 2016 — an Indian production on Belgium's national stage for the fine arts, with the author present.",
+        "fr": "Une adaptation du livre d'Amisha Sethi, présentée en concert à Bozar le 1er novembre 2016 — une production indienne sur la scène nationale belge des beaux-arts, en présence de l'autrice."
+      },
+      "premiere": 2016,
+      "languages": {
+        "en": "English",
+        "fr": "Anglais"
+      },
+      "cast": "",
+      "touring": false,
+      "performances": [
+        {
+          "venue": "Bozar",
+          "city": "Brussels",
+          "country": "BE",
+          "year": 2016
+        }
+      ],
+      "image": ""
+    },
+    {
+      "id": "mad-about-madras",
+      "title": "Mad About Madras",
+      "subtitle": {
+        "en": "Staged in aid of the Chennai flood relief",
+        "fr": "Créé au profit des victimes des inondations de Chennai"
+      },
+      "blurb": {
+        "en": "A benefit production created in response to the Chennai floods, bringing the music and dance of south India to a Brussels stage in aid of the relief effort.",
+        "fr": "Une production de soutien créée en réponse aux inondations de Chennai, portant la musique et la danse du sud de l'Inde sur une scène bruxelloise au profit des secours."
+      },
+      "premiere": 2015,
+      "languages": {
+        "en": "English",
+        "fr": "Anglais"
+      },
+      "cast": "",
+      "touring": false,
+      "performances": [
+        {
+          "venue": "Wolubilis",
+          "city": "Brussels",
+          "country": "BE",
+          "year": 2015
+        }
+      ],
+      "image": ""
+    },
+    {
+      "id": "ticket-2-bollywood",
+      "title": "Ticket 2 Bollywood",
+      "subtitle": {
+        "en": "The dance party that started it",
+        "fr": "La soirée dansante qui a tout lancé"
+      },
+      "blurb": {
+        "en": "Art India's first large public event, and an immediate success. A Bollywood dance night that proved there was an audience in Brussels well beyond the Indian community — and became the foundation everything since has been built on.",
+        "fr": "Le premier grand événement public d'Art India, et un succès immédiat. Une soirée de danse Bollywood qui a prouvé qu'il existait à Bruxelles un public bien au-delà de la communauté indienne — et qui est devenue le socle de tout ce qui a suivi."
+      },
+      "premiere": 2015,
+      "languages": {
+        "en": "",
+        "fr": ""
+      },
+      "cast": "",
+      "touring": false,
+      "performances": [
+        {
+          "venue": "Cómo Mola",
+          "city": "Brussels",
+          "country": "BE",
+          "year": 2015
+        }
+      ],
+      "image": ""
+    }
+  ],
+  "presenters": [
+    {
+      "name": "Bozar",
+      "city": "Brussels",
+      "note": {
+        "en": "Centre for Fine Arts",
+        "fr": "Palais des Beaux-Arts"
+      }
+    },
+    {
+      "name": "Gasteig",
+      "city": "Munich",
+      "note": {
+        "en": "Munich's cultural centre",
+        "fr": "Centre culturel de Munich"
+      }
+    },
+    {
+      "name": "Wolubilis",
+      "city": "Brussels",
+      "note": {
+        "en": "Theatre",
+        "fr": "Théâtre"
+      }
+    },
+    {
+      "name": "Atomium",
+      "city": "Brussels",
+      "note": {
+        "en": "Esplanade, since 2017",
+        "fr": "Esplanade, depuis 2017"
+      }
+    },
+    {
+      "name": "European Parliament",
+      "city": "Brussels",
+      "note": {
+        "en": "Esplanade Solidarnosc",
+        "fr": "Esplanade Solidarnosc"
+      }
+    },
+    {
+      "name": "City of Brussels",
+      "city": "",
+      "note": {
+        "en": "Plaisirs d'Été, Bruxelles les Bains",
+        "fr": "Plaisirs d'Été, Bruxelles les Bains"
+      }
+    },
+    {
+      "name": "Embassy of India",
+      "city": "Brussels",
+      "note": {
+        "en": "India@75, Ekta Diwas",
+        "fr": "India@75, Ekta Diwas"
+      }
+    }
+  ]
 }
