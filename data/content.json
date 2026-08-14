@@ -42,7 +42,12 @@
       "nl": "India delen met de wereld"
     },
     "hero_image": "",
-    "hero_video": ""
+    "hero_video": "",
+    "logo": "/static/logo.png",
+    "display_name": {
+      "en": "Art India",
+      "fr": "Art India"
+    }
   },
   "figures": {
     "_comment": "REPLACE before publishing. Set any value to null to hide that figure entirely.",

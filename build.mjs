@@ -193,7 +193,7 @@ function prose(page, lang) {
 function buildContent(key, page, lang) {
   const parts = [];
   parts.push(key === 'index'
-    ? `<p class="eyebrow">Art India ASBL · ${lang === 'fr' ? 'Bruxelles' : 'Brussels'}</p>`
+    ? `<p class="eyebrow">Art India · ${lang === 'fr' ? 'Bruxelles' : 'Brussels'}</p>`
     : `<p class="eyebrow">${esc(t(data.org.motto, lang, 'org.motto'))}</p>`);
   parts.push(`<h1>${esc(t(page.h1, lang, `${key}.h1`))}</h1>`);
   parts.push(`<div class="tri full-rule"><i></i><i></i><i></i></div>`);
@@ -304,6 +304,11 @@ for (const lang of LANGS) {
       .replace(/{{EMAIL_PARTNERS}}/g, esc(data.org.email_partners))
       .replace(/{{FOOTER_NOTE}}/g, esc(t(data.ui.footer_note, lang, 'footer_note')))
       .replace(/{{MOTTO}}/g, esc(t(data.org.motto, lang, 'org.motto')))
+      .replace(/{{LOGO}}/g, data.org.logo
+        ? `<div class="crest band band-night"><img src="${data.org.logo}"
+             srcset="${data.org.logo} 1x, /static/logo@2x.png 2x"
+             alt="Art India" width="230" height="242" loading="lazy"></div>`
+        : '')
       .replace(/{{YEAR}}/g, new Date().getFullYear());
 
     const dir = join(out, lang === DEFAULT ? '' : lang, page.slug);
