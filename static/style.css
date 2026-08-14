@@ -252,7 +252,8 @@ footer{background:var(--indigo);color:var(--onnight-2);padding:60px 0 46px;font-
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 
 /* ---------------- crest ---------------------------------------------------- */
-.crest{display:flex;justify-content:center;padding:64px 0 58px;margin-top:60px}
+.crest{display:flex;justify-content:center;padding:56px 0 64px;margin-top:60px;
+  border-top:1px solid var(--rule)}
 @media(min-width:900px){.crest{margin-top:92px;padding:78px 0 72px}}
 .crest img{width:clamp(150px,20vw,230px);height:auto}
-footer{border-top:none}
+

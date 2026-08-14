@@ -305,9 +305,10 @@ for (const lang of LANGS) {
       .replace(/{{FOOTER_NOTE}}/g, esc(t(data.ui.footer_note, lang, 'footer_note')))
       .replace(/{{MOTTO}}/g, esc(t(data.org.motto, lang, 'org.motto')))
       .replace(/{{LOGO}}/g, data.org.logo
-        ? `<div class="crest band band-night"><img src="${data.org.logo}"
-             srcset="${data.org.logo} 1x, /static/logo@2x.png 2x"
-             alt="Art India" width="230" height="242" loading="lazy"></div>`
+        ? `<div class="crest"><picture>
+             <source srcset="/static/logo.svg" type="image/svg+xml">
+             <img src="${data.org.logo}" srcset="${data.org.logo} 1x, /static/logo@2x.png 2x"
+               alt="Art India" width="230" height="257" loading="lazy"></picture></div>`
         : '')
       .replace(/{{YEAR}}/g, new Date().getFullYear());
 
