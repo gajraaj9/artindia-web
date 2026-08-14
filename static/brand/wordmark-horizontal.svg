@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 92" width="520" height="92" role="img" aria-label="Art India — Sharing India with the world">
-  <text x="0" y="46" font-family="Fraunces, Georgia, 'Times New Roman', serif" font-size="46" font-weight="600" letter-spacing="-1.4" fill="#171410">Art India<tspan fill="#8C6111">.</tspan></text>
-  <line x1="1" y1="62" x2="253" y2="62" stroke="#8C6111" stroke-width="1.4"/>
-  <text x="0" y="82" font-family="Fraunces, Georgia, 'Times New Roman', serif" font-size="17" font-style="italic" fill="#8C6111">Sharing India with the world</text>
+  <text x="0" y="46" font-family="'Rozha One', Georgia, serif" font-size="46" font-weight="400" letter-spacing="-0.4" fill="#14110D">Art India<tspan fill="#B4531C">.</tspan></text>
+  <line x1="1" y1="62" x2="253" y2="62" stroke="#B4531C" stroke-width="1.4"/>
+  <text x="0" y="82" font-family="Mukta, system-ui, sans-serif" font-size="13" font-weight="600" letter-spacing="2.4" fill="#B4531C">SHARING INDIA WITH THE WORLD</text>
 </svg>

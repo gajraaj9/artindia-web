@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 168" width="340" height="168" role="img" aria-label="Art India — Sharing India with the world">
   <g transform="translate(170 0)">
     <g transform="translate(-16 8)"><g transform="scale(1.0)">
-  <path d="M16 3 C20 9 22 12 22 16 a6 6 0 0 1-12 0 c0-4 2-7 6-13z" fill="#FFB03A"/>
-  <path d="M16 9 C18 13 19 15 19 17 a3 3 0 0 1-6 0 c0-2 1-4 3-8z" fill="#FFEFC7"/>
-  <path d="M4 24 h24 c-1 6-6 9-12 9 s-11-3-12-9z" fill="#8C6111"/>
+  <path d="M16 3 C20 9 22 12 22 16 a6 6 0 0 1-12 0 c0-4 2-7 6-13z" fill="#E8A33B"/>
+  <path d="M16 9 C18 13 19 15 19 17 a3 3 0 0 1-6 0 c0-2 1-4 3-8z" fill="#F6DFA6"/>
+  <path d="M4 24 h24 c-1 6-6 9-12 9 s-11-3-12-9z" fill="#B4531C"/>
 </g></g>
-    <text x="0" y="106" text-anchor="middle" font-family="Fraunces, Georgia, 'Times New Roman', serif" font-size="46" font-weight="600" letter-spacing="-1.4" fill="#171410">Art India<tspan fill="#8C6111">.</tspan></text>
-    <line x1="-118" y1="124" x2="118" y2="124" stroke="#8C6111" stroke-width="1.4"/>
-    <text x="0" y="146" text-anchor="middle" font-family="Fraunces, Georgia, 'Times New Roman', serif" font-size="17" font-style="italic" fill="#8C6111">Sharing India with the world</text>
+    <text x="0" y="106" text-anchor="middle" font-family="'Rozha One', Georgia, serif" font-size="46" font-weight="400" letter-spacing="-0.4" fill="#14110D">Art India<tspan fill="#B4531C">.</tspan></text>
+    <line x1="-118" y1="124" x2="118" y2="124" stroke="#B4531C" stroke-width="1.4"/>
+    <text x="0" y="146" text-anchor="middle" font-family="Mukta, system-ui, sans-serif" font-size="13" font-weight="600" letter-spacing="2.4" fill="#B4531C">SHARING INDIA WITH THE WORLD</text>
   </g>
 </svg>

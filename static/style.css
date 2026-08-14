@@ -51,7 +51,7 @@ a:hover{border-bottom-color:var(--rust)}
   padding:10px 14px;z-index:99;border:none}
 
 /* ---------------- the tricolour rule: the structural device ------------- */
-.tri{display:flex;flex-direction:column;width:min(340px,60%);margin:0}
+.tri{display:flex;flex-direction:column;width:min(340px,60%);margin:0;opacity:.5}
 .tri i{display:block;height:3px}
 .tri i:nth-child(1){background:var(--saffron)}
 .tri i:nth-child(2){background:var(--rule)}
