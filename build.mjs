@@ -10,6 +10,7 @@
  */
 
 import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, existsSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -112,6 +113,13 @@ function tiersBlock(lang) {
      taj.jpg  rama.jpg  ...     named after the production id
    An explicit "image" or "hero_video" in content.json still wins.
 ------------------------------------------------------------------ */
+/* Cache-busting. Browsers and the CDN hold on to stylesheets hard; without a
+   fingerprint a design change can look broken for hours. The hash changes only
+   when the file does. */
+const CSS_HASH = createHash('sha1')
+  .update(readFileSync(join(HERE, 'static/style.css')))
+  .digest('hex').slice(0, 8);
+
 const MEDIA_DIR = join(HERE, 'static/media');
 const MEDIA = existsSync(MEDIA_DIR) ? readdirSync(MEDIA_DIR) : [];
 
@@ -311,6 +319,7 @@ for (const lang of LANGS) {
       .replace(/{{DESCRIPTION}}/g, esc(desc))
       .replace(/{{CANONICAL}}/g, SITE + path(lang, page.slug))
       .replace(/{{ALTERNATES}}/g, alternates)
+      .replace(/{{CSSV}}/g, CSS_HASH)
       .replace(/{{ROOT}}/g, lang === DEFAULT && !page.slug ? '' : (page.slug ? '../' : '') + (lang === DEFAULT ? '' : '../'))
       .replace(/{{ORGJSONLD}}/g, orgJsonLd)
       .replace(/{{SKIP}}/g, esc(t(data.ui.skip, lang, 'ui.skip')))
