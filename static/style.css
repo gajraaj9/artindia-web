@@ -137,7 +137,8 @@ section{margin-top:60px}
 .hero{margin-top:52px}
 .hero-inner{position:relative;width:100%;aspect-ratio:2.35/1;max-height:66vh;
   background:var(--indigo);overflow:hidden}
-.hero-inner video,.hero-inner img{width:100%;height:100%;object-fit:cover}
+.hero-inner video,.hero-inner img,.hero-inner picture{width:100%;height:100%;display:block}
+.hero-inner video,.hero-inner img{object-fit:cover}
 .hero-inner.awaiting{display:flex;align-items:flex-end;background:var(--paper-2)}
 .hero-inner.awaiting span{font-size:14.5px;font-weight:500;color:var(--ink-3);padding:20px 24px}
 .bleed{margin-left:calc(var(--pad) * -1);margin-right:calc(var(--pad) * -1);max-width:100vw}

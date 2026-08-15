@@ -12,6 +12,13 @@
 #
 set -euo pipefail
 
+# The script copies a new version of itself over itself at step 1. Bash reads a
+# script incrementally from disk, so without this wrapper it would carry on
+# reading the *new* file from the old byte offset and land mid-word. Wrapping
+# everything in a function forces bash to parse the whole file up front.
+main() {
+
+
 BOLD=$'\033[1m'; DIM=$'\033[2m'; RED=$'\033[31m'; GRN=$'\033[32m'
 YEL=$'\033[33m'; BLU=$'\033[36m'; OFF=$'\033[0m'
 
@@ -36,6 +43,7 @@ cd "$(dirname "$0")"
 [ -f build.mjs ]        || die "build.mjs not found — run this from the artindia folder."
 [ -d .git ]             || die "This folder is not a git repository."
 command -v node >/dev/null || die "Node is not installed."
+command -v npm  >/dev/null || die "npm is not installed."
 
 # generated output must never be committed
 for p in "dist/" "node_modules/" ".wrangler/" ".DS_Store"; do
@@ -67,6 +75,10 @@ fi
 
 # ---------------------------------------------------------------- 2. build
 step "2 · Building"
+if [ -f package.json ] && [ ! -d node_modules ]; then
+  say "  installing build dependencies (first run only)…"
+  npm install --silent
+fi
 rm -rf dist
 if ! OUTPUT=$(node build.mjs 2>&1); then
   say "$OUTPUT"
@@ -134,3 +146,6 @@ TITLE=$(curl -s --max-time 12 https://artindia.be | sed -n 's/.*<title>\(.*\)<\/
 [ -n "$TITLE" ] && say "${DIM}  live title: $TITLE${OFF}"
 
 printf "\n${GRN}${BOLD}Done.${OFF}\n\n"
+}
+
+main "$@"

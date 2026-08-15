@@ -11,6 +11,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, existsSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { Images } from './images.mjs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -72,7 +73,7 @@ function festivalCards(lang) {
         <p>${esc(t(f.blurb, lang, `festival ${f.id} blurb`))}</p>
         <p class="status">${esc(t(f.status, lang, 'status'))}</p>
       </div>
-      ${plate(image(f.id, f.image), '', lang)}
+      ${plate(f.id, '', lang)}
     </article>`;
   }).join('') + `</div>`;
 }
@@ -106,57 +107,54 @@ function tiersBlock(lang) {
 
 
 /* ------------------------------------------------------------------
-   Media by convention. Drop a file into static/media named after the
-   thing it belongs to and it appears — no JSON editing needed.
-     hero.mp4 / hero.jpg        the homepage hero
-     diwali.jpg  yoga.jpg  ...  named after the festival id
-     taj.jpg  rama.jpg  ...     named after the production id
-   An explicit "image" or "hero_video" in content.json still wins.
+   Images. Drop originals into media/ named after what they belong to:
+     hero.jpg            the homepage hero
+     diwali.jpg          named after the festival id
+     taj.jpg             named after the production id
+   Add --bottom, --top or --60 to shift the focal point. Sizes, formats
+   and srcset are generated automatically; nothing is cropped by hand.
 ------------------------------------------------------------------ */
-/* Cache-busting. Browsers and the CDN hold on to stylesheets hard; without a
-   fingerprint a design change can look broken for hours. The hash changes only
-   when the file does. */
 const CSS_HASH = createHash('sha1')
   .update(readFileSync(join(HERE, 'static/style.css')))
   .digest('hex').slice(0, 8);
 
-const MEDIA_DIR = join(HERE, 'static/media');
-const MEDIA = existsSync(MEDIA_DIR) ? readdirSync(MEDIA_DIR) : [];
-
-function media(stem, exts) {
-  for (const e of exts) {
-    const f = MEDIA.find(m => m.toLowerCase() === `${stem}.${e}`);
-    if (f) return `/static/media/${f}`;
-  }
-  return '';
-}
-const image = (stem, explicit) => explicit || media(stem, ['jpg', 'jpeg', 'png', 'webp', 'avif']);
-const video = (stem, explicit) => explicit || media(stem, ['mp4', 'webm']);
+const IMG = new Images(join(HERE, 'media'), join(HERE, '.cache/img'));
 
 const TRI = '<div class="tri"><i></i><i></i><i></i></div>';
 
+/* Video stays a simple file drop: media/hero.mp4 */
+const heroVideo = (() => {
+  const p = join(HERE, 'media/hero.mp4');
+  return existsSync(p) ? '/static/media/hero.mp4' : (data.org.hero_video || '');
+})();
+
 function heroMedia(lang) {
-  const v = video('hero', data.org.hero_video);
-  const img = image('hero', data.org.hero_image);
-  const wait = lang === 'fr' ? 'Vidéo d’archive à venir' : 'Archive film to come';
+  const v = heroVideo;
   if (v) {
     return `<section class="hero bleed"><div class="hero-inner">
-      <video autoplay muted loop playsinline ${img ? `poster="${img}"` : ''}>
-        <source src="${v}" type="video/mp4"></video></div></section>`;
+      <video autoplay muted loop playsinline><source src="${v}" type="video/mp4"></video>
+      </div></section>`;
   }
-  if (img) {
-    return `<section class="hero bleed"><div class="hero-inner"><img src="${img}" alt=""></div></section>`;
+  if (IMG.has('hero')) {
+    return `<section class="hero bleed"><div class="hero-inner">${
+      IMG.tag('hero', { alt: '', sizes: '100vw', eager: true })}</div></section>`;
   }
   return '';
 }
 
-function plate(img, caption, lang, cls = '') {
+function plate(stem, caption, lang, cls = '') {
   const wanted = lang === 'fr' ? 'Image d’archive à venir' : 'Archive image to come';
-  if (!img) {
+  if (!IMG.has(stem)) {
     return `<div class="awaiting ${cls}"><span>${esc(caption || wanted)}</span></div>`;
   }
-  return `<figure class="plate"><img src="${img}" alt="${esc(caption || '')}" loading="lazy">${
-    caption ? `<figcaption>${esc(caption)}</figcaption>` : ''}</figure>`;
+  const ratio = cls.includes('tall') ? '4/5' : '16/9';
+  const tag = IMG.tag(stem, {
+    alt: caption || '',
+    sizes: '(min-width:820px) 46vw, 100vw',
+    ratio,
+    className: `plate ${cls}`,
+  });
+  return caption ? `<figure>${tag}<figcaption>${esc(caption)}</figcaption></figure>` : tag;
 }
 
 function armsBlock(lang) {
@@ -200,7 +198,7 @@ function productionsBlock(lang) {
       <p class="prod-sub">${esc(t(p.subtitle, lang, `production ${p.id} subtitle`))}</p>
       <div class="prod-grid">
         <div>
-          ${plate(image(p.id, p.image), '', lang, 'tall')}
+          ${plate(p.id, '', lang, 'tall')}
         </div>
         <div>
           <p class="prod-blurb">${esc(t(p.blurb, lang, `production ${p.id} blurb`))}</p>
@@ -287,6 +285,12 @@ const out = join(HERE, 'dist');
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 
+const wanted = ['hero',
+  ...data.festivals.map(f => f.id),
+  ...(data.productions || []).map(p => p.id)];
+for (const stem of wanted) { if (IMG.has(stem)) await IMG.prepare(stem); }
+IMG.save();
+
 let count = 0;
 for (const lang of LANGS) {
   for (const key of ORDER) {
@@ -351,6 +355,13 @@ for (const lang of LANGS) {
 }
 
 cpSync(join(HERE, 'static'), join(out, 'static'), { recursive: true });
+if (existsSync(join(HERE, '.cache/img'))) {
+  cpSync(join(HERE, '.cache/img'), join(out, 'static/img'), { recursive: true });
+}
+if (existsSync(join(HERE, 'media/hero.mp4'))) {
+  mkdirSync(join(out, 'static/media'), { recursive: true });
+  cpSync(join(HERE, 'media/hero.mp4'), join(out, 'static/media/hero.mp4'));
+}
 
 // sitemap + robots
 const urls = LANGS.flatMap(l => ORDER.map(k => `<url><loc>${SITE}${path(l, data.pages[k].slug)}</loc></url>`));
@@ -358,8 +369,7 @@ writeFileSync(join(out, 'sitemap.xml'),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`);
 writeFileSync(join(out, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`);
 
-const found = MEDIA.filter(f => !f.startsWith('.') && f !== 'README.md');
-if (found.length) console.log(`\nMedia in use: ${found.join(', ')}`);
+console.log(`\n${IMG.report()}`);
 console.log(`\nBuilt ${count} pages across ${LANGS.length} languages → dist/`);
 if (problems.length) {
   console.error(`\n${problems.length} problem(s):`);
