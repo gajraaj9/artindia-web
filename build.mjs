@@ -11,7 +11,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, existsSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { Images } from './images.mjs';
+import { Images, parseName } from './images.mjs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -73,7 +73,7 @@ function festivalCards(lang) {
         <p>${esc(t(f.blurb, lang, `festival ${f.id} blurb`))}</p>
         <p class="status">${esc(t(f.status, lang, 'status'))}</p>
       </div>
-      ${plate(f.id, '', lang)}
+      ${plate(stemFor(f.id, f.image), '', lang)}
     </article>`;
   }).join('') + `</div>`;
 }
@@ -120,6 +120,19 @@ const CSS_HASH = createHash('sha1')
 
 const IMG = new Images(join(HERE, 'media'), join(HERE, '.cache/img'));
 
+/* Two ways an image can arrive:
+   — dropped into media/ named after the thing  (media/diwali.jpg)
+   — uploaded through /admin, which records its own path in content.json
+   Resolve either to a stem the pipeline understands. */
+function stemFor(id, explicit) {
+  if (explicit) {
+    const file = explicit.split('/').pop();
+    const { stem } = parseName(file);
+    if (IMG.has(stem)) return stem;
+  }
+  return id;
+}
+
 const TRI = '<div class="tri"><i></i><i></i><i></i></div>';
 
 /* Video stays a simple file drop: media/hero.mp4 */
@@ -135,9 +148,10 @@ function heroMedia(lang) {
       <video autoplay muted loop playsinline><source src="${v}" type="video/mp4"></video>
       </div></section>`;
   }
-  if (IMG.has('hero')) {
+  const heroStem = stemFor('hero', data.org.hero_image);
+  if (IMG.has(heroStem)) {
     return `<section class="hero bleed"><div class="hero-inner">${
-      IMG.tag('hero', { alt: '', sizes: '100vw', eager: true })}</div></section>`;
+      IMG.tag(heroStem, { alt: '', sizes: '100vw', eager: true })}</div></section>`;
   }
   return '';
 }
@@ -198,7 +212,7 @@ function productionsBlock(lang) {
       <p class="prod-sub">${esc(t(p.subtitle, lang, `production ${p.id} subtitle`))}</p>
       <div class="prod-grid">
         <div>
-          ${plate(p.id, '', lang, 'tall')}
+          ${plate(stemFor(p.id, p.image), '', lang, 'tall')}
         </div>
         <div>
           <p class="prod-blurb">${esc(t(p.blurb, lang, `production ${p.id} blurb`))}</p>
@@ -285,9 +299,10 @@ const out = join(HERE, 'dist');
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 
-const wanted = ['hero',
-  ...data.festivals.map(f => f.id),
-  ...(data.productions || []).map(p => p.id)];
+const wanted = [
+  stemFor('hero', data.org.hero_image),
+  ...data.festivals.map(f => stemFor(f.id, f.image)),
+  ...(data.productions || []).map(p => stemFor(p.id, p.image))];
 for (const stem of wanted) { if (IMG.has(stem)) await IMG.prepare(stem); }
 IMG.save();
 
@@ -355,6 +370,9 @@ for (const lang of LANGS) {
 }
 
 cpSync(join(HERE, 'static'), join(out, 'static'), { recursive: true });
+if (existsSync(join(HERE, 'admin'))) {
+  cpSync(join(HERE, 'admin'), join(out, 'admin'), { recursive: true });
+}
 if (existsSync(join(HERE, '.cache/img'))) {
   cpSync(join(HERE, '.cache/img'), join(out, 'static/img'), { recursive: true });
 }
@@ -367,7 +385,8 @@ if (existsSync(join(HERE, 'media/hero.mp4'))) {
 const urls = LANGS.flatMap(l => ORDER.map(k => `<url><loc>${SITE}${path(l, data.pages[k].slug)}</loc></url>`));
 writeFileSync(join(out, 'sitemap.xml'),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`);
-writeFileSync(join(out, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`);
+writeFileSync(join(out, 'robots.txt'),
+  `User-agent: *\nAllow: /\nDisallow: /admin/\nSitemap: ${SITE}/sitemap.xml\n`);
 
 console.log(`\n${IMG.report()}`);
 console.log(`\nBuilt ${count} pages across ${LANGS.length} languages → dist/`);

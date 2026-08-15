@@ -1,0 +1,241 @@
+backend:
+  name: github
+  repo: gajraaj9/artindia-web
+  branch: main
+
+media_folder: media
+public_folder: /media
+
+site_url: https://artindia.be
+display_url: https://artindia.be
+logo_url: /static/logo.png
+
+# Every bilingual value in content.json is { en, fr }, so each one is an
+# object with two fields rather than Decap's locale modes. Keeps the data
+# shape exactly as the build expects.
+
+collections:
+  # ------------------------------------------------------------------ pages
+  - name: pages
+    label: Pages
+    label_singular: Page
+    description: The words on each page of artindia.be
+    files:
+      - name: index
+        label: Home
+        file: data/content.json
+        fields:
+          - { name: pages, label: " ", widget: object, fields: [
+              { name: index, label: Home page, widget: object, fields: [
+                { name: title, label: Browser tab title, widget: object, fields: [
+                  { name: en, label: English, widget: string },
+                  { name: fr, label: Français, widget: string } ] },
+                { name: description, label: "Search result text (max 160 characters)", widget: object, fields: [
+                  { name: en, label: English, widget: text },
+                  { name: fr, label: Français, widget: text } ] },
+                { name: h1, label: Headline, widget: object, fields: [
+                  { name: en, label: English, widget: string },
+                  { name: fr, label: Français, widget: string } ] },
+                { name: lede, label: Opening paragraph, widget: object, fields: [
+                  { name: en, label: English, widget: text },
+                  { name: fr, label: Français, widget: text } ] },
+                { name: body, label: Body paragraphs, widget: object, fields: [
+                  { name: en, label: English, widget: list, field: { name: p, label: Paragraph, widget: text } },
+                  { name: fr, label: Français, widget: list, field: { name: p, label: Paragraphe, widget: text } } ] },
+                { name: slug, widget: hidden } ] } ] }
+
+  # -------------------------------------------------------------- festivals
+  - name: festivals
+    label: Festivals
+    files:
+      - name: all
+        label: All festivals
+        file: data/content.json
+        fields:
+          - name: festivals
+            label: Festivals
+            widget: list
+            label_singular: Festival
+            summary: "{{fields.name.en}}"
+            fields:
+              - { name: id, label: "Short id (also the image filename)", widget: string }
+              - { name: name, label: Name, widget: object, fields: [
+                  { name: en, label: English, widget: string },
+                  { name: fr, label: Français, widget: string } ] }
+              - { name: when, label: When, widget: object, fields: [
+                  { name: en, label: English, widget: string },
+                  { name: fr, label: Français, widget: string } ] }
+              - { name: where, label: Where, widget: object, fields: [
+                  { name: en, label: English, widget: string },
+                  { name: fr, label: Français, widget: string } ] }
+              - { name: blurb, label: Description, widget: object, fields: [
+                  { name: en, label: English, widget: text },
+                  { name: fr, label: Français, widget: text } ] }
+              - { name: status, label: Status line, widget: object, fields: [
+                  { name: en, label: English, widget: string },
+                  { name: fr, label: Français, widget: string } ] }
+              - { name: url, label: Website, widget: string, required: false }
+              - { name: image, label: Photograph, widget: image, required: false,
+                  hint: "Full size straight off the camera. It gets resized automatically." }
+
+  # ------------------------------------------------------------ productions
+  - name: productions
+    label: Productions
+    files:
+      - name: all
+        label: All productions
+        file: data/content.json
+        fields:
+          - name: productions
+            label: Productions
+            widget: list
+            label_singular: Production
+            summary: "{{fields.title}}"
+            fields:
+              - { name: id, label: "Short id (also the image filename)", widget: string }
+              - { name: title, label: Title, widget: string }
+              - { name: subtitle, label: Subtitle, widget: object, fields: [
+                  { name: en, label: English, widget: string },
+                  { name: fr, label: Français, widget: string } ] }
+              - { name: blurb, label: Description, widget: object, fields: [
+                  { name: en, label: English, widget: text },
+                  { name: fr, label: Français, widget: text } ] }
+              - { name: premiere, label: First staged, widget: number, required: false, value_type: int }
+              - { name: languages, label: Performed in, widget: object, required: false, fields: [
+                  { name: en, label: English, widget: string, required: false },
+                  { name: fr, label: Français, widget: string, required: false } ] }
+              - { name: cast, label: Cast size, widget: string, required: false }
+              - { name: touring, label: Available for programming, widget: boolean, default: false }
+              - name: performances
+                label: Performance history
+                widget: list
+                required: false
+                summary: "{{fields.year}} — {{fields.venue}}, {{fields.city}}"
+                fields:
+                  - { name: venue, label: Venue, widget: string, required: false }
+                  - { name: city, label: City, widget: string }
+                  - { name: country, label: Country code, widget: string, required: false }
+                  - { name: year, label: Year, widget: number, required: false, value_type: int }
+              - { name: image, label: Photograph, widget: image, required: false }
+
+  # ------------------------------------------------------------ the numbers
+  - name: figures
+    label: Numbers & venues
+    files:
+      - name: figures
+        label: Figures and venues
+        file: data/content.json
+        fields:
+          - name: figures
+            label: Figures on the site
+            widget: object
+            fields:
+              - { name: editions, label: Editions since 2016, widget: number, required: false, value_type: int }
+              - { name: visitors_2025, label: "Visitors in 2025 (leave empty to hide)", widget: number, required: false, value_type: int }
+              - { name: stalls_2025, label: Stalls and traders, widget: number, required: false, value_type: int }
+              - { name: performers_2025, label: "Performers (leave empty to hide)", widget: number, required: false, value_type: int }
+          - name: presenters
+            label: Where our work has been staged
+            widget: list
+            label_singular: Venue
+            summary: "{{fields.name}} — {{fields.city}}"
+            fields:
+              - { name: name, label: Venue, widget: string }
+              - { name: city, label: City, widget: string, required: false }
+              - { name: note, label: Note, widget: object, required: false, fields: [
+                  { name: en, label: English, widget: string, required: false },
+                  { name: fr, label: Français, widget: string, required: false } ] }
+
+  # ---------------------------------------------------------- other pages
+  - name: otherpages
+    label: Other pages
+    files:
+      - name: rest
+        label: Organisation, Ten years, Partners, Press
+        file: data/content.json
+        fields:
+          - name: pages
+            label: " "
+            widget: object
+            fields:
+              - { name: organisation, label: Organisation, widget: object, fields: [
+                  { name: h1, label: Headline, widget: object, fields: [
+                    { name: en, widget: string, label: English }, { name: fr, widget: string, label: Français } ] },
+                  { name: lede, label: Opening paragraph, widget: object, fields: [
+                    { name: en, widget: text, label: English }, { name: fr, widget: text, label: Français } ] },
+                  { name: body, label: Body paragraphs, widget: object, fields: [
+                    { name: en, widget: list, label: English, field: { name: p, widget: text, label: Paragraph } },
+                    { name: fr, widget: list, label: Français, field: { name: p, widget: text, label: Paragraphe } } ] },
+                  { name: title, widget: hidden }, { name: description, widget: hidden }, { name: slug, widget: hidden } ] }
+              - { name: ten-years, label: Ten years, widget: object, fields: [
+                  { name: h1, label: Headline, widget: object, fields: [
+                    { name: en, widget: string, label: English }, { name: fr, widget: string, label: Français } ] },
+                  { name: lede, label: Opening paragraph, widget: object, fields: [
+                    { name: en, widget: text, label: English }, { name: fr, widget: text, label: Français } ] },
+                  { name: body, label: Body paragraphs, widget: object, fields: [
+                    { name: en, widget: list, label: English, field: { name: p, widget: text, label: Paragraph } },
+                    { name: fr, widget: list, label: Français, field: { name: p, widget: text, label: Paragraphe } } ] },
+                  { name: title, widget: hidden }, { name: description, widget: hidden }, { name: slug, widget: hidden } ] }
+              - { name: partners, label: Partners, widget: object, fields: [
+                  { name: h1, label: Headline, widget: object, fields: [
+                    { name: en, widget: string, label: English }, { name: fr, widget: string, label: Français } ] },
+                  { name: lede, label: Opening paragraph, widget: object, fields: [
+                    { name: en, widget: text, label: English }, { name: fr, widget: text, label: Français } ] },
+                  { name: body, label: Body paragraphs, widget: object, fields: [
+                    { name: en, widget: list, label: English, field: { name: p, widget: text, label: Paragraph } },
+                    { name: fr, widget: list, label: Français, field: { name: p, widget: text, label: Paragraphe } } ] },
+                  { name: title, widget: hidden }, { name: description, widget: hidden }, { name: slug, widget: hidden } ] }
+              - { name: press, label: Press, widget: object, fields: [
+                  { name: h1, label: Headline, widget: object, fields: [
+                    { name: en, widget: string, label: English }, { name: fr, widget: string, label: Français } ] },
+                  { name: lede, label: Opening paragraph, widget: object, fields: [
+                    { name: en, widget: text, label: English }, { name: fr, widget: text, label: Français } ] },
+                  { name: body, label: Body paragraphs, widget: object, fields: [
+                    { name: en, widget: list, label: English, field: { name: p, widget: text, label: Paragraph } },
+                    { name: fr, widget: list, label: Français, field: { name: p, widget: text, label: Paragraphe } } ] },
+                  { name: title, widget: hidden }, { name: description, widget: hidden }, { name: slug, widget: hidden } ] }
+              - { name: festivals, widget: hidden }
+              - { name: productions, widget: hidden }
+              - { name: index, widget: hidden }
+
+  # ------------------------------------------------------- the organisation
+  - name: org
+    label: Contact & legal
+    files:
+      - name: org
+        label: Organisation details
+        file: data/content.json
+        fields:
+          - name: org
+            label: " "
+            widget: object
+            fields:
+              - { name: legal_name, label: Legal name, widget: string }
+              - { name: vat, label: VAT number, widget: string }
+              - { name: address, label: Registered address, widget: string }
+              - { name: founded, label: Founded, widget: number, value_type: int }
+              - { name: email_general, label: General email, widget: string }
+              - { name: email_partners, label: Partnerships email, widget: string }
+              - { name: motto, label: Motto, widget: object, fields: [
+                  { name: en, label: English, widget: string },
+                  { name: fr, label: Français, widget: string },
+                  { name: nl, label: Nederlands, widget: string, required: false } ] }
+              - name: board
+                label: Board
+                widget: list
+                label_singular: Board member
+                summary: "{{fields.name}}"
+                fields:
+                  - { name: name, label: Name, widget: string }
+                  - { name: role, label: Role, widget: object, fields: [
+                      { name: en, label: English, widget: string },
+                      { name: fr, label: Français, widget: string } ] }
+              - { name: social, label: Social links, widget: object, required: false, fields: [
+                  { name: instagram, widget: string, required: false, label: Instagram },
+                  { name: facebook, widget: string, required: false, label: Facebook },
+                  { name: linkedin, widget: string, required: false, label: LinkedIn } ] }
+              - { name: hero_video, widget: hidden }
+              - { name: hero_image, widget: hidden }
+              - { name: logo, widget: hidden }
+              - { name: display_name, widget: hidden }
+              - { name: portfolio, widget: hidden }
