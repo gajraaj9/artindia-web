@@ -77,9 +77,15 @@ a:hover{border-bottom-color:var(--rust)}
 header{border-bottom:1px solid var(--rule);background:var(--paper);position:sticky;top:0;z-index:20}
 .head{display:flex;align-items:baseline;justify-content:space-between;
   gap:12px 28px;padding-block:16px;flex-wrap:wrap}
-.brand{font-family:var(--display);font-size:26px;letter-spacing:-.005em;
-  border:none;padding:0;white-space:nowrap;line-height:1}
-.brand span{color:var(--rust)}
+.brand{display:flex;align-items:center;gap:11px;border:none;padding:0;
+  white-space:nowrap;line-height:1}
+.brand img{width:38px;height:auto;flex:none}
+.brand-name{font-family:var(--display);font-size:23px;letter-spacing:1.4px;
+  color:var(--ink);line-height:1}
+@media(max-width:719px){
+  .brand img{width:32px}
+  .brand-name{font-size:20px;letter-spacing:1.1px}
+}
 nav.main{display:flex;gap:2px 22px;flex-wrap:wrap;align-items:baseline}
 nav.main a{font-size:15.5px;font-weight:500;color:var(--ink-2);border:none;padding:0;
   letter-spacing:.01em}
