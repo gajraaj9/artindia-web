@@ -46,7 +46,7 @@ command -v node >/dev/null || die "Node is not installed."
 command -v npm  >/dev/null || die "npm is not installed."
 
 # generated output must never be committed
-for p in "dist/" "node_modules/" ".wrangler/" ".DS_Store"; do
+for p in "dist/" "dist-diwali/" ".cache/" "node_modules/" ".wrangler/" ".DS_Store" "package-lock.json"; do
   grep -qxF "$p" .gitignore 2>/dev/null || echo "$p" >> .gitignore
 done
 git ls-files --error-unmatch dist >/dev/null 2>&1 && git rm -rq --cached dist || true
@@ -127,9 +127,13 @@ fi
 
 # ---------------------------------------------------------------- 5. holding page
 if [ "$HOLDING" = 1 ]; then
-  step "5 · Deploying the Diwali holding page"
-  [ -d diwali-holding ] || die "diwali-holding/ folder not found."
-  npx wrangler pages deploy diwali-holding --project-name=diwali-2026 --commit-dirty=true
+  step "5 · Deploying diwali.artindia.be"
+  if [ -f build-diwali.mjs ]; then
+    node build-diwali.mjs | sed 's/^/  /'
+    npx wrangler pages deploy dist-diwali --project-name=diwali-2026 --commit-dirty=true
+  else
+    npx wrangler pages deploy diwali-holding --project-name=diwali-2026 --commit-dirty=true
+  fi
   ok "diwali.artindia.be updated"
 fi
 

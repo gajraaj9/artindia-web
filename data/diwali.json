@@ -1,0 +1,94 @@
+{
+  "event": {
+    "name": "Brussels Diwali Festival",
+    "edition": "10th edition",
+    "place": "Atomium Esplanade, Brussels",
+    "days": [
+      { "label": "Saturday", "date": "24 October 2026", "hours": "12:00 — 23:00" },
+      { "label": "Sunday", "date": "25 October 2026", "hours": "12:00 — 22:00" }
+    ],
+    "theme": "Culture United",
+    "tagline": "Europe celebrates Diwali",
+    "sale_opens": "2026-09-05T10:00:00+02:00",
+    "price_from": "€10",
+    "ticket_url": ""
+  },
+
+  "intro": {
+    "kicker": "Ten years of light",
+    "heading": "The festival of lights returns to the Atomium",
+    "body": [
+      "For ten years the Brussels Diwali Festival has filled the esplanade of the Atomium with music, dance, food and light. It is the largest celebration of Diwali in Belgium, and it is free to walk through.",
+      "The tenth edition carries the theme Culture United. For the first time, European embassies and cultural institutes join us — each pairing a tradition of their own with an Indian one, along an avenue of lights running the length of the esplanade."
+    ]
+  },
+
+  "highlights": [
+    {
+      "id": "tickets",
+      "kicker": "Tickets",
+      "title": "From €10",
+      "text": "Tickets go on sale 5 September. Children under 12 come free, and there is a family bundle at €25.",
+      "cta": "Register for first access",
+      "href": "#register",
+      "image": "diwali-tickets"
+    },
+    {
+      "id": "culture-united",
+      "kicker": "The 2026 theme",
+      "title": "Culture United",
+      "text": "European embassies and cultural institutes celebrate alongside us, each bringing a tradition of their own.",
+      "cta": "More about the theme",
+      "href": "#culture-united",
+      "image": "diwali-culture"
+    },
+    {
+      "id": "food",
+      "kicker": "Food & bazaar",
+      "title": "Forty kitchens",
+      "text": "Regional cooking from across India, a bazaar of crafts and textiles, and bars along the esplanade. Card only, no cash.",
+      "cta": "See the traders",
+      "href": "#food",
+      "image": "diwali-food"
+    }
+  ],
+
+  "practical": [
+    {
+      "q": "Getting there",
+      "a": "Heysel / Heizel on metro line 6, two minutes from the esplanade. Tram 7 and 51 stop nearby. Parking C is a short walk. We would rather you came by metro — the site fills quickly and parking does not."
+    },
+    {
+      "q": "Card only, no cash",
+      "a": "Every bar and kitchen on site takes card and contactless only. There is no cash on the esplanade and no cash machine. Bring a card or your phone."
+    },
+    {
+      "q": "Coming with children",
+      "a": "Children under 12 come free and do not need a ticket. There is a children's area with workshops and storytelling, and a family bundle at €25 covers two adults and two children."
+    },
+    {
+      "q": "Walking through for free",
+      "a": "A public route runs the length of the esplanade, open and unticketed, so anyone can pass between the Heysel metro and the Atomium without buying a ticket. The festival grounds sit either side of it."
+    },
+    {
+      "q": "If it rains",
+      "a": "The festival goes ahead in any weather — stages are covered and much of the food is under canvas. Tickets are not refundable for rain. Bring a coat; Brussels in October is Brussels in October."
+    },
+    {
+      "q": "Accessibility",
+      "a": "The esplanade is flat and step-free throughout. Accessible toilets are next to the main stage. If you are coming with a wheelchair or need assistance, write to us beforehand and we will make sure someone meets you at the gate."
+    }
+  ],
+
+  "gallery": [
+    "diwali-hero", "diwali", "diwali-g3", "diwali-g4", "diwali-g5", "diwali-g6"
+  ],
+
+  "footer": {
+    "org": "Art India ASBL",
+    "address": "Avenue du Centaure 73, 1200 Woluwe-Saint-Lambert",
+    "vat": "BE 1007.072.905",
+    "email": "diwali@artindia.be",
+    "partners_email": "partners@artindia.be"
+  }
+}
