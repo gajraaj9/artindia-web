@@ -208,7 +208,7 @@ if (el) {
   const days = Math.ceil((SALE - new Date()) / 86400000);
   el.textContent = days > 0 ? days + ' days until tickets open' : 'On sale now';
 }
-const FORM_ENDPOINT = "";
+const FORM_ENDPOINT = "/api/register";
 const form = document.getElementById('signup');
 const err = document.getElementById('err'), done = document.getElementById('done');
 form.addEventListener('submit', async e => {
@@ -219,10 +219,17 @@ form.addEventListener('submit', async e => {
     form.email.focus(); return;
   }
   err.hidden = true;
-  if (FORM_ENDPOINT) {
-    try { await fetch(FORM_ENDPOINT, { method: 'POST',
+  const btn = form.querySelector('button');
+  btn.disabled = true; btn.textContent = 'Registering…';
+  try {
+    const r = await fetch(FORM_ENDPOINT, { method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, source: 'diwali-2026' }) }); } catch (_) {}
+      body: JSON.stringify({ email, source: 'diwali-2026' }) });
+    if (!r.ok) throw new Error('failed');
+  } catch (_) {
+    btn.disabled = false; btn.textContent = 'Register';
+    err.textContent = "Something went wrong. Please try again, or write to diwali@artindia.be.";
+    err.hidden = false; return;
   }
   form.querySelector('.field').hidden = true;
   done.hidden = false;
@@ -242,6 +249,9 @@ for (const f of ['favicon.svg', 'og-diwali.png']) {
 }
 if (existsSync(join(HERE, '.cache/img'))) {
   cpSync(join(HERE, '.cache/img'), join(out, 'static/img'), { recursive: true });
+}
+if (existsSync(join(HERE, 'functions'))) {
+  cpSync(join(HERE, 'functions'), join(out, 'functions'), { recursive: true });
 }
 writeFileSync(join(out, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`);
 writeFileSync(join(out, 'sitemap.xml'),

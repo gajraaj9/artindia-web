@@ -264,3 +264,11 @@ footer{background:var(--indigo);color:var(--onnight-2);padding:60px 0 46px;font-
 @media(min-width:900px){.crest{margin-top:92px;padding:78px 0 72px}}
 .crest img{width:clamp(150px,20vw,230px);height:auto}
 
+
+/* ---------------- images ----------------------------------------------- */
+/* The <picture> carries an inline aspect-ratio; the image fills that box and
+   crops rather than stretching. Never set both width and height to 100% here —
+   that overrides the ratio and squashes the photograph. */
+picture{display:block;width:100%}
+picture img{width:100%;height:auto;object-fit:cover}
+.hero-inner picture,.hero-inner picture img{height:100%}
