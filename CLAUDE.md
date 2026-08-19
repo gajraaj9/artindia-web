@@ -71,7 +71,7 @@ Locked for Diwali 2026:
 - 10th edition. First edition 2016.
 - **24–25 October 2026**, Atomium Esplanade, Brussels.
 - Two days.
-- Tickets: **€10 online** (5 Sep – 18 Oct) → **€12 online / €15 at the gate** from 18 Oct. Family bundle **€25**, capped at 1,000 units. No discount below €10, ever.
+- Tickets on sale **1 September 2026**. **€10 online** (1–30 Sep) → **€12 online** (1–23 Oct) → **€15 at the gate**. Children under 12 free, event band required. No family bundle. No booking fee, no service charge. No discount below €10, ever.
 - **Card only across the whole site.** No cash.
 - Theme: *Culture United* — tagline *Europe Celebrates Diwali*.
 - Organiser: Art India ASBL, Avenue du Centaure 73, 1200 Woluwe-Saint-Lambert. VAT BE 1007.072.905.

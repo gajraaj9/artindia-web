@@ -61,8 +61,8 @@ function hero() {
     <div class="lamps">${Array.from({ length: 10 }, (_, i) => lamp(i === 9 ? 1.5 : 1)).join('')}</div>
     <div class="days">${days}</div>
     <div class="hero-actions">
-      <a class="btn" href="#register">Tickets from ${esc(d.event.price_from)}</a>
-      <span class="btn-note" id="countdown">On sale 5 September</span>
+      <a class="btn" href="#register">Weekend tickets from ${esc(d.event.price_from)}</a>
+      <span class="btn-note" id="countdown">On sale 1 September</span>
     </div>
   </div>
   <a class="hero-scroll" href="#intro" aria-label="Read on"></a>
@@ -147,12 +147,23 @@ function practical() {
     <div class="accordion">${items}</div></div></section>`;
 }
 
+function prices() {
+  const t = d.tickets;
+  if (!t || !t.rows) return '';
+  const rows = t.rows.map(r => `<li>
+      <span class="p">${esc(r.price)}</span>
+      <span class="w">${esc(r.when)}</span></li>`).join('');
+  return `<ul class="prices">${rows}</ul>
+    ${t.note ? `<p class="price-note">${esc(t.note)}</p>` : ''}`;
+}
+
 function register() {
   return `<section class="band register" id="register">
   <div class="wrap col">
-    <p class="kicker gold">Tickets on sale 5 September 2026</p>
+    <p class="kicker gold">Tickets on sale 1 September 2026</p>
     <h2>Be first through the gate</h2>
     <p class="lede">Register now and we will write to you the morning tickets open. One email, nothing else.</p>
+    ${prices()}
     <form id="signup" novalidate>
       <div class="field">
         <label class="sr" for="email">Email address</label>
@@ -160,7 +171,7 @@ function register() {
         <button class="btn" type="submit">Register</button>
       </div>
       <p class="err" id="err" role="alert" hidden></p>
-      <p class="done" id="done" role="status" hidden>You're on the list. We'll write on 5 September.</p>
+      <p class="done" id="done" role="status" hidden>You're on the list. We'll write on 1 September.</p>
     </form>
   </div></section>`;
 }
@@ -212,7 +223,7 @@ const jsonld = JSON.stringify({
     address: { '@type': 'PostalAddress', addressLocality: 'Brussels', addressCountry: 'BE' } },
   organizer: { '@type': 'Organization', name: 'Art India ASBL', url: 'https://artindia.be' },
   offers: { '@type': 'Offer', price: '10', priceCurrency: 'EUR',
-    availability: 'https://schema.org/PreOrder', validFrom: '2026-09-05', url: SITE },
+    availability: 'https://schema.org/PreOrder', validFrom: '2026-09-01', url: SITE },
 });
 
 const galleryHTML = gallery();
@@ -244,7 +255,9 @@ const html = `<!DOCTYPE html>
   <div class="wrap bar">
     <a class="brand" href="/"><span>Brussels Diwali Festival</span></a>
     <div class="bar-right">
-      <a class="bar-link" href="https://artindia.be">Art India</a>
+      <a class="bar-org" href="https://artindia.be">
+        <img class="bar-logo" src="/static/logo-mark.png" alt="Art India" width="28" height="32">
+        <span>Art India</span></a>
       <a class="bar-cta" href="#register">Tickets</a>
     </div>
   </div>
@@ -268,6 +281,12 @@ ${practical()}
 ${register()}
 </main>
 ${footer()}
+<div class="stickybar">
+  <div class="wrap sb-in">
+    <span class="sb-txt">Weekend tickets from ${esc(d.event.price_from)}</span>
+    <a class="sb-cta" href="#register">Get tickets</a>
+  </div>
+</div>
 <script>
 const SALE = new Date("${d.event.sale_opens}");
 const el = document.getElementById('countdown');
@@ -313,6 +332,14 @@ cpSync(join(HERE, 'static/diwali.css'), join(out, 'diwali.css'));
 for (const f of ['favicon.svg', 'og-diwali.png']) {
   const p = join(HERE, 'diwali-holding', f);
   if (existsSync(p)) cpSync(p, join(out, f));
+}
+/* Art India mark in the top bar — the organiser's logo, not the festival's. */
+{
+  const p = join(HERE, 'static/brand/logo-mark.png');
+  if (existsSync(p)) {
+    mkdirSync(join(out, 'static'), { recursive: true });
+    cpSync(p, join(out, 'static/logo-mark.png'));
+  }
 }
 if (existsSync(join(HERE, '.cache/img'))) {
   cpSync(join(HERE, '.cache/img'), join(out, 'static/img'), { recursive: true });

@@ -62,12 +62,15 @@ a{color:inherit;text-decoration:none}
   text-transform:uppercase;color:var(--ink);white-space:nowrap}
 @media(max-width:560px){.brand span{font-size:11px;letter-spacing:.1em}}
 .bar-right{display:flex;align-items:center;gap:8px}
-.bar-link{font-size:13px;font-weight:500;color:var(--ink-2);padding:8px 10px}
-.bar-link:hover{color:var(--ink)}
+.bar-org{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:500;
+  color:var(--ink-2);padding:6px 8px}
+.bar-org:hover{color:var(--ink)}
+.bar-logo{height:32px;width:auto;flex:none}
 .bar-cta{font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
   color:#1A1000;background:var(--marigold);border-radius:100px;padding:9px 18px}
 .bar-cta:hover{background:var(--ember)}
-@media(max-width:520px){.bar-link{display:none}}
+/* Below 520px the mark carries the attribution on its own. */
+@media(max-width:520px){.bar-org span{display:none}}
 
 /* ---------------- hero ---------------- */
 .hero{position:relative;min-height:100svh;display:flex;align-items:flex-end;
@@ -282,3 +285,32 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
 .col-h{font-size:12px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
   color:var(--marigold);margin:0 0 16px}
 .foot-cols .fine{font-size:14px;color:var(--ink-3);line-height:1.75;margin:0}
+
+/* ---------------- price stair ---------------- */
+.prices{list-style:none;margin:26px 0 12px;padding:0;max-width:34rem;
+  border-top:1px solid var(--line)}
+.prices li{display:flex;align-items:baseline;gap:18px;padding:12px 0;
+  border-bottom:1px solid var(--line)}
+.prices .p{font-family:var(--display);font-size:1.5rem;line-height:1;
+  color:var(--marigold);min-width:4.6rem;flex:none}
+.prices .w{font-size:15.5px;color:var(--ink-2)}
+.price-note{font-size:14px;color:var(--ink-3);letter-spacing:.02em;margin:0}
+
+/* ---------------- mobile sticky ticket bar ---------------- */
+/* Phones are most of the traffic and the hero CTA scrolls away fast, so the
+   price and a way back to it stay pinned. Desktop keeps the top bar CTA. */
+.stickybar{display:none}
+@media(max-width:720px){
+  .stickybar{display:block;position:fixed;left:0;right:0;bottom:0;z-index:50;
+    background:rgba(11,14,36,.94);backdrop-filter:blur(12px);
+    border-top:1px solid var(--line);
+    padding-block:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+  .sb-in{display:flex;align-items:center;justify-content:space-between;gap:14px}
+  .sb-txt{font-size:14px;font-weight:600;color:var(--ink)}
+  .sb-cta{flex:none;background:var(--marigold);color:#1A1000;
+    font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+    border-radius:100px;padding:11px 18px}
+  .sb-cta:hover{background:var(--ember)}
+  /* keep the footer clear of the bar */
+  footer{padding-bottom:74px}
+}
