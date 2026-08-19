@@ -67,8 +67,20 @@ if [ -n "$ZIP" ]; then
   SRC="$TMP/artindia-web"
   [ -d "$SRC" ] || SRC=$(find "$TMP" -maxdepth 2 -name build.mjs -exec dirname {} \; | head -1)
   [ -n "$SRC" ] && [ -d "$SRC" ] || die "Couldn't find the site files inside that zip."
-  cp -R "$SRC"/. .
-  ok "files copied"
+  # Media is the user's own. A zip must never overwrite it, so copy everything
+  # except media/, then add only files that are genuinely new.
+  ( cd "$SRC" && find . -path ./media -prune -o -type f -print ) | while read -r f; do
+    mkdir -p "$(dirname "$f")"; cp "$SRC/$f" "$f"
+  done
+  if [ -d "$SRC/media" ]; then
+    mkdir -p media
+    for f in "$SRC"/media/*; do
+      [ -e "$f" ] || continue
+      b=$(basename "$f")
+      if [ ! -e "media/$b" ]; then cp "$f" "media/$b"; fi
+    done
+  fi
+  ok "files copied (media left untouched)"
 else
   step "1 · Using the files already in this folder"
 fi
