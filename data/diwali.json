@@ -34,7 +34,7 @@
       "id": "tickets",
       "kicker": "Tickets",
       "title": "From €10",
-      "text": "Tickets go on sale 5 September. Children under 12 come free, and there is a family bundle at €25.",
+      "text": "Tickets go on sale 5 September. There is a family bundle at €25. Children under 12 come free, but they still need an event band, so register them with the rest of your booking.",
       "cta": "Register for first access",
       "href": "#register",
       "image": "diwali-tickets"
@@ -78,7 +78,7 @@
     },
     {
       "q": "Coming with children",
-      "a": "Children under 12 come free and do not need a ticket. There is a children's area with workshops and storytelling, and a family bundle at €25 covers two adults and two children."
+      "a": "Children under 12 come free, but they still need an event band. Register them with the rest of your booking and give their date of birth, so we know how many people are on site. Everyone is given an event band at the gate, adults included. The date of birth is used only to check age and to count numbers on site, and it is deleted after the festival. There is a children's area with workshops and storytelling, and a family bundle at €25 covers two adults and two children."
     },
     {
       "q": "Walking through for free",
