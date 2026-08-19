@@ -25,7 +25,7 @@
     "kicker": "Ten years of light",
     "heading": "The festival of lights returns to the Atomium",
     "body": [
-      "For ten years the Brussels Diwali Festival has filled the esplanade of the Atomium with music, dance, food and light. It is the largest celebration of Diwali in Belgium, and it is free to walk through.",
+      "For ten years the Brussels Diwali Festival has filled the esplanade of the Atomium with music, dance, food and light. It is the largest celebration of Diwali in Belgium.",
       "The tenth edition carries the theme Culture United. For the first time, European embassies and cultural institutes join us, each pairing a tradition of their own with an Indian one, along an avenue of lights running the length of the esplanade."
     ]
   },
@@ -79,10 +79,6 @@
     {
       "q": "Coming with children",
       "a": "Children under 12 come free, but they still need an event band. Register them with the rest of your booking and give their date of birth, so we know how many people are on site. Everyone is given an event band at the gate, adults included. The date of birth is used only to check age and to count numbers on site, and it is deleted after the festival. There is a children's area with workshops and storytelling, and a family bundle at €25 covers two adults and two children."
-    },
-    {
-      "q": "Walking through for free",
-      "a": "A public route runs the length of the esplanade, open and unticketed, so anyone can pass between the Heysel metro and the Atomium without buying a ticket. The festival grounds sit either side of it."
     },
     {
       "q": "If it rains",
@@ -147,7 +143,7 @@
       },
       {
         "q": "The Avenue of Lights",
-        "a": "A path of lamps runs the length of the esplanade, from the Heysel metro to the foot of the Atomium, each stretch given to a participating country. It is free to walk, ticketed or not, and it is lit from dusk on both evenings."
+        "a": "A path of lamps runs the length of the esplanade, from the Heysel metro to the foot of the Atomium, each stretch given to a participating country. It is lit from dusk on both evenings."
       },
       {
         "q": "Ten years on the esplanade",
