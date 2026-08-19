@@ -33,9 +33,20 @@ const lamp = (scale = 1) => `<svg class="lamp" viewBox="0 0 32 40" width="${28 *
 
 /* ---------------------------------------------------------------- blocks */
 function hero() {
-  const media = IMG.has('diwali-hero')
+  /* The still is always rendered — it is the poster, the fallback for anyone
+     with reduced motion, and what shows while the video loads. The video sits
+     on top of it if there is one. */
+  const still = IMG.has('diwali-hero')
     ? IMG.tag('diwali-hero', { alt: '', sizes: '100vw', eager: true })
     : '<div class="hero-fallback"></div>';
+
+  const vids = ['diwali-hero.webm', 'diwali-hero.mp4']
+    .filter(f => existsSync(join(HERE, 'media', f)));
+  const media = vids.length
+    ? `${still}<video class="hero-video" autoplay muted loop playsinline preload="metadata">${
+        vids.map(f => `<source src="/static/media/${f}" type="video/${f.endsWith('webm') ? 'webm' : 'mp4'}">`).join('')
+      }</video>`
+    : still;
   const days = d.event.days.map(x => `<div class="day">
       <span class="day-label">${esc(x.label)}</span>
       <span class="day-date">${esc(x.date)}</span>
@@ -249,6 +260,13 @@ for (const f of ['favicon.svg', 'og-diwali.png']) {
 }
 if (existsSync(join(HERE, '.cache/img'))) {
   cpSync(join(HERE, '.cache/img'), join(out, 'static/img'), { recursive: true });
+}
+for (const f of ['diwali-hero.mp4', 'diwali-hero.webm']) {
+  const p = join(HERE, 'media', f);
+  if (existsSync(p)) {
+    mkdirSync(join(out, 'static/media'), { recursive: true });
+    cpSync(p, join(out, 'static/media', f));
+  }
 }
 if (existsSync(join(HERE, 'functions'))) {
   cpSync(join(HERE, 'functions'), join(out, 'functions'), { recursive: true });

@@ -142,18 +142,14 @@ const heroVideo = (() => {
 })();
 
 function heroMedia(lang) {
-  const v = heroVideo;
-  if (v) {
-    return `<section class="hero bleed"><div class="hero-inner">
-      <video autoplay muted loop playsinline><source src="${v}" type="video/mp4"></video>
-      </div></section>`;
-  }
   const heroStem = stemFor('hero', data.org.hero_image);
-  if (IMG.has(heroStem)) {
-    return `<section class="hero bleed"><div class="hero-inner">${
-      IMG.tag(heroStem, { alt: '', sizes: '100vw', eager: true })}</div></section>`;
-  }
-  return '';
+  const still = IMG.has(heroStem)
+    ? IMG.tag(heroStem, { alt: '', sizes: '100vw', eager: true }) : '';
+  if (!still && !heroVideo) return '';
+  const video = heroVideo
+    ? `<video class="hero-video" autoplay muted loop playsinline preload="metadata">
+         <source src="${heroVideo}" type="video/mp4"></video>` : '';
+  return `<section class="hero bleed"><div class="hero-inner">${still}${video}</div></section>`;
 }
 
 function plate(stem, caption, lang, cls = '') {
