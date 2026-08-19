@@ -4,8 +4,16 @@
     "edition": "10th edition",
     "place": "Atomium Esplanade, Brussels",
     "days": [
-      { "label": "Saturday", "date": "24 October 2026", "hours": "12:00 — 23:00" },
-      { "label": "Sunday", "date": "25 October 2026", "hours": "12:00 — 22:00" }
+      {
+        "label": "Saturday",
+        "date": "24 October 2026",
+        "hours": "12:00 to 23:00"
+      },
+      {
+        "label": "Sunday",
+        "date": "25 October 2026",
+        "hours": "12:00 to 22:00"
+      }
     ],
     "theme": "Culture United",
     "tagline": "Europe celebrates Diwali",
@@ -13,16 +21,14 @@
     "price_from": "€10",
     "ticket_url": ""
   },
-
   "intro": {
     "kicker": "Ten years of light",
     "heading": "The festival of lights returns to the Atomium",
     "body": [
       "For ten years the Brussels Diwali Festival has filled the esplanade of the Atomium with music, dance, food and light. It is the largest celebration of Diwali in Belgium, and it is free to walk through.",
-      "The tenth edition carries the theme Culture United. For the first time, European embassies and cultural institutes join us — each pairing a tradition of their own with an Indian one, along an avenue of lights running the length of the esplanade."
+      "The tenth edition carries the theme Culture United. For the first time, European embassies and cultural institutes join us, each pairing a tradition of their own with an Indian one, along an avenue of lights running the length of the esplanade."
     ]
   },
-
   "highlights": [
     {
       "id": "tickets",
@@ -50,13 +56,21 @@
       "cta": "See the traders",
       "href": "#food",
       "image": "diwali-food"
+    },
+    {
+      "id": "programme",
+      "kicker": "Programme",
+      "title": "Two stages",
+      "text": "Classical and contemporary Indian music, dance from across the subcontinent, and fireworks at nine each evening.",
+      "cta": "Programme to come",
+      "href": "#",
+      "image": "diwali-programme"
     }
   ],
-
   "practical": [
     {
       "q": "Getting there",
-      "a": "Heysel / Heizel on metro line 6, two minutes from the esplanade. Tram 7 and 51 stop nearby. Parking C is a short walk. We would rather you came by metro — the site fills quickly and parking does not."
+      "a": "Heysel / Heizel on metro line 6, two minutes from the esplanade. Tram 7 and 51 stop nearby. Parking C is a short walk. We would rather you came by metro, the site fills quickly and parking does not."
     },
     {
       "q": "Card only, no cash",
@@ -72,23 +86,95 @@
     },
     {
       "q": "If it rains",
-      "a": "The festival goes ahead in any weather — stages are covered and much of the food is under canvas. Tickets are not refundable for rain. Bring a coat; Brussels in October is Brussels in October."
+      "a": "The festival goes ahead in any weather, stages are covered and much of the food is under canvas. Tickets are not refundable for rain. Bring a coat; Brussels in October is Brussels in October."
     },
     {
       "q": "Accessibility",
       "a": "The esplanade is flat and step-free throughout. Accessible toilets are next to the main stage. If you are coming with a wheelchair or need assistance, write to us beforehand and we will make sure someone meets you at the gate."
     }
   ],
-
   "gallery": [
-    "diwali-hero", "diwali", "diwali-g3", "diwali-g4", "diwali-g5", "diwali-g6"
+    "diwali-g1",
+    "diwali-g2",
+    "diwali-g3",
+    "diwali-g4",
+    "diwali-g5",
+    "diwali-g6"
   ],
-
   "footer": {
     "org": "Art India ASBL",
     "address": "Avenue du Centaure 73, 1200 Woluwe-Saint-Lambert",
     "vat": "BE 1007.072.905",
     "email": "diwali@artindia.be",
-    "partners_email": "partners@artindia.be"
-  }
+    "partners_email": "partners@artindia.be",
+    "social": [
+      {
+        "name": "Instagram",
+        "url": "https://instagram.com/artindiabelgium"
+      },
+      {
+        "name": "Facebook",
+        "url": "https://facebook.com/artIndiabelgium"
+      },
+      {
+        "name": "YouTube",
+        "url": ""
+      }
+    ]
+  },
+  "stats": [
+    {
+      "n": "10",
+      "label": "editions since 2016"
+    },
+    {
+      "n": "40+",
+      "label": "kitchens and traders"
+    },
+    {
+      "n": "2",
+      "label": "days of light"
+    }
+  ],
+  "theme": {
+    "kicker": "The 2026 theme",
+    "title": "Culture United",
+    "image": "diwali-culture",
+    "panels": [
+      {
+        "q": "Europe celebrates Diwali",
+        "a": "For the tenth edition we have invited European embassies and cultural institutes to celebrate alongside us. Each brings a tradition of their own and pairs it with an Indian one: a duet, a shared dish, a dance answered by another dance. Diwali is a festival of light, and light is not the property of one country."
+      },
+      {
+        "q": "The Avenue of Lights",
+        "a": "A path of lamps runs the length of the esplanade, from the Heysel metro to the foot of the Atomium, each stretch given to a participating country. It is free to walk, ticketed or not, and it is lit from dusk on both evenings."
+      },
+      {
+        "q": "Ten years on the esplanade",
+        "a": "The first Brussels Diwali was held in 2016. Since 2017 it has taken place on the esplanade of the Atomium, growing from a community gathering into the largest celebration of Diwali in Belgium, and one that is now as Belgian as it is Indian."
+      }
+    ]
+  },
+  "nav": [
+    {
+      "label": "Welcome",
+      "href": "#top"
+    },
+    {
+      "label": "Tickets",
+      "href": "#register"
+    },
+    {
+      "label": "The theme",
+      "href": "#theme"
+    },
+    {
+      "label": "Practical",
+      "href": "#practical"
+    },
+    {
+      "label": "Gallery",
+      "href": "#gallery"
+    }
+  ]
 }

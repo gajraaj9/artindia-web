@@ -69,6 +69,31 @@ function hero() {
 </header>`;
 }
 
+function stats() {
+  return `<section class="statrow"><div class="wrap stats">${
+    d.stats.map(s => `<div class="stat"><span class="n">${esc(s.n)}</span>
+      <span class="l">${esc(s.label)}</span></div>`).join('')}</div></section>`;
+}
+
+function theme() {
+  const t = d.theme;
+  const media = IMG.has(t.image)
+    ? IMG.tag(t.image, { alt: '', sizes: '(min-width:900px) 48vw, 100vw', className: 'split-img' })
+    : '<div class="split-img awaiting"><span>Photograph to come</span></div>';
+  const panels = t.panels.map((p, i) => `<details${i === 0 ? ' open' : ''}>
+      <summary><span>${esc(p.q)}</span></summary>
+      <div class="answer"><p>${esc(p.a)}</p></div></details>`).join('');
+  return `<section class="band split" id="theme">
+    <div class="wrap split-grid">
+      <div class="split-media">${media}</div>
+      <div class="split-text">
+        <p class="kicker gold">${esc(t.kicker)}</p>
+        <h2>${esc(t.title)}</h2>
+        <div class="accordion">${panels}</div>
+      </div>
+    </div></section>`;
+}
+
 function intro() {
   return `<section class="band" id="intro">
   <div class="wrap col">
@@ -98,8 +123,14 @@ function highlights() {
 }
 
 function gallery() {
-  const shots = d.gallery.filter(s => IMG.has(s));
-  if (!shots.length) return '';
+  /* Hide the rail until there is a real set. Two of the same photograph
+     side by side looks worse than no gallery at all. */
+  const seen = new Set();
+  const shots = d.gallery.filter(s => {
+    if (!IMG.has(s) || seen.has(s)) return false;
+    seen.add(s); return true;
+  });
+  if (shots.length < 3) return '';
   const items = shots.map(s => `<li>${IMG.tag(s, {
     alt: '', sizes: '(min-width:900px) 46vw, 84vw', className: 'shot' })}</li>`).join('');
   return `<section class="band gallery" id="gallery">
@@ -121,7 +152,7 @@ function register() {
   <div class="wrap col">
     <p class="kicker gold">Tickets on sale 5 September 2026</p>
     <h2>Be first through the gate</h2>
-    <p class="lede">Register now and we will write to you the morning tickets open — one email, nothing else.</p>
+    <p class="lede">Register now and we will write to you the morning tickets open. One email, nothing else.</p>
     <form id="signup" novalidate>
       <div class="field">
         <label class="sr" for="email">Email address</label>
@@ -136,16 +167,29 @@ function register() {
 
 function footer() {
   const f = d.footer;
-  return `<footer><div class="wrap foot">
-    <div><p class="motto">Sharing India with the world</p>
-      <p class="fine">${esc(f.org)}<br>${esc(f.address)}<br>VAT ${esc(f.vat)}</p></div>
-    <div><p class="kicker gold">Contact</p>
-      <p><a href="mailto:${f.email}">${esc(f.email)}</a><br>
-         <a href="mailto:${f.partners_email}">${esc(f.partners_email)}</a></p></div>
-    <div><p class="kicker gold">Art India</p>
-      <p><a href="https://artindia.be">artindia.be</a><br>
-         <a href="https://artindia.be/partners/">Partnerships</a><br>
-         <a href="https://artindia.be/press/">Press</a></p></div>
+  const social = (f.social || []).filter(x => x.url).map(x =>
+    `<a href="${x.url}" rel="noopener">${esc(x.name)}</a>`).join('');
+  return `<footer>
+  <div class="wrap foot-top">
+    <p class="foot-mark">Brussels Diwali Festival</p>
+    <p class="foot-motto">Sharing India with the world</p>
+    ${social ? `<div class="foot-social">${social}</div>` : ''}
+  </div>
+  <div class="wrap foot-cols">
+    <div><p class="col-h">The festival</p>
+      <a href="#register">Tickets</a><a href="#theme">The theme</a>
+      <a href="#practical">Practical</a>${galleryHTML ? '<a href="#gallery">Gallery</a>' : ''}</div>
+    <div><p class="col-h">Art India</p>
+      <a href="https://artindia.be">artindia.be</a>
+      <a href="https://artindia.be/festivals/">Festivals</a>
+      <a href="https://artindia.be/partners/">Partnerships</a>
+      <a href="https://artindia.be/press/">Press</a></div>
+    <div><p class="col-h">Contact</p>
+      <a href="mailto:${f.email}">${esc(f.email)}</a>
+      <a href="mailto:${f.partners_email}">${esc(f.partners_email)}</a></div>
+    <div><p class="col-h">Art India ASBL</p>
+      <p class="fine">${esc(f.address)}<br>VAT ${esc(f.vat)}<br>
+      Non-profit association registered in Belgium</p></div>
   </div></footer>`;
 }
 
@@ -171,16 +215,18 @@ const jsonld = JSON.stringify({
     availability: 'https://schema.org/PreOrder', validFrom: '2026-09-05', url: SITE },
 });
 
+const galleryHTML = gallery();
+
 const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Brussels Diwali Festival 2026 — 10th edition, 24 &amp; 25 October, Atomium</title>
+<title>Brussels Diwali Festival 2026, 10th edition, 24 &amp; 25 October, Atomium</title>
 <meta name="description" content="The tenth Brussels Diwali Festival, 24 and 25 October 2026 on the esplanade of the Atomium. Music, dance, food and light. Tickets from €10.">
 <link rel="canonical" href="${SITE}/">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Brussels Diwali Festival 2026 — 10th edition">
+<meta property="og:title" content="Brussels Diwali Festival 2026, 10th edition">
 <meta property="og:description" content="24 &amp; 25 October 2026, Atomium esplanade. Tickets from €10.">
 <meta property="og:url" content="${SITE}/">
 <meta property="og:image" content="${SITE}/og-diwali.png">
@@ -198,16 +244,26 @@ const html = `<!DOCTYPE html>
   <div class="wrap bar">
     <a class="brand" href="/"><span>Brussels Diwali Festival</span></a>
     <div class="bar-right">
-      <a class="bar-link" href="#practical">Practical</a>
+      <a class="bar-link" href="https://artindia.be">Art India</a>
       <a class="bar-cta" href="#register">Tickets</a>
     </div>
   </div>
 </nav>
+<div class="pillbar">
+  <div class="pill">
+    <span class="pill-name">Brussels Diwali</span>
+    <span class="pill-rule"></span>
+    ${d.nav.filter(n => n.href !== '#gallery' || galleryHTML)
+        .map((n, i) => `<a href="${n.href}"${i === 0 ? ' class="on"' : ''}>${esc(n.label)}</a>`).join('')}
+  </div>
+</div>
 ${hero()}
 <main>
+${stats()}
 ${intro()}
 ${highlights()}
-${gallery()}
+${theme()}
+${galleryHTML}
 ${practical()}
 ${register()}
 </main>
