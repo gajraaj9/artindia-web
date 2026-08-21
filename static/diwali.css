@@ -314,3 +314,25 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
   /* keep the footer clear of the bar */
   footer{padding-bottom:74px}
 }
+
+/* ---------------- the four pillars ---------------- */
+/* Alternating splits. Four of these stacked would be a lot of air at the
+   full band rhythm, so they sit a little tighter. */
+.pillar{padding-block:clamp(52px,7.5vh,92px)}
+.pillar-grid{display:grid;gap:30px 56px;grid-template-columns:1fr;align-items:center}
+.pillar-media{border-radius:18px;overflow:hidden}
+.pillar-img,.pillar-img img{width:100%;display:block}
+.pillar-img img{aspect-ratio:4/3;object-fit:cover}
+.pillar-text h2{margin-bottom:20px}
+.pillar-text .lede:last-child{margin-bottom:0}
+@media(min-width:900px){
+  .pillar-grid{grid-template-columns:1fr 1fr;gap:0 64px}
+  /* Image right, text left on every second band. Mobile keeps DOM order,
+     so the photograph stays above the writing there. */
+  .pillar.flip .pillar-media{order:2}
+}
+/* No photograph yet: one column, text given a comfortable measure. */
+.pillar.noimg .pillar-grid{grid-template-columns:1fr}
+.pillar.noimg .pillar-text{max-width:44rem}
+
+.ticket-note{font-size:15.5px;color:var(--ink-3);margin-top:18px}

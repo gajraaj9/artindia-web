@@ -38,42 +38,48 @@
       "The tenth edition carries the theme Culture United. For the first time, European embassies and cultural institutes join us, each pairing a tradition of their own with an Indian one, along an avenue of lights running the length of the esplanade."
     ]
   },
-  "highlights": [
+  "pillars": [
     {
-      "id": "tickets",
-      "kicker": "Tickets",
-      "title": "From €10",
-      "text": "Tickets go on sale 1 September. €10 until 30 September, €12 from 1 October, €15 at the gate. Children under 12 come free, but they still need an event band, so register them with the rest of your booking.",
-      "cta": "Register for first access",
-      "href": "#register",
-      "image": "diwali-tickets"
-    },
-    {
-      "id": "culture-united",
-      "kicker": "The 2026 theme",
-      "title": "Culture United",
-      "text": "European embassies and cultural institutes celebrate alongside us, each bringing a tradition of their own.",
-      "cta": "More about the theme",
-      "href": "#culture-united",
-      "image": "diwali-culture"
+      "id": "light",
+      "image": "pillar-light",
+      "kicker": "Spirituality and tradition",
+      "title": "A temple on the esplanade",
+      "body": [
+        "Every year we build a temple on the esplanade. It is a tent, decorated by hand, and for two days it is a place of worship in the shadow of the Atomium. A purohit conducts a peace and harmony puja on both days.",
+        "Everyone is welcome. You do not need to be Hindu, or to know what to do. You can stand and watch, and most people do.",
+        "Diwali is the festival of lights, and the lights are lit for a reason. This is the part of the festival that says why."
+      ]
     },
     {
       "id": "food",
-      "kicker": "Food & bazaar",
+      "image": "pillar-food",
+      "kicker": "Food and drink",
       "title": "Forty kitchens",
-      "text": "Regional cooking from across India, a bazaar of crafts and textiles, and bars along the esplanade. Card only, no cash.",
-      "cta": "See the traders",
-      "href": "#food",
-      "image": "diwali-food"
+      "body": [
+        "Regional cooking from across India, made by people who cook it at home: Punjabi, Gujarati, South Indian, Bengali, street food from Mumbai and Delhi. Alongside it a bazaar of crafts, textiles and sweets, and bars along the length of the esplanade.",
+        "For a great many of our visitors this is where they taste Indian food properly for the first time, cooked the way it is cooked in India rather than the way it is cooked for Europe.",
+        "Everything on site is card only. There is no cash on the esplanade."
+      ]
     },
     {
-      "id": "programme",
-      "kicker": "Programme",
-      "title": "Two stages",
-      "text": "Classical and contemporary Indian music, dance from across the subcontinent, and fireworks at nine each evening.",
-      "cta": "Programme to come",
-      "href": "#",
-      "image": "diwali-programme"
+      "id": "culture",
+      "image": "pillar-culture",
+      "kicker": "Culture",
+      "title": "Two stages, both days",
+      "body": [
+        "Classical and contemporary Indian music, and dance from across the subcontinent: Kathak, Bharatanatyam, Bhangra, Garba. Performers from Belgium and from India, many of whom first trained at our own conservatory in Brussels.",
+        "In 2026 the stages carry the theme Culture United. European embassies and cultural institutes join us, each pairing a tradition of their own with an Indian one."
+      ]
+    },
+    {
+      "id": "party",
+      "image": "pillar-party",
+      "kicker": "Fun and party",
+      "title": "Fireworks over the Atomium",
+      "body": [
+        "As the light goes, the esplanade fills. Bollywood, dhol, a crowd of thousands dancing under the spheres, and fireworks each evening.",
+        "It is the largest celebration of Diwali in Belgium and it does not feel like a polite cultural evening. It feels like a party that happens to be five hundred years old."
+      ]
     }
   ],
   "practical": [

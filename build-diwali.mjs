@@ -103,23 +103,26 @@ function intro() {
   </div></section>`;
 }
 
-function highlights() {
-  const cards = d.highlights.map(h => {
-    const media = IMG.has(h.image)
-      ? IMG.tag(h.image, { alt: '', sizes: '(min-width:900px) 33vw, 100vw', className: 'card-img' })
-      : '<div class="card-img awaiting"><span>Photograph to come</span></div>';
-    return `<article class="card">
+/* The four pillars. Alternating splits down the page, image and text
+   swapping sides. A pillar whose photograph has not arrived yet runs as
+   text at full width; an empty grey box would say less than the writing. */
+function pillars() {
+  return d.pillars.map((p, i) => {
+    const media = IMG.has(p.image)
+      ? `<div class="pillar-media">${IMG.tag(p.image, {
+          alt: '', sizes: '(min-width:900px) 48vw, 100vw', className: 'pillar-img' })}</div>`
+      : '';
+    const text = p.body.map(x => `<p class="lede">${esc(x)}</p>`).join('');
+    return `<section class="band pillar${media && i % 2 ? ' flip' : ''}${media ? '' : ' noimg'}" id="pillar-${esc(p.id)}">
+    <div class="wrap pillar-grid">
       ${media}
-      <div class="card-body">
-        <p class="kicker gold">${esc(h.kicker)}</p>
-        <h3>${esc(h.title)}</h3>
-        <p>${esc(h.text)}</p>
-        <a class="more" href="${h.href}">${esc(h.cta)}</a>
-      </div></article>`;
+      <div class="pillar-text">
+        <p class="kicker gold">${esc(p.kicker)}</p>
+        <h2>${esc(p.title)}</h2>
+        ${text}
+      </div>
+    </div></section>`;
   }).join('');
-  return `<section class="band" id="highlights">
-    <div class="wrap"><h2 class="section-h">Highlights</h2>
-    <div class="cards">${cards}</div></div></section>`;
 }
 
 function gallery() {
@@ -164,6 +167,7 @@ function register() {
     <h2>Be first through the gate</h2>
     <p class="lede">Register now and we will write to you the morning tickets open. One email, nothing else.</p>
     ${prices()}
+    <p class="lede ticket-note">Children under 12 come free, but they still need an event band. Register them with the rest of your booking. Everything on site is card only.</p>
     <form id="signup" novalidate>
       <div class="field">
         <label class="sr" for="email">Email address</label>
@@ -205,7 +209,7 @@ function footer() {
 }
 
 /* ---------------------------------------------------------------- build */
-for (const stem of ['diwali-hero', ...d.highlights.map(h => h.image), ...d.gallery]) {
+for (const stem of ['diwali-hero', ...d.pillars.map(p => p.image), ...d.gallery]) {
   if (IMG.has(stem)) await IMG.prepare(stem);
 }
 IMG.save();
@@ -274,7 +278,7 @@ ${hero()}
 <main>
 ${stats()}
 ${intro()}
-${highlights()}
+${pillars()}
 ${theme()}
 ${galleryHTML}
 ${practical()}
