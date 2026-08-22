@@ -42,19 +42,19 @@
     {
       "id": "light",
       "image": "pillar-light",
-      "kicker": "Spirituality and tradition",
-      "title": "A temple on the esplanade",
+      "kicker": "Light and tradition",
+      "title": "The lamps are lit for a reason",
       "body": [
-        "Every year we build a temple on the esplanade. It is a tent, decorated by hand, and for two days it is a place of worship in the shadow of the Atomium. A purohit conducts a peace and harmony puja on both days.",
-        "Everyone is welcome. You do not need to be Hindu, or to know what to do. You can stand and watch, and most people do.",
-        "Diwali is the festival of lights, and the lights are lit for a reason. This is the part of the festival that says why."
+        "Diwali is the festival of lights, and the lights are lit for a reason. This is the part of the festival that says why.",
+        "Every year we build a small temple on the esplanade, a tent decorated by hand, and a purohit conducts a peace and harmony puja on both days.",
+        "Everyone is welcome, whatever they believe. You do not need to be Hindu, or to know what to do. You can stand and watch, and most people do."
       ]
     },
     {
       "id": "food",
       "image": "pillar-food",
       "kicker": "Food and drink",
-      "title": "Forty kitchens",
+      "title": "The kitchens and the bazaar",
       "body": [
         "Regional cooking from across India, made by people who cook it at home: Punjabi, Gujarati, South Indian, Bengali, street food from Mumbai and Delhi. Alongside it a bazaar of crafts, textiles and sweets, and bars along the length of the esplanade.",
         "For a great many of our visitors this is where they taste Indian food properly for the first time, cooked the way it is cooked in India rather than the way it is cooked for Europe.",
@@ -65,10 +65,10 @@
       "id": "culture",
       "image": "pillar-culture",
       "kicker": "Culture",
-      "title": "Two stages, both days",
+      "title": "One stage, both days",
       "body": [
         "Classical and contemporary Indian music, and dance from across the subcontinent: Kathak, Bharatanatyam, Bhangra, Garba. Performers from Belgium and from India, many of whom first trained at our own conservatory in Brussels.",
-        "In 2026 the stages carry the theme Culture United. European embassies and cultural institutes join us, each pairing a tradition of their own with an Indian one."
+        "In 2026 the stage carries the theme Culture United. European embassies and cultural institutes join us, each pairing a tradition of their own with an Indian one."
       ]
     },
     {
@@ -97,11 +97,11 @@
     },
     {
       "q": "If it rains",
-      "a": "The festival goes ahead in any weather, stages are covered and much of the food is under canvas. Tickets are not refundable for rain. Bring a coat; Brussels in October is Brussels in October."
+      "a": "The festival goes ahead in any weather, the stage is covered and much of the food is under canvas. Tickets are not refundable for rain. Bring a coat; Brussels in October is Brussels in October."
     },
     {
       "q": "Accessibility",
-      "a": "The esplanade is flat and step-free throughout. Accessible toilets are next to the main stage. If you are coming with a wheelchair or need assistance, write to us beforehand and we will make sure someone meets you at the gate."
+      "a": "The esplanade is flat and step-free throughout. Accessible toilets are next to the stage. If you are coming with a wheelchair or need assistance, write to us beforehand and we will make sure someone meets you at the gate."
     }
   ],
   "gallery": [
@@ -139,14 +139,21 @@
       "label": "editions since 2016"
     },
     {
-      "n": "40+",
-      "label": "kitchens and traders"
-    },
-    {
       "n": "2",
       "label": "days of light"
     }
   ],
+  "quotes": {
+    "kicker": "In their words",
+    "title": "What people say",
+    "items": []
+  },
+  "partners": {
+    "kicker": "With thanks",
+    "title": "Partners and supporters",
+    "note": "",
+    "items": []
+  },
   "theme": {
     "kicker": "The 2026 theme",
     "title": "Culture United",

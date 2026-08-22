@@ -336,3 +336,39 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
 .pillar.noimg .pillar-text{max-width:44rem}
 
 .ticket-note{font-size:15.5px;color:var(--ink-3);margin-top:18px}
+
+/* ---------------- tagline ---------------- */
+.tagline{font-family:var(--display);font-weight:400;
+  font-size:clamp(1.15rem,3.2vw,2rem);line-height:1.15;letter-spacing:.005em;
+  color:var(--ember);margin:2px 0 0;
+  text-shadow:0 1px 3px rgba(6,8,24,.9),0 2px 30px rgba(6,8,24,.75)}
+
+/* ---------------- quotes ---------------- */
+.quote-grid{display:grid;gap:20px;grid-template-columns:1fr}
+@media(min-width:820px){.quote-grid{grid-template-columns:repeat(2,1fr)}}
+.quote{margin:0;background:rgba(242,239,230,.045);border:1px solid var(--line);
+  border-radius:18px;padding:28px 30px}
+.quote blockquote{margin:0}
+.quote blockquote p{margin:0;font-family:var(--display);font-weight:400;
+  font-size:clamp(1.1rem,2.3vw,1.45rem);line-height:1.4;color:var(--ink)}
+.quote figcaption{margin-top:18px;font-size:13px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--marigold)}
+.quote figcaption span{display:block;margin-top:4px;font-weight:500;
+  letter-spacing:.02em;text-transform:none;font-size:14px;color:var(--ink-3)}
+
+/* ---------------- partners ---------------- */
+/* A rail rather than a grid: the list grows every year and a rail takes
+   twenty logos as gracefully as it takes five. */
+.partner-rail{list-style:none;display:flex;align-items:center;gap:14px;
+  margin:26px 0 0;padding:4px var(--pad) 22px;
+  overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+.partner-rail::-webkit-scrollbar{height:6px}
+.partner-rail::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+.partner{flex:0 0 auto;scroll-snap-align:start;
+  display:flex;align-items:center;justify-content:center;
+  min-width:168px;height:96px;padding:16px 22px;
+  background:rgba(242,239,230,.045);border:1px solid var(--line);border-radius:14px}
+.partner img{max-height:100%;width:auto;object-fit:contain;
+  filter:grayscale(1) brightness(1.7);opacity:.85;transition:filter .25s ease,opacity .25s ease}
+.partner a:hover img{filter:none;opacity:1}
+.partner span{font-size:14.5px;font-weight:600;color:var(--ink-2);text-align:center}

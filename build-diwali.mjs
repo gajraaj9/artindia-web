@@ -58,6 +58,7 @@ function hero() {
   <div class="hero-body wrap">
     <p class="kicker">${esc(d.event.edition)} · ${esc(d.event.place)}</p>
     <h1>Brussels <em>Diwali</em> Festival</h1>
+    <p class="tagline">${esc(d.event.tagline)}</p>
     <div class="lamps">${Array.from({ length: 10 }, (_, i) => lamp(i === 9 ? 1.5 : 1)).join('')}</div>
     <div class="days">${days}</div>
     <div class="hero-actions">
@@ -139,6 +140,43 @@ function gallery() {
   return `<section class="band gallery" id="gallery">
     <div class="wrap"><h2 class="section-h">The festival</h2></div>
     <ul class="rail">${items}</ul></section>`;
+}
+
+/* Both of these stay silent until there is something real to show. An
+   empty "what people say" heading is worse than no section at all, and a
+   past sponsor's logo needs that sponsor's permission before it goes up. */
+function quotes() {
+  const q = d.quotes;
+  if (!q || !q.items || !q.items.length) return '';
+  const items = q.items.map(x => `<figure class="quote">
+      <blockquote><p>${esc(x.text)}</p></blockquote>
+      <figcaption>${esc(x.who)}${x.role ? `<span>${esc(x.role)}</span>` : ''}</figcaption>
+    </figure>`).join('');
+  return `<section class="band quotes" id="quotes">
+    <div class="wrap">
+      <p class="kicker gold">${esc(q.kicker)}</p>
+      <h2 class="section-h">${esc(q.title)}</h2>
+      <div class="quote-grid">${items}</div>
+    </div></section>`;
+}
+
+function partners() {
+  const p = d.partners;
+  if (!p || !p.items || !p.items.length) return '';
+  const item = x => {
+    const inner = x.logo
+      ? `<img src="/static/partners/${esc(x.logo)}" alt="${esc(x.name)}" loading="lazy" decoding="async">`
+      : `<span>${esc(x.name)}</span>`;
+    return `<li class="partner">${x.url
+      ? `<a href="${esc(x.url)}" rel="noopener">${inner}</a>` : inner}</li>`;
+  };
+  return `<section class="band partners" id="partners">
+    <div class="wrap">
+      <p class="kicker gold">${esc(p.kicker)}</p>
+      <h2 class="section-h">${esc(p.title)}</h2>
+      ${p.note ? `<p class="lede">${esc(p.note)}</p>` : ''}
+    </div>
+    <ul class="partner-rail">${p.items.map(item).join('')}</ul></section>`;
 }
 
 function practical() {
@@ -242,7 +280,7 @@ const html = `<!DOCTYPE html>
 <link rel="canonical" href="${SITE}/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Brussels Diwali Festival 2026, 10th edition">
-<meta property="og:description" content="24 &amp; 25 October 2026, Atomium esplanade. Tickets from €10.">
+<meta property="og:description" content="${esc(d.event.tagline)}. 24 &amp; 25 October 2026, Atomium esplanade. Tickets from €10.">
 <meta property="og:url" content="${SITE}/">
 <meta property="og:image" content="${SITE}/og-diwali.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -280,8 +318,10 @@ ${stats()}
 ${intro()}
 ${pillars()}
 ${theme()}
+${quotes()}
 ${galleryHTML}
 ${practical()}
+${partners()}
 ${register()}
 </main>
 ${footer()}
@@ -344,6 +384,10 @@ for (const f of ['favicon.svg', 'og-diwali.png']) {
     mkdirSync(join(out, 'static'), { recursive: true });
     cpSync(p, join(out, 'static/logo-mark.png'));
   }
+}
+/* Partner logos, once there are any and once each one is cleared for use. */
+if (existsSync(join(HERE, 'static/partners'))) {
+  cpSync(join(HERE, 'static/partners'), join(out, 'static/partners'), { recursive: true });
 }
 if (existsSync(join(HERE, '.cache/img'))) {
   cpSync(join(HERE, '.cache/img'), join(out, 'static/img'), { recursive: true });
