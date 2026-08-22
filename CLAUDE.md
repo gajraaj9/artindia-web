@@ -73,12 +73,15 @@ Locked for Diwali 2026:
 - Two days.
 - Tickets on sale **1 September 2026**. **€10 online** (1–30 Sep) → **€12 online** (1–23 Oct) → **€15 at the gate**. Children under 12 free, event band required. No family bundle. No booking fee, no service charge. No discount below €10, ever.
 - **Card only across the whole site.** No cash.
-- Theme: *Culture United* — tagline *Europe Celebrates Diwali*.
+- Theme: *Culture United* — tagline *Europe Celebrates Diwali*. Rendered on the site in sentence case: "Europe celebrates Diwali".
+- **One stage.** Not two.
+- No kitchen or trader count is published. The earlier "40+" was wrong (nearer 20) and the metric was dropped rather than corrected.
+- **5,000+ dancing to Bollywood and bhangra**, and *the biggest Bollywood party in Europe*. Signed off by Ravi 22 Aug 2026 and live on the party pillar and the stats row. Both are unsourced claims: if anyone asks for backing, that request comes to Ravi.
 - Organiser: Art India ASBL, Avenue du Centaure 73, 1200 Woluwe-Saint-Lambert. VAT BE 1007.072.905.
 - Contacts: `ravi@artindia.be` (general), `partners@artindia.be` (sponsors and partners).
 
 **TO CONFIRM before publishing** — do not put these on a live page until Ravi signs them off:
-- Visitor numbers (a figure around 25,000 per weekend has been used internally; needs a defensible source before it goes public)
+- Total visitor numbers (a figure around 25,000 per weekend has been used internally; needs a defensible source before it goes public). The 5,000+ dancing figure above is cleared; this one is not.
 - Board names and roles
 - Patronage wording for the Embassy of India
 - Any past sponsor logo (permission required per logo)
