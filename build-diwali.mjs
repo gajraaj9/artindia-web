@@ -206,14 +206,14 @@ function register() {
     <p class="lede">Register now and we will write to you the morning tickets open. One email, nothing else.</p>
     ${prices()}
     <p class="lede ticket-note">Children under 12 come free, but they still need an event band. Register them with the rest of your booking. Everything on site is card only.</p>
+    <p class="done" id="done" role="status"></p>
     <form id="signup" novalidate>
       <div class="field">
         <label class="sr" for="email">Email address</label>
         <input type="email" id="email" name="email" placeholder="your@email.com" autocomplete="email" required>
         <button class="btn" type="submit">Register</button>
       </div>
-      <p class="err" id="err" role="alert" hidden></p>
-      <p class="done" id="done" role="status" hidden>You're on the list. We'll write on 1 September.</p>
+      <p class="err" id="err" role="alert"></p>
     </form>
   </div></section>`;
 }
@@ -338,31 +338,56 @@ if (el) {
   const days = Math.ceil((SALE - new Date()) / 86400000);
   el.textContent = days > 0 ? days + ' days until tickets open' : 'On sale now';
 }
+/* The form stays usable after a success: a family registering three people
+   should get through three addresses without reloading. Both messages are
+   live regions that collapse when empty, so nothing is toggled with
+   [hidden] — .field is display:flex, and an author display rule beats the
+   [hidden] one, which is how the field used to stay on screen with the
+   previous address still in it. */
 const FORM_ENDPOINT = "/api/register";
+const DONE_MSG = "You're on the list. We'll write on 1 September.";
+const EMAIL_RE = /^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/;
+
 const form = document.getElementById('signup');
 const err = document.getElementById('err'), done = document.getElementById('done');
+const btn = form.querySelector('button');
+const BTN_LABEL = btn.textContent;   /* captured once, before anything can overwrite it */
+
+/* The error goes the moment they start correcting it. */
+form.email.addEventListener('input', () => { err.textContent = ''; });
+
 form.addEventListener('submit', async e => {
   e.preventDefault();
+  /* Clear the previous confirmation while this one is in flight, so the
+     message on screen always belongs to the address just submitted. */
+  done.textContent = '';
+
   const email = form.email.value.trim();
-  if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)) {
-    err.textContent = "That email address doesn't look right."; err.hidden = false;
-    form.email.focus(); return;
+  if (!EMAIL_RE.test(email)) {
+    err.textContent = "That email address doesn't look right.";
+    form.email.focus();
+    return;
   }
-  err.hidden = true;
-  const btn = form.querySelector('button');
-  btn.disabled = true; btn.textContent = 'Registering…';
+  err.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Registering…';
+
   try {
     const r = await fetch(FORM_ENDPOINT, { method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, source: 'diwali-2026' }) });
     if (!r.ok) throw new Error('failed');
+    form.reset();                 /* empty the field, ready for the next address */
+    done.textContent = DONE_MSG;
+    form.email.focus();
   } catch (_) {
-    btn.disabled = false; btn.textContent = 'Register';
+    /* Whatever they typed stays put so they can just press Register again. */
     err.textContent = "Something went wrong. Please try again, or write to diwali@artindia.be.";
-    err.hidden = false; return;
+  } finally {
+    /* Every path out of the handler, success and network failure alike. */
+    btn.disabled = false;
+    btn.textContent = BTN_LABEL;
   }
-  form.querySelector('.field').hidden = true;
-  done.hidden = false;
 });
 </script>
 </body>

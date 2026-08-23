@@ -203,7 +203,10 @@ input[type=email]{flex:1 1 210px;min-width:0;background:rgba(242,239,230,.07);
   font-family:var(--text);font-size:16px;padding:14px 20px}
 input[type=email]::placeholder{color:var(--ink-3)}
 .err{color:var(--saffron);font-size:14px;margin:12px 0 0}
-.done{color:var(--marigold);font-size:15.5px;margin:14px 0 0}
+.done{color:var(--marigold);font-size:15.5px;margin:26px 0 0}
+/* Both are live regions that stay in the DOM and collapse when empty, so a
+   screen reader announces the text arriving rather than the node appearing. */
+.err:empty,.done:empty{display:none}
 
 /* ---------------- footer ---------------- */
 footer{border-top:1px solid var(--line);padding:56px 0 46px;background:rgba(11,14,36,.6)}
