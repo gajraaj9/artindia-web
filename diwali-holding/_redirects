@@ -1,0 +1,14 @@
+# Short links for print, posters and social bios.
+#
+# Ships to the root of dist-diwali/ and is read by Cloudflare Pages.
+# 302, never 301: these are campaign links, and a browser that has
+# cached a 301 cannot be told to stop.
+#
+# Keep them short enough to set in type and to read off a poster at
+# walking pace. One line per channel, no wildcards.
+
+/go/metro   /?utm_source=metro&utm_medium=poster      302
+/go/wa      /?utm_source=whatsapp&utm_medium=message  302
+/go/ig      /?utm_source=instagram&utm_medium=social  302
+/go/fb      /?utm_source=facebook&utm_medium=social   302
+/go/qr      /?utm_source=qr&utm_medium=print          302

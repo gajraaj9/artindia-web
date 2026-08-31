@@ -333,15 +333,31 @@ ${footer()}
 </div>
 <script>
 const SALE = new Date("${d.event.sale_opens}");
+const TICKET_URL = ${JSON.stringify(d.event.ticket_url || '')};
 const el = document.getElementById('countdown');
 if (el) {
   const days = Math.ceil((SALE - new Date()) / 86400000);
   el.textContent = days > 0 ? days + ' days until tickets open' : 'On sale now';
 }
+
+/* The sale switch. General sale opens eight hours after the registration
+   mail goes out, so 18:00 on 1 September. Until that moment, and for as
+   long as ticket_url is empty, every ticket button keeps scrolling to the
+   registration form. Two conditions and nothing else: no other states, and
+   no URL parameter that can flip it early. An empty ticket_url is the hard
+   stop, so the clock passing on its own changes nothing. */
+const OPEN_AT = new Date(SALE.getTime() + 8 * 3600 * 1000);
+if (TICKET_URL && new Date() >= OPEN_AT) {
+  for (const a of document.querySelectorAll('.hero-actions .btn, .bar-cta, .sb-cta')) {
+    a.href = TICKET_URL;
+    a.textContent = 'Buy tickets';
+    a.rel = 'noopener';
+  }
+}
 /* The form stays usable after a success: a family registering three people
    should get through three addresses without reloading. Both messages are
    live regions that collapse when empty, so nothing is toggled with
-   [hidden] — .field is display:flex, and an author display rule beats the
+   [hidden]. .field is display:flex, and an author display rule beats the
    [hidden] one, which is how the field used to stay on screen with the
    previous address still in it. */
 const FORM_ENDPOINT = "/api/register";
@@ -398,7 +414,7 @@ rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 writeFileSync(join(out, 'index.html'), html);
 cpSync(join(HERE, 'static/diwali.css'), join(out, 'diwali.css'));
-for (const f of ['favicon.svg', 'og-diwali.png']) {
+for (const f of ['favicon.svg', 'og-diwali.png', '_redirects']) {
   const p = join(HERE, 'diwali-holding', f);
   if (existsSync(p)) cpSync(p, join(out, f));
 }

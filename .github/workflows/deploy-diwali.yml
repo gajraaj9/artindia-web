@@ -17,6 +17,9 @@ on:
       - media/**
       - static/**
       - functions/**
+      # The build copies favicon.svg, og-diwali.png and _redirects out of
+      # here, so the share card and the /go/ links count as build inputs.
+      - diwali-holding/**
   workflow_dispatch:
 
 permissions:
