@@ -1,0 +1,63 @@
+name: Deploy diwali.artindia.be
+
+# Builds the Diwali site and publishes it to Cloudflare Pages.
+#
+# artindia.be is NOT deployed here. deploy.sh still handles that, and the
+# two must not race each other onto the same account.
+
+on:
+  push:
+    branches: [main]
+    # Only the inputs the Diwali build actually reads. A push that touches
+    # nothing on this list does not redeploy the festival site.
+    paths:
+      - build-diwali.mjs
+      - images.mjs
+      - data/diwali.json
+      - media/**
+      - static/**
+      - functions/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Deploys queue rather than cancel. A half-finished upload that gets killed
+# is worse than waiting for the one in front of it.
+concurrency:
+  group: deploy-diwali
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          # No cache: package-lock.json is gitignored, and setup-node's npm
+          # cache needs a lockfile to key on.
+
+      - name: Install dependencies
+        run: npm install
+
+      # set -e is the default for run steps; it is written out here because
+      # a silent build failure would publish a stale or empty dist-diwali.
+      - name: Build the site
+        shell: bash
+        run: |
+          set -euo pipefail
+          node build-diwali.mjs
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist-diwali --project-name=diwali-2026
