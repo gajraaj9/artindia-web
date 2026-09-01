@@ -43,7 +43,7 @@ function hero() {
   const vids = ['diwali-hero.webm', 'diwali-hero.mp4']
     .filter(f => existsSync(join(HERE, 'media', f)));
   const media = vids.length
-    ? `${still}<video class="hero-video" autoplay muted loop playsinline preload="metadata">${
+    ? `${still}<video class="hero-video" autoplay muted loop playsinline preload="none">${
         vids.map(f => `<source src="/static/media/${f}" type="video/${f.endsWith('webm') ? 'webm' : 'mp4'}">`).join('')
       }</video>`
     : still;
@@ -63,7 +63,7 @@ function hero() {
     <div class="days">${days}</div>
     <div class="hero-actions">
       <a class="btn" href="#register">Weekend tickets from ${esc(d.event.price_from)}</a>
-      <span class="btn-note" id="countdown">On sale 1 September</span>
+      <span class="btn-note" id="countdown">On sale 4 September</span>
     </div>
   </div>
   <a class="hero-scroll" href="#intro" aria-label="Read on"></a>
@@ -201,7 +201,7 @@ function prices() {
 function register() {
   return `<section class="band register" id="register">
   <div class="wrap col">
-    <p class="kicker gold">Tickets on sale 1 September 2026</p>
+    <p class="kicker gold">Tickets on sale 4 September 2026</p>
     <h2>Be first through the gate</h2>
     <p class="lede">Register now and we will write to you the morning tickets open. One email, nothing else.</p>
     ${prices()}
@@ -265,7 +265,7 @@ const jsonld = JSON.stringify({
     address: { '@type': 'PostalAddress', addressLocality: 'Brussels', addressCountry: 'BE' } },
   organizer: { '@type': 'Organization', name: 'Art India ASBL', url: 'https://artindia.be' },
   offers: { '@type': 'Offer', price: '10', priceCurrency: 'EUR',
-    availability: 'https://schema.org/PreOrder', validFrom: '2026-09-01', url: SITE },
+    availability: 'https://schema.org/PreOrder', validFrom: '2026-09-04', url: SITE },
 });
 
 const galleryHTML = gallery();
@@ -341,7 +341,7 @@ if (el) {
 }
 
 /* The sale switch. General sale opens eight hours after the registration
-   mail goes out, so 18:00 on 1 September. Until that moment, and for as
+   mail goes out, so 18:00 on 4 September. Until that moment, and for as
    long as ticket_url is empty, every ticket button keeps scrolling to the
    registration form. Two conditions and nothing else: no other states, and
    no URL parameter that can flip it early. An empty ticket_url is the hard
@@ -361,7 +361,7 @@ if (TICKET_URL && new Date() >= OPEN_AT) {
    [hidden] one, which is how the field used to stay on screen with the
    previous address still in it. */
 const FORM_ENDPOINT = "/api/register";
-const DONE_MSG = "You're on the list. We'll write on 1 September.";
+const DONE_MSG = "You're on the list. We'll write on 4 September.";
 const EMAIL_RE = /^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/;
 
 const form = document.getElementById('signup');
