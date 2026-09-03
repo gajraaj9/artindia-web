@@ -1,4 +1,8 @@
 {
+  "flags": {
+    "galleries_enabled": false,
+    "practical_enabled": false
+  },
   "event": {
     "name": {
       "en": "Brussels Diwali Festival",

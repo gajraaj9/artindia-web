@@ -15,7 +15,7 @@
  * than quietly serving English to a French reader.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -52,6 +52,23 @@ const TICKETS_HREF = EMBED ? '#tickets' : (LIVE ? d.event.ticket_url : '#registe
 const CTA_EXTERNAL = LIVE && !EMBED;
 
 const out = join(HERE, 'dist-diwali');
+
+const FLAGS = d.flags || {};
+const PRACTICAL_ON = FLAGS.practical_enabled !== false;
+
+/* Panel photographs live in media/panels/<panel>/01.jpg and are discovered at
+   build time, so adding a gallery is dropping files in a folder. Nothing is
+   rendered unless the flag is on AND that panel actually has pictures: an
+   empty frame or a stock placeholder says less than the writing does. */
+function panelShots(id) {
+  if (!FLAGS.galleries_enabled) return [];
+  const dir = join(HERE, 'media/panels', id);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter(f => /\.(jpe?g|png|webp|avif)$/i.test(f))
+    .sort()
+    .slice(0, 5);
+}
 
 /* ---------------------------------------------------------------- lamp */
 const lamp = (scale = 1) => `<svg class="lamp" viewBox="0 0 32 40" width="${28 * scale}" aria-hidden="true">
@@ -117,15 +134,29 @@ function render(lang) {
      is a slot a photograph or a loop can drop into without moving anything. */
   function awaits() {
     const a = d.awaits;
-    const panels = a.panels.map(p => `<li class="sense" id="sense-${esc(p.id)}">
+    const panels = a.panels.map(p => {
+      const shots = panelShots(p.id);
+      /* Snap scrolling rail. Rendered only when there are real photographs for
+         this panel, so a panel without any looks exactly as it does today. */
+      const gallery = shots.length ? `
+        <div class="pgal" data-panel="${esc(p.id)}">
+          <ul class="pgal-rail">${shots.map((f, i) => `<li><img
+              src="/static/panels/${esc(p.id)}/${esc(f)}"
+              alt="" loading="lazy" decoding="async"
+              width="800" height="600"></li>`).join('')}</ul>
+          ${shots.length > 1 ? `<div class="pgal-dots" aria-hidden="true">${
+            shots.map((_, i) => `<span${i === 0 ? ' class="on"' : ''}></span>`).join('')}</div>` : ''}
+        </div>` : '';
+      return `<li class="sense${shots.length ? ' has-gal' : ''}" id="sense-${esc(p.id)}">
         <h3>${e(p.title)}</h3>
-        <p>${e(p.body)}</p></li>`).join('');
+        <p>${e(p.body)}</p>${gallery}</li>`;
+    }).join('');
     return `<section class="band awaits" id="awaits">
   <div class="wrap">
     <p class="kicker gold">${e(a.kicker)}</p>
     <h2 class="section-h">${e(a.heading)}</h2>
-  </div>
-  <ul class="senses wrap">${panels}</ul></section>`;
+    <ul class="senses">${panels}</ul>
+  </div></section>`;
   }
 
   /* --------------------------------------------------- timeline (B3) */
@@ -276,8 +307,8 @@ function render(lang) {
   </div>
   <div class="wrap foot-cols">
     <div><p class="col-h">${e(f.col_festival)}</p>
-      <a href="#tickets">${e(f.links.tickets)}</a><a href="#programme">${e(f.links.programme)}</a>
-      <a href="#practical">${e(f.links.practical)}</a></div>
+      <a href="#tickets">${e(f.links.tickets)}</a><a href="#programme">${e(f.links.programme)}</a>${
+        PRACTICAL_ON ? `<a href="#practical">${e(f.links.practical)}</a>` : ''}</div>
     <div><p class="col-h">${e(f.col_org)}</p>
       <a href="${org}">artindia.be</a>
       <a href="${org}festivals/">${e(f.links.festivals)}</a>
@@ -399,7 +430,8 @@ ${alternates}
   <div class="pill">
     <span class="pill-name">Brussels Diwali</span>
     <span class="pill-rule"></span>
-    ${d.nav.map((n, i) => `<a href="${esc(n.href)}"${i === 0 ? ' class="on"' : ''}>${e(n.label)}</a>`).join('')}
+    ${d.nav.filter(n => PRACTICAL_ON || n.href !== '#practical')
+        .map((n, i) => `<a href="${esc(n.href)}"${i === 0 ? ' class="on"' : ''}>${e(n.label)}</a>`).join('')}
   </div>
 </div>
 ${hero()}
@@ -410,7 +442,7 @@ ${tickets()}
 ${kids()}
 ${lamps()}
 ${theme()}
-${practical()}
+${PRACTICAL_ON ? practical() : ''}
 ${partners()}
 ${register()}
 </main>
@@ -444,10 +476,18 @@ const LANG = ${JSON.stringify(lang)};
      intersection ratios matters, because a ratio is measured against the
      target's own height and a tall section would always score lower than a
      short one no matter where the reader is. */
+  /* The pill only leaves the flow once the hero is behind you. While the hero
+     is on screen it sits in the space the hero reserves for it, so it can
+     never come to rest on the dates or the title. */
+  const hero = document.querySelector('.hero');
   let ticking = false;
   const update = () => {
     ticking = false;
-    bar.classList.toggle('compact', scrollY > 120);
+    const past = hero
+      ? scrollY > hero.offsetTop + hero.offsetHeight - 140
+      : scrollY > 120;
+    bar.classList.toggle('stuck', past);
+    bar.classList.toggle('compact', past);
     if (!targets.length) return;
     const line = innerHeight * 0.34;
     let current = targets[0];
@@ -464,6 +504,30 @@ const LANG = ${JSON.stringify(lang)};
   update();
   addEventListener('scroll', onScroll, { passive: true });
   addEventListener('resize', onScroll, { passive: true });
+})();
+
+/* Panel galleries. Nothing here runs until a panel actually has photographs,
+   so the whole block is inert while the flag is off. The dots follow the rail
+   rather than driving it: the rail is a plain scroller, which is what makes it
+   work with a thumb, a trackpad and a keyboard without any of our help. */
+(() => {
+  const gals = document.querySelectorAll('.pgal');
+  if (!gals.length) return;
+  for (const g of gals) {
+    const rail = g.querySelector('.pgal-rail');
+    const dots = [...g.querySelectorAll('.pgal-dots span')];
+    if (!rail || dots.length < 2) continue;
+    let t = false;
+    rail.addEventListener('scroll', () => {
+      if (t) return;
+      t = true;
+      requestAnimationFrame(() => {
+        t = false;
+        const i = Math.round(rail.scrollLeft / rail.clientWidth);
+        dots.forEach((d, n) => d.classList.toggle('on', n === i));
+      });
+    }, { passive: true });
+  }
 })();
 
 /* Campaign origin. Captured on landing and kept for the session, so a visitor
@@ -685,6 +749,9 @@ for (const f of ['favicon.svg', 'og-diwali.png', 'og-diwali-fr.png', 'og-diwali-
 /* Partner logos, once there are any and once each one is cleared for use. */
 if (existsSync(join(HERE, 'static/partners'))) {
   cpSync(join(HERE, 'static/partners'), join(out, 'static/partners'), { recursive: true });
+}
+if (d.flags && d.flags.galleries_enabled && existsSync(join(HERE, 'media/panels'))) {
+  cpSync(join(HERE, 'media/panels'), join(out, 'static/panels'), { recursive: true });
 }
 if (existsSync(join(HERE, '.cache/img'))) {
   cpSync(join(HERE, '.cache/img'), join(out, 'static/img'), { recursive: true });
