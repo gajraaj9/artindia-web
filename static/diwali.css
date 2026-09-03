@@ -304,9 +304,12 @@ section[id],header[id]{scroll-margin-top:calc(var(--hdr,76px) + var(--pill,46px)
   /* Absolute, not fixed: the bottom ticket bar already takes a fixed strip and
      a second one would leave too little of a phone screen for the page. The
      pill scrolls away with the hero instead. */
-  /* Never pinned on a phone, and always clear of the masthead. */
+  /* Never pinned on a phone, and always clear of the masthead. Centred like
+     everything else on the page: it started at the left back when it held a
+     label, a divider and five links and had to scroll sideways. Three links
+     fit, so left aligning it just left it sitting off centre. */
   .pillbar,.pillbar.stuck{position:absolute;top:calc(var(--hdr,64px) + 14px);
-    padding:0 12px;justify-content:flex-start}
+    padding:0 12px;justify-content:center}
   .pillbar.stuck .pill{padding:7px 8px;background:var(--ink);
     backdrop-filter:none;box-shadow:0 8px 34px rgba(4,6,20,.4)}
   .pill{padding:7px 8px;overflow-x:auto;flex-wrap:nowrap;justify-content:flex-start;
