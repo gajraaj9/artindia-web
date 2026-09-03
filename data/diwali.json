@@ -17,7 +17,7 @@
     ],
     "theme": "Culture United",
     "tagline": "Europe celebrates Diwali",
-    "sale_opens": "2026-09-04T10:00:00+02:00",
+    "sale_opens": "2026-09-03T18:45:00+02:00",
     "price_from": "€10",
     "ticket_url": "https://buytickets.at/artindia/2392534",
     "presale_end": "2026-09-30"
@@ -70,10 +70,6 @@
       {
         "en": "No booking fees. One ticket covers both days.",
         "fr": "Sans frais de réservation. Un billet pour les deux jours."
-      },
-      {
-        "en": "A family of four comes for €20.",
-        "fr": "Une famille de quatre vient pour 20 €."
       }
     ]
   },

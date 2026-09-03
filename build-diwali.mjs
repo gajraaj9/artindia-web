@@ -27,6 +27,15 @@ const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
    as { en, fr } so the copy is ready the day an FR page exists; t_ picks the
    language and shouts if the one it needs is missing, rather than quietly
    serving English to a French reader. Plain strings pass straight through. */
+/* Is the sale open at the moment this build runs? When it is, the live state
+   is baked straight into the HTML: correct without JavaScript, and no flash of
+   "tickets open Friday" before a script rewrites it. The runtime switch below
+   is only emitted when the build happens ahead of the sale, so a page built
+   early still flips on its own. */
+const SALE_AT = new Date(d.event.sale_opens);
+const LIVE = Boolean(d.event.ticket_url) && new Date() >= SALE_AT;
+const TICKETS_HREF = LIVE ? d.event.ticket_url : '#register';
+
 const LANG = 'en';
 const t_ = v => {
   if (v == null) return '';
@@ -75,7 +84,8 @@ function hero() {
     <div class="lamps">${Array.from({ length: 10 }, (_, i) => lamp(i === 9 ? 1.5 : 1)).join('')}</div>
     <div class="days">${days}</div>
     <div class="hero-actions">
-      <a class="btn" id="hero-cta" href="#register">Tickets open Friday 4 September</a>
+      <a class="btn" id="hero-cta" href="${esc(TICKETS_HREF)}"${LIVE ? ' rel="noopener"' : ''}>${
+        LIVE ? `Get weekend tickets, ${esc(d.event.price_from)}` : 'Tickets open Friday 4 September'}</a>
       <span class="btn-note" id="cta-note">From ${esc(d.event.price_from)}. Children under 12 free.</span>
     </div>
   </div>
@@ -220,7 +230,8 @@ function tickets() {
     <h2>Weekend tickets</h2>
     <ul class="prices">${rows}</ul>
     ${notes}
-    <p class="ticket-cta"><a class="btn" id="ticket-cta" href="#register">Tickets open Friday 4 September</a></p>
+    <p class="ticket-cta"><a class="btn" id="ticket-cta" href="${esc(TICKETS_HREF)}"${LIVE ? ' rel="noopener"' : ''}>${
+      LIVE ? `Get weekend tickets, ${esc(d.event.price_from)}` : 'Tickets open Friday 4 September'}</a></p>
   </div></section>`;
 }
 
@@ -231,9 +242,11 @@ function tickets() {
 function register() {
   return `<section class="band register" id="register">
   <div class="wrap col">
-    <p class="kicker gold" id="reg-kicker">Tickets on sale 4 September 2026</p>
-    <h2 id="reg-heading">Be first through the gate</h2>
-    <p class="lede">Register now and we will write to you the morning tickets open. One email, nothing else.</p>
+    <p class="kicker gold" id="reg-kicker">${LIVE ? 'Stay in touch' : 'Tickets on sale 4 September 2026'}</p>
+    <h2 id="reg-heading">${LIVE ? 'Get festival updates' : 'Be first through the gate'}</h2>
+    <p class="lede">${LIVE
+      ? 'Programme, times and news from the esplanade, straight to your inbox. One email, nothing else.'
+      : 'Register now and we will write to you the morning tickets open. One email, nothing else.'}</p>
     <p class="done" id="done" role="status"></p>
     <form id="signup" novalidate>
       <div class="field">
@@ -293,7 +306,9 @@ const jsonld = JSON.stringify({
     address: { '@type': 'PostalAddress', addressLocality: 'Brussels', addressCountry: 'BE' } },
   organizer: { '@type': 'Organization', name: 'Art India ASBL', url: 'https://artindia.be' },
   offers: { '@type': 'Offer', price: '10', priceCurrency: 'EUR',
-    availability: 'https://schema.org/PreOrder', validFrom: '2026-09-04', url: SITE },
+    availability: LIVE ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder',
+    validFrom: d.event.sale_opens.slice(0, 10),
+    url: LIVE ? d.event.ticket_url : SITE },
 });
 
 const galleryHTML = gallery();
@@ -335,7 +350,7 @@ const html = `<!DOCTYPE html>
       <a class="bar-org" href="https://artindia.be">
         <img class="bar-logo" src="/static/logo-mark.png" alt="Art India" width="28" height="32">
         <span>Art India</span></a>
-      <a class="bar-cta" href="#register">Tickets</a>
+      <a class="bar-cta" href="${esc(TICKETS_HREF)}"${LIVE ? ' rel="noopener"' : ''}>${LIVE ? 'Buy tickets' : 'Tickets'}</a>
     </div>
   </div>
 </nav>
@@ -364,10 +379,10 @@ ${footer()}
 <!-- Hidden until the sale is live. The inline style is deliberate: .stickybar
      is display:block inside a media query, which would beat a [hidden]
      attribute or a class, so the switch clears an inline rule instead. -->
-<div class="stickybar" id="stickybar" style="display:none">
+<div class="stickybar" id="stickybar"${LIVE ? '' : ' style="display:none"'}>
   <div class="wrap sb-in">
     <span class="sb-txt">Weekend tickets from ${esc(d.event.price_from)}</span>
-    <a class="sb-cta" href="#tickets">Get tickets</a>
+    <a class="sb-cta" href="${esc(LIVE ? d.event.ticket_url : '#tickets')}"${LIVE ? ' rel="noopener"' : ''}>Get tickets</a>
   </div>
 </div>
 <script>
@@ -386,15 +401,12 @@ try {
   for (const k of UTM_KEYS) utm[k] = sessionStorage.getItem(k) || '';
 } catch (_) { for (const k of UTM_KEYS) utm[k] = ''; }
 
-/* The sale switch. General sale opens eight hours after the registration
-   mail goes out, so 18:00 on 4 September. Until that moment, and for as
-   long as ticket_url is empty, every ticket button keeps scrolling to the
-   registration form and the sticky bar stays hidden. Two conditions and
-   nothing else: no other states, and no URL parameter that can flip it
-   early. An empty ticket_url is the hard stop, so the clock passing on its
-   own changes nothing. */
-const OPEN_AT = new Date(SALE.getTime() + 8 * 3600 * 1000);
-const SALE_LIVE = Boolean(TICKET_URL) && new Date() >= OPEN_AT;
+/* The sale switch. sale_opens is the moment tickets go live, with no offset
+   applied to it. When the page was built after that moment the live state is
+   already in the HTML and this block simply re-applies it, which is what lets
+   it add the campaign ref without a second code path. An empty ticket_url is
+   still the hard stop, and no URL parameter can flip it early. */
+const SALE_LIVE = Boolean(TICKET_URL) && new Date() >= SALE;
 
 if (SALE_LIVE) {
   let href = TICKET_URL;
@@ -431,7 +443,9 @@ if (SALE_LIVE) {
    [hidden] one, which is how the field used to stay on screen with the
    previous address still in it. */
 const FORM_ENDPOINT = "/api/register";
-const DONE_MSG = "You're on the list. We'll write on 4 September.";
+const DONE_MSG = ${JSON.stringify(LIVE
+  ? "You're on the list. We'll be in touch before the festival."
+  : "You're on the list. We'll write on 4 September.")};
 const EMAIL_RE = /^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/;
 
 const form = document.getElementById('signup');
