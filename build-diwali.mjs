@@ -55,6 +55,7 @@ const out = join(HERE, 'dist-diwali');
 
 const FLAGS = d.flags || {};
 const PRACTICAL_ON = FLAGS.practical_enabled !== false;
+const HERO_VIDEO_ON = FLAGS.hero_video_enabled === true;
 
 /* Panel photographs live in media/panels/<panel>/01.jpg and are discovered at
    build time, so adding a gallery is dropping files in a folder. Nothing is
@@ -91,19 +92,26 @@ function render(lang) {
 
   /* ------------------------------------------------------------ hero */
   function hero() {
-    /* The still is always rendered. It is the poster, the fallback for anyone
-       with reduced motion, and what shows while the video loads. The video
-       sits on top of it if there is one. */
+    /* Plain indigo until the final photograph arrives. The still and the video
+       are the same decision: showing last year's crowd shot behind this year's
+       title is worse than showing nothing, and a flag keeps the markup and the
+       encodes ready rather than deleting them.
+
+       With the flag on, the still is always rendered too. It is the poster,
+       the fallback for reduced motion, and what shows while the video loads. */
     const still = IMG.has('diwali-hero')
       ? IMG.tag('diwali-hero', { alt: '', sizes: '100vw', eager: true })
       : '<div class="hero-fallback"></div>';
-    const vids = ['diwali-hero.webm', 'diwali-hero.mp4']
-      .filter(f => existsSync(join(HERE, 'media', f)));
-    const media = vids.length
-      ? `${still}<video class="hero-video" autoplay muted loop playsinline preload="none">${
-          vids.map(f => `<source src="/static/media/${f}" type="video/${f.endsWith('webm') ? 'webm' : 'mp4'}">`).join('')
-        }</video>`
-      : still;
+    const vids = HERO_VIDEO_ON
+      ? ['diwali-hero.webm', 'diwali-hero.mp4'].filter(f => existsSync(join(HERE, 'media', f)))
+      : [];
+    const media = !HERO_VIDEO_ON
+      ? '<div class="hero-fallback"></div>'
+      : vids.length
+        ? `${still}<video class="hero-video" autoplay muted loop playsinline preload="none">${
+            vids.map(f => `<source src="/static/media/${f}" type="video/${f.endsWith('webm') ? 'webm' : 'mp4'}">`).join('')
+          }</video>`
+        : still;
     const days = d.event.days.map(x => `<div class="day">
         <span class="day-label">${e(x.label)}</span>
         <span class="day-date">${e(x.date)}</span>
@@ -375,6 +383,9 @@ for(var i=0;i<L.length;i++){var t=(L[i]||'').toLowerCase();
  if(t.indexOf('en')===0){want='en';break;}}
 if(want!=='en')location.replace(P[want]);})();`;
 
+  /* One control, two shapes. A wide screen shows all three as pills; a phone
+     shows the current language as a button that opens the other two, because
+     three pills plus a ticket link will not fit one row at 390px. */
   const langSwitch = LANGS.map(l =>
     `<a href="${PATH_OF[l]}" hreflang="${HREFLANG[l]}" data-lang="${l}"${l === lang ? ' class="on" aria-current="true"' : ''}>${l.toUpperCase()}</a>`
   ).join('');
@@ -420,7 +431,11 @@ ${alternates}
       <a class="brand" href="${PATH_OF[lang]}"><span class="wm-a">Brussels Diwali</span><span class="wm-b"> Festival</span></a>
     </div>
     <div class="bar-right">
-      <div class="langsw" id="langsw" role="group" aria-label="${e(d.ui.lang_label)}">${langSwitch}</div>
+      <div class="langsw" id="langsw" role="group" aria-label="${e(d.ui.lang_label)}">
+        <button type="button" class="lang-cur" id="lang-cur" aria-expanded="false"
+                aria-controls="lang-list" aria-label="${e(d.ui.lang_label)}">${lang.toUpperCase()}<svg viewBox="0 0 10 6" width="10" height="6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+        <div class="lang-list" id="lang-list">${langSwitch}</div>
+      </div>
       <a class="bar-cta" href="${esc(TICKETS_HREF)}"${CTA_EXTERNAL ? ' rel="noopener"' : ''}>${
         e(LIVE ? d.tickets.cta_short : d.tickets.kicker)}</a>
     </div>
@@ -463,31 +478,47 @@ const LANG = ${JSON.stringify(lang)};
    and marks whichever section they are actually looking at. On phones the
    bottom ticket bar already owns fixed space, so the pill is left to scroll
    away rather than eat a second slice of a small screen. */
+/* The masthead and the pill are measured rather than guessed. Their heights
+   change with the language, the viewport and whether the bar has wrapped, and
+   every hardcoded offset here has been wrong at least once. */
 (() => {
+  const root = document.documentElement;
+  const top = document.querySelector('.topbar');
   const bar = document.getElementById('pillbar');
+  const hero = document.querySelector('.hero');
+  const sticky = document.getElementById('stickybar');
   if (!bar) return;
   const links = [...bar.querySelectorAll('a[href^="#"]')];
   const targets = links
     .map(a => ({ a, el: document.getElementById(a.getAttribute('href').slice(1)) }))
     .filter(x => x.el);
 
-  /* Which section is being read: the last one whose top has passed a line a
-     third of the way down the screen. Comparing positions rather than
-     intersection ratios matters, because a ratio is measured against the
-     target's own height and a tall section would always score lower than a
-     short one no matter where the reader is. */
-  /* The pill only leaves the flow once the hero is behind you. While the hero
-     is on screen it sits in the space the hero reserves for it, so it can
-     never come to rest on the dates or the title. */
-  const hero = document.querySelector('.hero');
+  const measure = () => {
+    if (top) root.style.setProperty('--hdr', Math.round(top.getBoundingClientRect().height) + 'px');
+    const pill = bar.querySelector('.pill');
+    if (pill) root.style.setProperty('--pill', Math.round(pill.getBoundingClientRect().height) + 'px');
+  };
+
+  /* Below this width the pill is left in the flow entirely: a phone has no
+     room for two fixed strips, and a half pill clipped under the masthead is
+     worse than no pill at all. */
+  const isPhone = () => window.matchMedia('(max-width: 820px)').matches;
+
   let ticking = false;
   const update = () => {
     ticking = false;
+    /* Read where the hero actually is now, rather than deriving it from
+       offsetTop and offsetHeight. Those are measured against the offset parent
+       and go stale while fonts and images settle the layout, which had the
+       bottom bar staying hidden on one language and not another. */
     const past = hero
-      ? scrollY > hero.offsetTop + hero.offsetHeight - 140
+      ? hero.getBoundingClientRect().bottom <= 140
       : scrollY > 120;
-    bar.classList.toggle('stuck', past);
-    bar.classList.toggle('compact', past);
+    bar.classList.toggle('stuck', past && !isPhone());
+    bar.classList.toggle('compact', past && !isPhone());
+    /* The bottom bar waits until the hero is behind you, so its button and the
+       hero's are never the same gold on the same screen. */
+    if (sticky) sticky.classList.toggle('show', past);
     if (!targets.length) return;
     const line = innerHeight * 0.34;
     let current = targets[0];
@@ -501,9 +532,34 @@ const LANG = ${JSON.stringify(lang)};
     ticking = true;
     requestAnimationFrame(update);
   };
+  measure();
   update();
   addEventListener('scroll', onScroll, { passive: true });
-  addEventListener('resize', onScroll, { passive: true });
+  addEventListener('resize', () => { measure(); onScroll(); }, { passive: true });
+  addEventListener('hashchange', onScroll);
+  /* Landing on a link that already carries an anchor scrolls the page without
+     necessarily firing a scroll event first, which left someone arriving at
+     /#tickets with no bottom bar until they moved. Re-check once the images
+     and fonts have settled the layout, and once more on load. */
+  addEventListener('load', () => { measure(); update(); });
+  setTimeout(() => { measure(); update(); }, 0);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { measure(); update(); });
+})();
+
+/* The phone language menu. The list is the same three links the desktop shows
+   as pills, so there is one set of hrefs and one place the choice is stored. */
+(() => {
+  const wrap = document.getElementById('langsw');
+  const btn = document.getElementById('lang-cur');
+  if (!wrap || !btn) return;
+  const close = () => { wrap.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = wrap.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  document.addEventListener('click', e => { if (!wrap.contains(e.target)) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
 })();
 
 /* Panel galleries. Nothing here runs until a panel actually has photographs,

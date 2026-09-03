@@ -79,28 +79,46 @@ a{color:inherit;text-decoration:none}
   color:#1A1000;background:var(--marigold);border-radius:100px;padding:9px 18px;
   white-space:nowrap;flex:none}
 .bar-cta:hover{background:var(--ember)}
-/* On a phone the masthead takes its own row and the controls sit beneath it.
-   Squeezing the title in beside a three way language toggle and a ticket
-   button left it reading "BRUSS...", which is not a masthead. Two rows costs
-   about 25px of height and gives the name back in full. */
-@media(max-width:620px){
-  .bar{flex-wrap:wrap;gap:8px;padding-block:11px}
-  .bar-left{flex:1 1 100%;gap:10px}
-  .bar-right{flex:1 1 100%;margin-left:0;gap:8px;justify-content:space-between}
-  .brand span{font-size:15px;letter-spacing:.06em}
-  .bar-logo{height:36px}
-  .bar-cta{font-size:11px;padding:8px 16px;letter-spacing:.08em}
-  .langsw a{font-size:11px;padding:5px 9px}
+/* One row on a phone, and it must never wrap. What buys the room: the ticket
+   button becomes a quiet text link, so the only gold on the first screen is
+   the hero's, and the three language pills collapse into one button that opens
+   the other two. */
+@media(max-width:820px){
+  .bar{flex-wrap:nowrap;gap:8px;padding-block:9px}
+  .bar-left{flex:1 1 auto;gap:9px;min-width:0}
+  .bar-right{flex:0 0 auto;margin-left:8px;gap:10px}
+  .brand span{font-size:13px;letter-spacing:.04em}
+  .bar-logo{height:34px}
+
+  /* Quiet on a phone. The hero carries the one gold button. */
+  .bar-cta{background:none;color:var(--ink);padding:0 2px;font-size:11px;
+    letter-spacing:.09em;min-height:44px;display:flex;align-items:center}
+  .bar-cta:hover{background:none;color:var(--marigold)}
+
 }
-@media(max-width:380px){
-  .brand span{font-size:13.5px;letter-spacing:.04em}
+@media(max-width:400px){
+  .wm-b{display:none}
+  .brand span{font-size:13.5px;letter-spacing:.05em}
   .bar-logo{height:32px}
 }
 
 /* ---------------- hero ---------------- */
 .hero{position:relative;min-height:100svh;display:flex;align-items:flex-end;
   padding-top:158px;padding-bottom:clamp(48px,9vh,110px);overflow:hidden}
-@media(max-width:820px){.hero{padding-top:132px}}
+/* One rhythm down the hero rather than seven different margins. The hero is
+   allowed to run past a single screen on a phone: cramming it in was what made
+   it feel stacked. */
+@media(max-width:820px){
+  .hero{--step:20px;padding-top:calc(var(--hdr,64px) + 96px);
+    padding-bottom:56px;min-height:0}
+  .hero .kicker{margin:0 0 var(--step)}
+  .hero h1{margin:0 0 var(--step)}
+  .hero .tagline{margin:0 0 var(--step)}
+  .hero-line{margin:0 0 var(--step)}
+  .lamps{margin:calc(var(--step) * 1.5) 0}
+  .days{margin:0 0 calc(var(--step) * 1.6);gap:22px}
+  .hero-actions{gap:calc(var(--step) * .7)}
+}
 .hero-media{position:absolute;inset:0}
 .hero-media picture,.hero-media img{width:100%;height:100%;object-fit:cover}
 .hero-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -252,24 +270,24 @@ footer{border-top:1px solid var(--line);padding:56px 0 46px;background:rgba(11,1
 
 
 /* ---------------- pill sub-nav ------------------------------------------ */
-/* In the flow inside the hero's reserved top space, and fixed only once the
-   hero has scrolled past. That ordering is what keeps it off the hero text:
-   a bar that is fixed from the first pixel will always come to rest on
-   something. */
-.pillbar{position:absolute;top:96px;left:0;right:0;z-index:30;
+/* Sits below the masthead, always, because the offset is the masthead's own
+   measured height rather than a number that was right once. In the flow while
+   the hero is on screen, fixed only after it. */
+.pillbar{position:absolute;top:calc(var(--hdr,76px) + 16px);left:0;right:0;z-index:30;
   display:flex;justify-content:center;padding:0 var(--pad);pointer-events:none}
-.pillbar.stuck{position:fixed;top:70px}
+.pillbar.stuck{position:fixed;top:calc(var(--hdr,76px) + 10px)}
 .pillbar.stuck .pill{padding:5px 16px;
   background:rgba(242,239,230,.94);backdrop-filter:blur(10px);
   box-shadow:0 6px 24px rgba(4,6,20,.5)}
 .pillbar.stuck .pill a{padding:4px 10px}
 
-/* Anchor jumps must land below the masthead and the pill, not behind them. */
-html{scroll-padding-top:132px}
-section[id],header[id]{scroll-margin-top:132px}
+/* Anchor jumps land below whatever is actually pinned: masthead plus pill on
+   a wide screen, masthead alone on a phone where the pill scrolls away. */
+html{scroll-padding-top:calc(var(--hdr,76px) + var(--pill,46px) + 24px)}
+section[id],header[id]{scroll-margin-top:calc(var(--hdr,76px) + var(--pill,46px) + 24px)}
 @media(max-width:820px){
-  html{scroll-padding-top:118px}
-  section[id],header[id]{scroll-margin-top:118px}
+  html{scroll-padding-top:calc(var(--hdr,64px) + 16px)}
+  section[id],header[id]{scroll-margin-top:calc(var(--hdr,64px) + 16px)}
 }
 .pill{pointer-events:auto;display:flex;align-items:center;gap:4px;flex-wrap:wrap;
   justify-content:center;background:var(--ink);border-radius:100px;
@@ -286,7 +304,9 @@ section[id],header[id]{scroll-margin-top:132px}
   /* Absolute, not fixed: the bottom ticket bar already takes a fixed strip and
      a second one would leave too little of a phone screen for the page. The
      pill scrolls away with the hero instead. */
-  .pillbar,.pillbar.stuck{position:absolute;top:88px;padding:0 12px;justify-content:flex-start}
+  /* Never pinned on a phone, and always clear of the masthead. */
+  .pillbar,.pillbar.stuck{position:absolute;top:calc(var(--hdr,64px) + 14px);
+    padding:0 12px;justify-content:flex-start}
   .pillbar.stuck .pill{padding:7px 8px;background:var(--ink);
     backdrop-filter:none;box-shadow:0 8px 34px rgba(4,6,20,.4)}
   .pill{padding:7px 8px;overflow-x:auto;flex-wrap:nowrap;justify-content:flex-start;
@@ -358,10 +378,15 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
    price and a way back to it stay pinned. Desktop keeps the top bar CTA. */
 .stickybar{display:none}
 @media(max-width:720px){
+  /* Held off screen until the hero is behind the reader, so its gold button and
+     the hero's are never on the same screen. */
   .stickybar{display:block;position:fixed;left:0;right:0;bottom:0;z-index:50;
+    transform:translateY(110%);visibility:hidden;
+    transition:transform .28s ease, visibility .28s;
     background:rgba(11,14,36,.94);backdrop-filter:blur(12px);
     border-top:1px solid var(--line);
     padding-block:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+  .stickybar.show{transform:none;visibility:visible}
   .sb-in{display:flex;align-items:center;justify-content:space-between;gap:14px}
   .sb-txt{font-size:14px;font-weight:600;color:var(--ink)}
   .sb-cta{flex:none;background:var(--marigold);color:#1A1000;
@@ -434,12 +459,38 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
 .partner span{font-size:14.5px;font-weight:600;color:var(--ink-2);text-align:center}
 
 /* ---------------- language switch ---------------- */
-.langsw{display:flex;align-items:center;gap:2px;border:1px solid var(--line);
-  border-radius:100px;padding:3px;flex:none}
+.langsw{position:relative;display:flex;align-items:center;gap:2px;
+  border:1px solid var(--line);border-radius:100px;padding:3px;flex:none}
+/* The single button is the phone shape; a wide screen never shows it. */
+.lang-cur{display:none}
+.lang-list{display:flex;align-items:center;gap:2px}
 .langsw a{font-size:11.5px;font-weight:700;letter-spacing:.08em;color:var(--ink-3);
   padding:5px 9px;border-radius:100px;line-height:1}
 .langsw a:hover{color:var(--ink)}
 .langsw a.on{background:rgba(242,239,230,.12);color:var(--ink)}
+
+/* The phone shape. These have to come after the rules above, not before them:
+   as part of the header block they were being overridden by the base
+   .lang-list and the menu rendered permanently open. */
+@media(max-width:820px){
+  .langsw{border:0;padding:0}
+  .lang-cur{display:flex;align-items:center;justify-content:center;gap:5px;
+    min-height:44px;min-width:44px;padding:0 8px;background:none;border:0;
+    cursor:pointer;color:var(--ink-2);font:inherit;font-size:11.5px;
+    font-weight:700;letter-spacing:.08em}
+  .lang-cur svg{transition:transform .18s ease}
+  .langsw.open .lang-cur{color:var(--ink)}
+  .langsw.open .lang-cur svg{transform:rotate(180deg)}
+  /* The menu, not a row. The current language is already on the button. */
+  .lang-list{position:absolute;top:calc(100% + 6px);right:0;z-index:60;
+    display:none;flex-direction:column;gap:2px;padding:6px;
+    background:rgba(20,26,58,.98);border:1px solid var(--line);
+    border-radius:14px;box-shadow:0 12px 34px rgba(4,6,20,.55)}
+  .langsw.open .lang-list{display:flex}
+  .lang-list a{min-height:44px;min-width:60px;display:flex;align-items:center;
+    justify-content:center;font-size:12.5px;border-radius:9px}
+  .lang-list a.on{display:none}
+}
 
 /* ---------------- what awaits you ---------------- */
 /* Five senses. One column on a phone so the page stays short, a row of five on
