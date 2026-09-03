@@ -1,24 +1,69 @@
 {
   "event": {
-    "name": "Brussels Diwali Festival",
-    "edition": "10th edition",
-    "place": "Atomium Esplanade, Brussels",
+    "name": {
+      "en": "Brussels Diwali Festival",
+      "fr": "Brussels Diwali Festival"
+    },
+    "edition": {
+      "en": "10th edition",
+      "fr": "10e édition"
+    },
+    "scale": {
+      "en": "5,000+ visitors",
+      "fr": "plus de 5 000 visiteurs"
+    },
+    "place": {
+      "en": "Atomium Esplanade, Brussels",
+      "fr": "Esplanade de l'Atomium, Bruxelles"
+    },
     "days": [
       {
-        "label": "Saturday",
-        "date": "24 October 2026",
-        "hours": "12:00 to 23:00"
+        "label": {
+          "en": "Saturday",
+          "fr": "Samedi"
+        },
+        "date": {
+          "en": "24 October 2026",
+          "fr": "24 octobre 2026"
+        },
+        "hours": {
+          "en": "12:00 to 23:00",
+          "fr": "12h00 à 23h00"
+        }
       },
       {
-        "label": "Sunday",
-        "date": "25 October 2026",
-        "hours": "12:00 to 22:00"
+        "label": {
+          "en": "Sunday",
+          "fr": "Dimanche"
+        },
+        "date": {
+          "en": "25 October 2026",
+          "fr": "25 octobre 2026"
+        },
+        "hours": {
+          "en": "12:00 to 22:00",
+          "fr": "12h00 à 22h00"
+        }
       }
     ],
     "theme": "Culture United",
-    "tagline": "Europe celebrates Diwali",
+    "tagline": {
+      "en": "Europe celebrates Diwali",
+      "fr": "L'Europe célèbre Diwali"
+    },
+    "hero_line": {
+      "en": "Music, dance, food and fireworks. The largest Diwali celebration in Belgium.",
+      "fr": "Musique, danse, cuisine et feu d'artifice. La plus grande fête de Diwali en Belgique."
+    },
+    "cta_note": {
+      "en": "From €10. Children under 12 free.",
+      "fr": "Dès 10 €. Gratuit pour les moins de 12 ans."
+    },
     "sale_opens": "2026-09-03T18:45:00+02:00",
-    "price_from": "€10",
+    "price_from": {
+      "en": "€10",
+      "fr": "10 €"
+    },
     "ticket_url": "https://buytickets.at/artindia/2392534",
     "presale_end": "2026-09-30"
   },
@@ -71,90 +116,120 @@
         "en": "No booking fees. One ticket covers both days.",
         "fr": "Sans frais de réservation. Un billet pour les deux jours."
       }
+    ],
+    "kicker": {
+      "en": "Tickets",
+      "fr": "Billets"
+    },
+    "heading": {
+      "en": "Weekend tickets",
+      "fr": "Billets week-end"
+    },
+    "cta_live": {
+      "en": "Get weekend tickets, €10",
+      "fr": "Billets week-end, 10 €"
+    },
+    "cta_presale": {
+      "en": "Tickets open Friday 4 September",
+      "fr": "Billetterie ouverte le vendredi 4 septembre"
+    },
+    "cta_short": {
+      "en": "Buy tickets",
+      "fr": "Billets"
+    }
+  },
+  "practical": {
+    "kicker": {
+      "en": "Practical",
+      "fr": "Infos pratiques"
+    },
+    "heading": {
+      "en": "Before you come",
+      "fr": "Avant de venir"
+    },
+    "items": [
+      {
+        "q": {
+          "en": "Getting there",
+          "fr": "Comment venir"
+        },
+        "a": {
+          "en": "Heysel / Heizel on metro line 6, two minutes from the esplanade. Tram 7 and 51 stop nearby. Parking C is a short walk. We would rather you came by metro, the site fills quickly and parking does not.",
+          "fr": "Heysel / Heizel sur la ligne 6 du métro, à deux minutes de l'esplanade. Les trams 7 et 51 s'arrêtent à proximité. Le parking C est à quelques minutes à pied. Nous préférons que vous veniez en métro, le site se remplit vite et le parking non."
+        }
+      },
+      {
+        "q": {
+          "en": "Your ticket is valid both days",
+          "fr": "Votre billet est valable les deux jours"
+        },
+        "a": {
+          "en": "Your ticket is valid on Saturday and Sunday.",
+          "fr": "Votre billet est valable le samedi et le dimanche."
+        }
+      },
+      {
+        "q": {
+          "en": "Fireworks",
+          "fr": "Feu d'artifice"
+        },
+        "a": {
+          "en": "Fireworks at 21:00 both evenings, launched near the Atomium.",
+          "fr": "Feu d'artifice à 21 h les deux soirs, tiré près de l'Atomium."
+        }
+      },
+      {
+        "q": {
+          "en": "Card only, no cash",
+          "fr": "Paiement par carte uniquement"
+        },
+        "a": {
+          "en": "Every bar and kitchen on site takes card and contactless only. There is no cash on the esplanade and no cash machine. Bring a card or your phone.",
+          "fr": "Tous les bars et toutes les cuisines du site acceptent uniquement la carte et le sans contact. Il n'y a pas d'espèces sur l'esplanade et pas de distributeur. Prenez une carte ou votre téléphone."
+        }
+      },
+      {
+        "q": {
+          "en": "Bars",
+          "fr": "Les bars"
+        },
+        "a": {
+          "en": "Bars along the esplanade serve beer, soft drinks, chai and lassi. Card only.",
+          "fr": "Des bars le long de l'esplanade servent bière, softs, chai et lassi. Paiement par carte uniquement."
+        }
+      },
+      {
+        "q": {
+          "en": "Coming with children",
+          "fr": "Venir avec des enfants"
+        },
+        "a": {
+          "en": "Children under 12 come free, but they still need an event band. Register them with the rest of your booking and give their date of birth, so we know how many people are on site. Everyone is given an event band at the gate, adults included. The date of birth is used only to check age and to count numbers on site, and it is deleted after the festival. There is a children's area with workshops and storytelling.",
+          "fr": "Les enfants de moins de 12 ans entrent gratuitement, mais ils ont tout de même besoin d'un bracelet. Inscrivez-les avec le reste de votre réservation et indiquez leur date de naissance, afin que nous sachions combien de personnes sont sur le site. Tout le monde reçoit un bracelet à l'entrée, les adultes compris. La date de naissance sert uniquement à vérifier l'âge et à compter les personnes présentes, et elle est supprimée après le festival. Un espace enfants propose des ateliers et des contes."
+        }
+      },
+      {
+        "q": {
+          "en": "If it rains",
+          "fr": "S'il pleut"
+        },
+        "a": {
+          "en": "The festival goes ahead in any weather, the stage is covered and much of the food is under canvas. Tickets are not refundable for rain. Bring a coat; Brussels in October is Brussels in October.",
+          "fr": "Le festival a lieu par tous les temps, la scène est couverte et une grande partie des cuisines est sous toile. Les billets ne sont pas remboursables en cas de pluie. Prenez un manteau ; Bruxelles en octobre, c'est Bruxelles en octobre."
+        }
+      },
+      {
+        "q": {
+          "en": "Accessibility",
+          "fr": "Accessibilité"
+        },
+        "a": {
+          "en": "The esplanade is flat and step-free throughout. Accessible toilets are next to the stage. If you are coming with a wheelchair or need assistance, write to us beforehand and we will make sure someone meets you at the gate.",
+          "fr": "L'esplanade est plate et sans marches sur toute sa surface. Des toilettes accessibles se trouvent à côté de la scène. Si vous venez en fauteuil roulant ou si vous avez besoin d'aide, écrivez-nous à l'avance et nous ferons en sorte que quelqu'un vous accueille à l'entrée."
+        }
+      }
     ]
   },
-  "intro": {
-    "kicker": "Ten years of light",
-    "heading": "The festival of lights returns to the Atomium",
-    "body": [
-      "For ten years the Brussels Diwali Festival has filled the esplanade of the Atomium with music, dance, food and light. It is the largest celebration of Diwali in Belgium.",
-      "The tenth edition carries the theme Culture United. For the first time, European embassies and cultural institutes join us, each pairing a tradition of their own with an Indian one, along an avenue of lights running the length of the esplanade."
-    ]
-  },
-  "pillars": [
-    {
-      "id": "light",
-      "image": "pillar-light",
-      "kicker": "Light and tradition",
-      "title": "The lamps are lit for a reason",
-      "body": [
-        "Diwali is the festival of lights, and the lights are lit for a reason. This is the part of the festival that says why.",
-        "Every year we build a small temple on the esplanade, a tent decorated by hand, and a purohit conducts a peace and harmony puja on both days.",
-        "Everyone is welcome, whatever they believe. You do not need to be Hindu, or to know what to do. You can stand and watch, and most people do."
-      ]
-    },
-    {
-      "id": "food",
-      "image": "pillar-food",
-      "kicker": "Food and drink",
-      "title": "The kitchens and the bazaar",
-      "body": [
-        "Regional cooking from across India, made by people who cook it at home: Punjabi, Gujarati, South Indian, Bengali, street food from Mumbai and Delhi. Alongside it a bazaar of crafts, textiles and sweets, and bars along the length of the esplanade.",
-        "For a great many of our visitors this is where they taste Indian food properly for the first time, cooked the way it is cooked in India rather than the way it is cooked for Europe.",
-        "Everything on site is card only. There is no cash on the esplanade."
-      ]
-    },
-    {
-      "id": "culture",
-      "image": "pillar-culture",
-      "kicker": "Culture",
-      "title": "One stage, both days",
-      "body": [
-        "Classical and contemporary Indian music, and dance from across the subcontinent: Kathak, Bharatanatyam, Bhangra, Garba. Performers from Belgium and from India, many of whom first trained at our own conservatory in Brussels.",
-        "In 2026 the stage carries the theme Culture United. European embassies and cultural institutes join us, each pairing a tradition of their own with an Indian one."
-      ]
-    },
-    {
-      "id": "party",
-      "image": "pillar-party",
-      "kicker": "Fun and party",
-      "title": "Fireworks over the Atomium",
-      "body": [
-        "As the light goes, the esplanade fills. Bhangra and Bollywood, dhol, five thousand people dancing under the spheres, and fireworks each evening.",
-        "It is the largest celebration of Diwali in Belgium and the biggest Bollywood party in Europe. It does not feel like a polite cultural evening. It feels like a party that happens to be five hundred years old."
-      ]
-    }
-  ],
-  "practical": [
-    {
-      "q": "Getting there",
-      "a": "Heysel / Heizel on metro line 6, two minutes from the esplanade. Tram 7 and 51 stop nearby. Parking C is a short walk. We would rather you came by metro, the site fills quickly and parking does not."
-    },
-    {
-      "q": "Card only, no cash",
-      "a": "Every bar and kitchen on site takes card and contactless only. There is no cash on the esplanade and no cash machine. Bring a card or your phone."
-    },
-    {
-      "q": "Coming with children",
-      "a": "Children under 12 come free, but they still need an event band. Register them with the rest of your booking and give their date of birth, so we know how many people are on site. Everyone is given an event band at the gate, adults included. The date of birth is used only to check age and to count numbers on site, and it is deleted after the festival. There is a children's area with workshops and storytelling."
-    },
-    {
-      "q": "If it rains",
-      "a": "The festival goes ahead in any weather, the stage is covered and much of the food is under canvas. Tickets are not refundable for rain. Bring a coat; Brussels in October is Brussels in October."
-    },
-    {
-      "q": "Accessibility",
-      "a": "The esplanade is flat and step-free throughout. Accessible toilets are next to the stage. If you are coming with a wheelchair or need assistance, write to us beforehand and we will make sure someone meets you at the gate."
-    }
-  ],
-  "gallery": [
-    "diwali-g1",
-    "diwali-g2",
-    "diwali-g3",
-    "diwali-g4",
-    "diwali-g5",
-    "diwali-g6"
-  ],
   "footer": {
     "org": "Art India ASBL",
     "address": "Avenue du Centaure 73, 1200 Woluwe-Saint-Lambert",
@@ -174,26 +249,61 @@
         "name": "YouTube",
         "url": ""
       }
-    ]
-  },
-  "stats": [
-    {
-      "n": "10",
-      "label": "editions since 2016"
+    ],
+    "motto": {
+      "en": "Sharing India with the world",
+      "fr": "Partager l'Inde avec le monde"
     },
-    {
-      "n": "5,000+",
-      "label": "dancing to Bollywood and bhangra"
+    "heritage": {
+      "en": "Ten years of light in Brussels, organised by Art India ASBL.",
+      "fr": "Dix ans de lumière à Bruxelles, organisé par Art India ASBL."
     },
-    {
-      "n": "2",
-      "label": "days of light"
+    "col_festival": {
+      "en": "The festival",
+      "fr": "Le festival"
+    },
+    "col_org": {
+      "en": "Art India",
+      "fr": "Art India"
+    },
+    "col_contact": {
+      "en": "Contact",
+      "fr": "Contact"
+    },
+    "col_legal": {
+      "en": "Art India ASBL",
+      "fr": "Art India ASBL"
+    },
+    "legal_line": {
+      "en": "Non-profit association registered in Belgium",
+      "fr": "Association sans but lucratif enregistrée en Belgique"
+    },
+    "links": {
+      "tickets": {
+        "en": "Tickets",
+        "fr": "Billets"
+      },
+      "programme": {
+        "en": "Programme",
+        "fr": "Programme"
+      },
+      "practical": {
+        "en": "Practical",
+        "fr": "Infos pratiques"
+      },
+      "festivals": {
+        "en": "Festivals",
+        "fr": "Festivals"
+      },
+      "partners": {
+        "en": "Partnerships",
+        "fr": "Partenariats"
+      },
+      "press": {
+        "en": "Press",
+        "fr": "Presse"
+      }
     }
-  ],
-  "quotes": {
-    "kicker": "In their words",
-    "title": "What people say",
-    "items": []
   },
   "partners": {
     "kicker": "With thanks",
@@ -202,44 +312,332 @@
     "items": []
   },
   "theme": {
-    "kicker": "The 2026 theme",
-    "title": "Culture United",
-    "image": "diwali-culture",
-    "panels": [
-      {
-        "q": "Europe celebrates Diwali",
-        "a": "For the tenth edition we have invited European embassies and cultural institutes to celebrate alongside us. Each brings a tradition of their own and pairs it with an Indian one: a duet, a shared dish, a dance answered by another dance. Diwali is a festival of light, and light is not the property of one country."
-      },
-      {
-        "q": "The Avenue of Lights",
-        "a": "A path of lamps runs the length of the esplanade, from the Heysel metro to the foot of the Atomium, each stretch given to a participating country. It is lit from dusk on both evenings."
-      },
-      {
-        "q": "Ten years on the esplanade",
-        "a": "The first Brussels Diwali was held in 2016. Since 2017 it has taken place on the esplanade of the Atomium, growing from a community gathering into the largest celebration of Diwali in Belgium, and one that is now as Belgian as it is Indian."
-      }
-    ]
+    "kicker": {
+      "en": "The 2026 theme",
+      "fr": "Le thème 2026"
+    },
+    "heading": {
+      "en": "Culture United",
+      "fr": "Culture United"
+    },
+    "body": {
+      "en": "For the tenth edition we have invited European embassies and cultural institutes to celebrate alongside us. Each brings a tradition of its own and pairs it with an Indian one: a duet, a shared dish, a dance answered by another dance. An avenue of lamps runs the length of the esplanade, each stretch given to a participating country.",
+      "fr": "Pour la dixième édition, nous avons invité des ambassades et des instituts culturels européens à célébrer à nos côtés. Chacun apporte une tradition qui lui est propre et l'associe à une tradition indienne : un duo, un plat partagé, une danse à laquelle répond une autre danse. Une avenue de lampes court sur toute la longueur de l'esplanade, chaque tronçon confié à un pays participant."
+    }
   },
   "nav": [
     {
-      "label": "Welcome",
+      "label": {
+        "en": "Welcome",
+        "fr": "Accueil"
+      },
       "href": "#top"
     },
     {
-      "label": "Tickets",
+      "label": {
+        "en": "Programme",
+        "fr": "Programme"
+      },
+      "href": "#awaits"
+    },
+    {
+      "label": {
+        "en": "Tickets",
+        "fr": "Billets"
+      },
       "href": "#tickets"
     },
     {
-      "label": "The theme",
-      "href": "#theme"
-    },
-    {
-      "label": "Practical",
+      "label": {
+        "en": "Practical",
+        "fr": "Infos pratiques"
+      },
       "href": "#practical"
-    },
-    {
-      "label": "Gallery",
-      "href": "#gallery"
     }
-  ]
+  ],
+  "meta": {
+    "title": {
+      "en": "Brussels Diwali Festival 2026, 10th edition, 24 & 25 October, Atomium",
+      "fr": "Brussels Diwali Festival 2026, 10e édition, 24 et 25 octobre, Atomium"
+    },
+    "description": {
+      "en": "The tenth Brussels Diwali Festival, 24 and 25 October 2026 on the esplanade of the Atomium. Music, dance, food and light. Tickets from €10.",
+      "fr": "Le dixième Brussels Diwali Festival, les 24 et 25 octobre 2026 sur l'esplanade de l'Atomium. Musique, danse, cuisine et lumière. Billets dès 10 €."
+    },
+    "og_title": {
+      "en": "Brussels Diwali Festival 2026, 10th edition",
+      "fr": "Brussels Diwali Festival 2026, 10e édition"
+    },
+    "og_description": {
+      "en": "Europe celebrates Diwali. 24 & 25 October 2026, Atomium esplanade. Tickets from €10.",
+      "fr": "L'Europe célèbre Diwali. Les 24 et 25 octobre 2026, esplanade de l'Atomium. Billets dès 10 €."
+    }
+  },
+  "awaits": {
+    "kicker": {
+      "en": "The festival",
+      "fr": "Le festival"
+    },
+    "heading": {
+      "en": "What awaits you",
+      "fr": "Ce qui vous attend"
+    },
+    "panels": [
+      {
+        "id": "see",
+        "title": {
+          "en": "See",
+          "fr": "Voir"
+        },
+        "body": {
+          "en": "An avenue of lamps from the metro to the spheres. Rangoli underfoot, silk in every colour. At 21:00 the sky above the Atomium catches fire.",
+          "fr": "Une avenue de lampes du métro jusqu'aux sphères. Des rangolis au sol, de la soie de toutes les couleurs. À 21 h, le ciel au-dessus de l'Atomium s'embrase."
+        }
+      },
+      {
+        "id": "hear",
+        "title": {
+          "en": "Hear",
+          "fr": "Écouter"
+        },
+        "body": {
+          "en": "A dhol you feel before you hear it. Ragas in the afternoon, Bollywood by night, five thousand voices singing along.",
+          "fr": "Un dhol que l'on sent avant de l'entendre. Des ragas l'après-midi, du Bollywood le soir, cinq mille voix qui chantent ensemble."
+        }
+      },
+      {
+        "id": "taste",
+        "title": {
+          "en": "Taste",
+          "fr": "Goûter"
+        },
+        "body": {
+          "en": "Chaat the way Mumbai makes it, dosa from the South, jalebi still warm. Cooked by people who cook it at home.",
+          "fr": "Le chaat comme à Mumbai, les dosas du Sud, des jalebis encore chauds. Cuisinés par ceux qui les cuisinent à la maison."
+        }
+      },
+      {
+        "id": "drink",
+        "title": {
+          "en": "Drink",
+          "fr": "Boire"
+        },
+        "body": {
+          "en": "Masala chai poured from height, sweet lassi, cold beer along the esplanade.",
+          "fr": "Le chai masala versé de haut, le lassi sucré, une bière fraîche le long de l'esplanade."
+        }
+      },
+      {
+        "id": "feel",
+        "title": {
+          "en": "Feel",
+          "fr": "Ressentir"
+        },
+        "body": {
+          "en": "A hand-decorated temple at the foot of the Atomium. A puja for peace, a lamp you can light yourself. You do not need to know what to do. Nobody does the first time.",
+          "fr": "Un temple décoré à la main au pied de l'Atomium. Une puja pour la paix, une lampe que vous pouvez allumer vous-même. Pas besoin de savoir comment faire. Personne ne sait, la première fois."
+        }
+      }
+    ]
+  },
+  "timeline": {
+    "kicker": {
+      "en": "Programme",
+      "fr": "Programme"
+    },
+    "heading": {
+      "en": "Your day, hour by hour",
+      "fr": "Votre journée, heure par heure"
+    },
+    "entries": [
+      {
+        "when": {
+          "en": "12:00",
+          "fr": "12 h"
+        },
+        "what": {
+          "en": "Gates open",
+          "fr": "Ouverture des portes"
+        },
+        "note": {
+          "en": "Come early, come hungry.",
+          "fr": "Venez tôt, venez avec faim."
+        }
+      },
+      {
+        "when": {
+          "en": "Afternoon",
+          "fr": "Après-midi"
+        },
+        "what": {
+          "en": "Classical stage and workshops",
+          "fr": "Scène classique et ateliers"
+        },
+        "note": {
+          "en": "Classical dance, Hindustani and Carnatic music. Workshops in dance, rangoli, mehndi and cooking, for all ages.",
+          "fr": "Danse classique, musique hindoustanie et carnatique. Ateliers de danse, rangoli, mehndi et cuisine, pour tous les âges."
+        }
+      },
+      {
+        "when": {
+          "en": "Dusk",
+          "fr": "Tombée du jour"
+        },
+        "what": {
+          "en": "The Avenue of Lights",
+          "fr": "L'Avenue des Lumières"
+        },
+        "note": {
+          "en": "The lamps come alive as the sky darkens.",
+          "fr": "Les lampes s'animent quand le ciel s'assombrit."
+        }
+      },
+      {
+        "when": {
+          "en": "Evening",
+          "fr": "Soir"
+        },
+        "what": {
+          "en": "Brides of India and the big stage",
+          "fr": "Brides of India et la grande scène"
+        },
+        "note": {
+          "en": "The fashion show, then bhangra, folk and Bollywood.",
+          "fr": "Le défilé, puis bhangra, folk et Bollywood."
+        }
+      },
+      {
+        "when": {
+          "en": "21:00",
+          "fr": "21 h"
+        },
+        "what": {
+          "en": "Fireworks over the Atomium",
+          "fr": "Feu d'artifice au-dessus de l'Atomium"
+        },
+        "note": {
+          "en": "Ten minutes of light above the spheres, both evenings.",
+          "fr": "Dix minutes de lumière au-dessus des sphères, les deux soirs."
+        }
+      }
+    ],
+    "note": {
+      "en": "Full artist line-up announced soon.",
+      "fr": "Programmation complète bientôt annoncée."
+    }
+  },
+  "kids": {
+    "kicker": {
+      "en": "Families",
+      "fr": "Familles"
+    },
+    "heading": {
+      "en": "For the little ones",
+      "fr": "Pour les petits"
+    },
+    "body": {
+      "en": "Children under 12 come free, with their own festival band. Workshops in rangoli, mehndi, dance and cooking are made for small hands too, and there is storytelling through the afternoon. The afternoon is the gentle time. Evenings are loud and the fireworks come at 21:00, so bring ear protection for the smallest ones. The esplanade is flat and buggies roll everywhere.",
+      "fr": "Les enfants de moins de 12 ans entrent gratuitement, avec leur propre bracelet. Les ateliers de rangoli, mehndi, danse et cuisine sont aussi pensés pour les petites mains, et des contes rythment l'après-midi. L'après-midi est le moment le plus doux. Le soir, le son monte et le feu d'artifice est à 21 h, prévoyez une protection auditive pour les plus petits. L'esplanade est plate et les poussettes passent partout."
+    }
+  },
+  "lamps": {
+    "kicker": {
+      "en": "Light and tradition",
+      "fr": "Lumière et tradition"
+    },
+    "heading": {
+      "en": "Why the lamps are lit",
+      "fr": "Pourquoi les lampes sont allumées"
+    },
+    "body": [
+      {
+        "en": "Diwali is the festival of lights, and the lights are lit for a reason. Every year we build a small temple on the esplanade, a tent decorated by hand, and a purohit conducts a peace and harmony puja on both days.",
+        "fr": "Diwali est la fête des lumières, et les lampes sont allumées pour une raison. Chaque année, nous construisons un petit temple sur l'esplanade, une tente décorée à la main, et un purohit conduit une puja pour la paix et l'harmonie les deux jours."
+      },
+      {
+        "en": "Everyone is welcome, whatever they believe. You do not need to be Hindu, or to know what to do. You can stand and watch, and most people do.",
+        "fr": "Tout le monde est bienvenu, quelles que soient ses croyances. Il n'est pas nécessaire d'être hindou, ni de savoir quoi faire. Vous pouvez simplement regarder, et c'est ce que font la plupart des gens."
+      }
+    ]
+  },
+  "register": {
+    "kicker_live": {
+      "en": "Stay in touch",
+      "fr": "Restons en contact"
+    },
+    "kicker_presale": {
+      "en": "Tickets on sale 4 September 2026",
+      "fr": "Billetterie ouverte le 4 septembre 2026"
+    },
+    "heading_live": {
+      "en": "Get festival updates",
+      "fr": "Recevez les nouvelles du festival"
+    },
+    "heading_presale": {
+      "en": "Be first through the gate",
+      "fr": "Soyez les premiers à entrer"
+    },
+    "lede_live": {
+      "en": "Programme, times and news from the esplanade, straight to your inbox. One email, nothing else.",
+      "fr": "Le programme, les horaires et les nouvelles de l'esplanade, directement dans votre boîte mail. Un seul e-mail, rien d'autre."
+    },
+    "lede_presale": {
+      "en": "Register now and we will write to you the morning tickets open. One email, nothing else.",
+      "fr": "Inscrivez-vous et nous vous écrirons le matin de l'ouverture de la billetterie. Un seul e-mail, rien d'autre."
+    },
+    "email_label": {
+      "en": "Email address",
+      "fr": "Adresse e-mail"
+    },
+    "placeholder": {
+      "en": "your@email.com",
+      "fr": "votre@email.com"
+    },
+    "submit": {
+      "en": "Register",
+      "fr": "S'inscrire"
+    },
+    "submitting": {
+      "en": "Registering…",
+      "fr": "Inscription…"
+    },
+    "done_live": {
+      "en": "You're on the list. We'll be in touch before the festival.",
+      "fr": "Vous êtes inscrit. Nous vous écrirons avant le festival."
+    },
+    "done_presale": {
+      "en": "You're on the list. We'll write on 4 September.",
+      "fr": "Vous êtes inscrit. Nous vous écrirons le 4 septembre."
+    },
+    "bad_email": {
+      "en": "That email address doesn't look right.",
+      "fr": "Cette adresse e-mail ne semble pas correcte."
+    },
+    "failed": {
+      "en": "Something went wrong. Please try again, or write to diwali@artindia.be.",
+      "fr": "Une erreur s'est produite. Réessayez, ou écrivez-nous à diwali@artindia.be."
+    }
+  },
+  "ui": {
+    "skip": {
+      "en": "Skip to content",
+      "fr": "Aller au contenu"
+    },
+    "read_on": {
+      "en": "Read on",
+      "fr": "Lire la suite"
+    },
+    "sticky_txt": {
+      "en": "Weekend tickets from €10",
+      "fr": "Billets week-end dès 10 €"
+    },
+    "sticky_cta": {
+      "en": "Get tickets",
+      "fr": "Billets"
+    },
+    "lang_label": {
+      "en": "Language",
+      "fr": "Langue"
+    }
+  }
 }

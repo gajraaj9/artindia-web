@@ -92,15 +92,25 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
   <rect x="${W / 2 - 260}" y="394" width="520" height="1.5" fill="url(#rule)"/>
 
   <text x="${W / 2}" y="456" text-anchor="middle" font-family="${SANS}"
-        font-size="44" font-weight="600" fill="${PAPER}">Atomium, 24-25 October 2026</text>
+        font-size="44" font-weight="600" fill="${PAPER}">__DATE__</text>
 
   <text x="${W / 2}" y="510" text-anchor="middle" font-family="${SANS}"
-        font-size="31" font-weight="400" fill="${GOLD}">Weekend tickets from &#8364;10</text>
+        font-size="31" font-weight="400" fill="${GOLD}">__PRICE__</text>
 </svg>`;
 
-const png = await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toBuffer();
+/* One card per language. The date line and the price line are the only
+   parts that change; the name stays as it is written on the poster. */
+const CARDS = [
+  { suffix: '',    date: 'Atomium, 24-25 October 2026', price: 'Weekend tickets from &#8364;10' },
+  { suffix: '-fr', date: 'Atomium, 24-25 octobre 2026', price: 'Billets week-end d\u00e8s 10 &#8364;' },
+];
 
-for (const rel of ['static/brand/og-diwali.png', 'diwali-holding/og-diwali.png']) {
-  writeFileSync(join(HERE, rel), png);
-  console.log(`wrote ${rel}  ${(png.length / 1024).toFixed(0)} KB`);
+for (const c of CARDS) {
+  const out = svg.replace('__DATE__', c.date).replace('__PRICE__', c.price);
+  const png = await sharp(Buffer.from(out)).png({ compressionLevel: 9 }).toBuffer();
+  for (const dir of ['static/brand', 'diwali-holding']) {
+    const rel = `${dir}/og-diwali${c.suffix}.png`;
+    writeFileSync(join(HERE, rel), png);
+    console.log(`wrote ${rel}  ${(png.length / 1024).toFixed(0)} KB`);
+  }
 }
