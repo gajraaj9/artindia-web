@@ -60,33 +60,42 @@ a{color:inherit;text-decoration:none}
 /* A masthead rather than an app bar: roughly 40% more height, and the
    organiser's mark sitting last on the right the way it does on a letterhead. */
 .bar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-block:14px}
-.brand{min-width:0;overflow:hidden;flex:1 1 auto}
-.brand span{font-size:12.5px;font-weight:600;letter-spacing:.16em;
+.bar-left{display:flex;align-items:center;gap:14px;min-width:0;flex:1 1 auto}
+.bar-right{display:flex;align-items:center;gap:14px;flex:0 0 auto;margin-left:24px}
+.brand{min-width:0;overflow:hidden}
+/* The masthead title. Big enough to be the name of the thing rather than a
+   label on a toolbar, and it is the element that gives way when the bar runs
+   out of room. */
+.brand span{font-size:clamp(15px,1.9vw,26px);font-weight:700;letter-spacing:.1em;
   text-transform:uppercase;color:var(--ink);white-space:nowrap;
-  display:block;overflow:hidden;text-overflow:ellipsis}
-@media(max-width:560px){
-  .brand span{font-size:9.5px;letter-spacing:.06em}
-  .bar{gap:6px;padding-block:10px}
-  .bar-right{gap:7px}
-  .bar-org{margin-left:5px}
-  .bar-logo{height:34px}
-  .bar-cta{font-size:10.5px;padding:7px 11px;letter-spacing:.06em}
-  .langsw{padding:2px}
-  .langsw a{font-size:10.5px;padding:4px 6px}
-}
-.bar-right{display:flex;align-items:center;gap:14px;flex:0 0 auto}
-/* The ticket button stays the loudest thing up here, so the mark is given air
-   rather than weight: 24px of it, which is also what stops the two reading as
-   one control. */
-.bar-org{display:flex;align-items:center;flex:none;margin-left:10px}
+  display:inline;overflow:hidden;text-overflow:ellipsis;line-height:1.1}
+.brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* The mark, first thing on the left, ahead of the name it belongs to. */
+.bar-org{display:flex;align-items:center;flex:none}
 .bar-org:hover{opacity:.85}
 .bar-logo{height:48px;width:auto;flex:none;display:block}
+/* Still the loudest control in the bar. */
 .bar-cta{font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
   color:#1A1000;background:var(--marigold);border-radius:100px;padding:9px 18px;
   white-space:nowrap;flex:none}
 .bar-cta:hover{background:var(--ember)}
-/* Below 520px the mark carries the attribution on its own. */
-@media(max-width:520px){.bar-org span{display:none}}
+/* On a phone the masthead takes its own row and the controls sit beneath it.
+   Squeezing the title in beside a three way language toggle and a ticket
+   button left it reading "BRUSS...", which is not a masthead. Two rows costs
+   about 25px of height and gives the name back in full. */
+@media(max-width:620px){
+  .bar{flex-wrap:wrap;gap:8px;padding-block:11px}
+  .bar-left{flex:1 1 100%;gap:10px}
+  .bar-right{flex:1 1 100%;margin-left:0;gap:8px;justify-content:space-between}
+  .brand span{font-size:15px;letter-spacing:.06em}
+  .bar-logo{height:36px}
+  .bar-cta{font-size:11px;padding:8px 16px;letter-spacing:.08em}
+  .langsw a{font-size:11px;padding:5px 9px}
+}
+@media(max-width:380px){
+  .brand span{font-size:13.5px;letter-spacing:.04em}
+  .bar-logo{height:32px}
+}
 
 /* ---------------- hero ---------------- */
 .hero{position:relative;min-height:100svh;display:flex;align-items:flex-end;
@@ -113,14 +122,11 @@ a{color:inherit;text-decoration:none}
     rgba(6,8,24,.55) 62%, transparent 78%)}
 .hero-body > *{position:relative;z-index:1}
 
-/* The title is the page. On a wide screen it runs to about four fifths of the
-   column; on a phone it grows until one more step would break "Brussels
-   Diwali" onto a third line. */
+/* Back to the size it was. The masthead wordmark carries the weight now. */
 .hero h1{
   font-family:var(--display);font-weight:400;
-  font-size:clamp(2.7rem,10vw,9.5rem);line-height:1.0;letter-spacing:-.015em;
-  margin:0 0 10px;text-shadow:0 2px 40px rgba(11,14,36,.65);
-  text-wrap:balance;
+  font-size:clamp(2.6rem,9vw,6.4rem);line-height:1.02;letter-spacing:-.01em;
+  margin:0 0 6px;text-shadow:0 2px 40px rgba(11,14,36,.65);
 }
 .hero h1 em{font-style:normal;color:var(--ember)}
 
@@ -386,7 +392,7 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
   max-width:34rem;margin:12px auto 0;
   text-shadow:0 1px 3px rgba(6,8,24,.9),0 2px 24px rgba(6,8,24,.7)}
 .tagline{font-family:var(--display);font-weight:400;
-  font-size:clamp(1.35rem,4vw,2.7rem);line-height:1.12;letter-spacing:.005em;
+  font-size:clamp(1.15rem,3.2vw,2rem);line-height:1.15;letter-spacing:.005em;
   color:var(--ember);margin:2px 0 0;
   text-shadow:0 1px 3px rgba(6,8,24,.9),0 2px 30px rgba(6,8,24,.75)}
 

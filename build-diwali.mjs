@@ -320,13 +320,28 @@ function render(lang) {
   /* Language switch. Runs in the head so a French speaker never sees the
      English page paint first. A stored choice always wins, which is what
      stops the sniff from overriding someone who picked deliberately. */
+/* The rule is: the page you asked for is the page you get, and it becomes
+   your preference. Only the English root ever redirects, and only to honour a
+   choice already made or, on a first ever visit, the browser's language.
+   Enforcing the stored language on every page is what made /nl/ unreachable
+   for anyone who had once clicked EN: it bounced them home before Dutch could
+   paint. The click is recorded from a delegated listener in the head rather
+   than a handler at the foot of the body, so a fast click cannot outrun it. */
   const langScript = `(function(){var K='ai_lang',P={en:'/',fr:'/fr/',nl:'/nl/'},
-here=${JSON.stringify(lang)},s=null;
-try{s=localStorage.getItem(K);}catch(e){}
+here=${JSON.stringify(lang)};
+document.addEventListener('click',function(e){
+  var a=e.target&&e.target.closest&&e.target.closest('#langsw a[data-lang]');
+  if(a){try{localStorage.setItem(K,a.getAttribute('data-lang'));}catch(_){}}
+},true);
+if(here!=='en'){try{localStorage.setItem(K,here);}catch(_){}return;}
+var s=null;try{s=localStorage.getItem(K);}catch(_){}
 if(s){if(P[s]&&s!==here)location.replace(P[s]);return;}
-if(here!=='en')return;
-var b=(navigator.language||'').toLowerCase();
-var want=b.indexOf('nl')===0?'nl':(b.indexOf('fr')===0?'fr':'en');
+var L=(navigator.languages&&navigator.languages.length)?navigator.languages:[navigator.language||''];
+var want='en';
+for(var i=0;i<L.length;i++){var t=(L[i]||'').toLowerCase();
+ if(t.indexOf('nl')===0){want='nl';break;}
+ if(t.indexOf('fr')===0){want='fr';break;}
+ if(t.indexOf('en')===0){want='en';break;}}
 if(want!=='en')location.replace(P[want]);})();`;
 
   const langSwitch = LANGS.map(l =>
@@ -368,13 +383,15 @@ ${alternates}
 <a class="skip" href="#awaits">${e(d.ui.skip)}</a>
 <nav class="topbar">
   <div class="wrap bar">
-    <a class="brand" href="${PATH_OF[lang]}"><span>Brussels Diwali Festival</span></a>
+    <div class="bar-left">
+      <a class="bar-org" href="https://artindia.be" target="_blank" rel="noopener" title="Art India">
+        <img class="bar-logo" src="/static/logo-mark.png" alt="Art India" width="39" height="48"></a>
+      <a class="brand" href="${PATH_OF[lang]}"><span class="wm-a">Brussels Diwali</span><span class="wm-b"> Festival</span></a>
+    </div>
     <div class="bar-right">
       <div class="langsw" id="langsw" role="group" aria-label="${e(d.ui.lang_label)}">${langSwitch}</div>
       <a class="bar-cta" href="${esc(TICKETS_HREF)}"${CTA_EXTERNAL ? ' rel="noopener"' : ''}>${
         e(LIVE ? d.tickets.cta_short : d.tickets.kicker)}</a>
-      <a class="bar-org" href="https://artindia.be" target="_blank" rel="noopener" title="Art India">
-        <img class="bar-logo" src="/static/logo-mark.png" alt="Art India" width="39" height="48"></a>
     </div>
   </div>
 </nav>
@@ -448,13 +465,6 @@ const LANG = ${JSON.stringify(lang)};
   addEventListener('scroll', onScroll, { passive: true });
   addEventListener('resize', onScroll, { passive: true });
 })();
-
-/* A deliberate choice outranks the browser's guess from here on. */
-for (const a of document.querySelectorAll('#langsw a')) {
-  a.addEventListener('click', () => {
-    try { localStorage.setItem('ai_lang', a.dataset.lang); } catch (_) {}
-  });
-}
 
 /* Campaign origin. Captured on landing and kept for the session, so a visitor
    who arrives from a poster QR code and buys twenty minutes later still counts
