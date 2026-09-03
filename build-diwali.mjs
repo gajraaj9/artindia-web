@@ -25,8 +25,12 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SITE = 'https://diwali.artindia.be';
 const d = JSON.parse(readFileSync(join(HERE, 'data/diwali.json'), 'utf8'));
 
-const LANGS = ['en', 'fr'];
-const PATH_OF = { en: '/', fr: '/fr/' };
+const LANGS = ['en', 'fr', 'nl'];
+const PATH_OF = { en: '/', fr: '/fr/', nl: '/nl/' };
+/* Dutch is region tagged: the copy is Flemish, and a Dutch reader in the
+   Netherlands should not be told this is written for them. */
+const HREFLANG = { en: 'en', fr: 'fr', nl: 'nl-BE' };
+const OG_LOCALE = { en: 'en_GB', fr: 'fr_BE', nl: 'nl_BE' };
 
 const IMG = new Images(join(HERE, 'media'), join(HERE, '.cache/img'));
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -291,11 +295,11 @@ function render(lang) {
 
   /* ------------------------------------------------------- head bits */
   const alternates = LANGS.map(l =>
-    `<link rel="alternate" hreflang="${l}" href="${SITE}${PATH_OF[l]}">`).join('\n') +
+    `<link rel="alternate" hreflang="${HREFLANG[l]}" href="${SITE}${PATH_OF[l]}">`).join('\n') +
     `\n<link rel="alternate" hreflang="x-default" href="${SITE}/">`;
 
-  const ogImage = lang === 'fr' && existsSync(join(HERE, 'diwali-holding/og-diwali-fr.png'))
-    ? '/og-diwali-fr.png' : '/og-diwali.png';
+  const ogImage = lang !== 'en' && existsSync(join(HERE, `diwali-holding/og-diwali-${lang}.png`))
+    ? `/og-diwali-${lang}.png` : '/og-diwali.png';
 
   const jsonld = JSON.stringify({
     '@context': 'https://schema.org', '@type': 'Festival',
@@ -316,17 +320,21 @@ function render(lang) {
   /* Language switch. Runs in the head so a French speaker never sees the
      English page paint first. A stored choice always wins, which is what
      stops the sniff from overriding someone who picked deliberately. */
-  const langScript = `(function(){var K='ai_lang',here=${JSON.stringify(lang)},s=null;
+  const langScript = `(function(){var K='ai_lang',P={en:'/',fr:'/fr/',nl:'/nl/'},
+here=${JSON.stringify(lang)},s=null;
 try{s=localStorage.getItem(K);}catch(e){}
-if(s){if(s!==here&&(s==='en'||s==='fr'))location.replace(s==='fr'?'/fr/':'/');return;}
-if(here==='en'&&(navigator.language||'').toLowerCase().indexOf('fr')===0)location.replace('/fr/');})();`;
+if(s){if(P[s]&&s!==here)location.replace(P[s]);return;}
+if(here!=='en')return;
+var b=(navigator.language||'').toLowerCase();
+var want=b.indexOf('nl')===0?'nl':(b.indexOf('fr')===0?'fr':'en');
+if(want!=='en')location.replace(P[want]);})();`;
 
   const langSwitch = LANGS.map(l =>
-    `<a href="${PATH_OF[l]}" hreflang="${l}" data-lang="${l}"${l === lang ? ' class="on" aria-current="true"' : ''}>${l.toUpperCase()}</a>`
+    `<a href="${PATH_OF[l]}" hreflang="${HREFLANG[l]}" data-lang="${l}"${l === lang ? ' class="on" aria-current="true"' : ''}>${l.toUpperCase()}</a>`
   ).join('');
 
   return `<!DOCTYPE html>
-<html lang="${lang}">
+<html lang="${HREFLANG[lang]}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -335,7 +343,7 @@ if(here==='en'&&(navigator.language||'').toLowerCase().indexOf('fr')===0)locatio
 <link rel="canonical" href="${SITE}${PATH_OF[lang]}">
 ${alternates}
 <meta property="og:type" content="website">
-<meta property="og:locale" content="${lang === 'fr' ? 'fr_BE' : 'en_GB'}">
+<meta property="og:locale" content="${OG_LOCALE[lang]}">
 <meta property="og:title" content="${e(d.meta.og_title)}">
 <meta property="og:description" content="${e(d.meta.og_description)}">
 <meta property="og:url" content="${SITE}${PATH_OF[lang]}">
@@ -652,7 +660,7 @@ for (const lang of LANGS) {
   writeFileSync(join(dir, 'index.html'), render(lang));
 }
 cpSync(join(HERE, 'static/diwali.css'), join(out, 'diwali.css'));
-for (const f of ['favicon.svg', 'og-diwali.png', 'og-diwali-fr.png', '_redirects']) {
+for (const f of ['favicon.svg', 'og-diwali.png', 'og-diwali-fr.png', 'og-diwali-nl.png', '_redirects']) {
   const p = join(HERE, 'diwali-holding', f);
   if (existsSync(p)) cpSync(p, join(out, f));
 }
@@ -686,7 +694,7 @@ writeFileSync(join(out, 'sitemap.xml'),
   `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
 ${LANGS.map(l => `<url><loc>${SITE}${PATH_OF[l]}</loc>
-${LANGS.map(a => `  <xhtml:link rel="alternate" hreflang="${a}" href="${SITE}${PATH_OF[a]}"/>`).join('\n')}
+${LANGS.map(a => `  <xhtml:link rel="alternate" hreflang="${HREFLANG[a]}" href="${SITE}${PATH_OF[a]}"/>`).join('\n')}
 </url>`).join('\n')}
 </urlset>
 `);

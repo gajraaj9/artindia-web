@@ -110,10 +110,13 @@ function money(raw) {
 }
 
 /* Which line items are children. Ticket Tailor has no "this is a child ticket"
-   flag, so it comes down to what the ticket type is called; the site sells
-   "Children under 12" and the French box office would say "enfants". A free
-   line counts too, since the child ticket is the only free one. */
-const CHILD_RE = /child|children|enfant|kid|under\s*12|moins\s*de\s*12/i;
+   flag, so it comes down to what the ticket type is called. The site sells
+   "Children under 12", and the box office may one day be renamed in French or
+   Dutch, so enfant and kind are matched too: a trilingual rename should not
+   quietly stop counting children. A free line counts as well, the child ticket
+   being the only free one. */
+const CHILD_RE =
+  /child|children|enfant|enfants|kind|kinderen|kid|under\s*12|moins\s*de\s*12|onder\s*12/i;
 
 function countTickets(order) {
   const lines = pick(order, 'line_items', 'issued_tickets', 'tickets', 'items') || [];
@@ -164,7 +167,7 @@ function findOptIn(order) {
 }
 
 const truthy = v =>
-  v === true || /^(true|yes|y|1|on|oui)$/i.test(String(v ?? '').trim());
+  v === true || /^(true|yes|y|1|on|oui|ja)$/i.test(String(v ?? '').trim());
 
 /* ------------------------------------------------------------------ brevo */
 

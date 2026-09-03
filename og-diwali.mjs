@@ -103,6 +103,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
 const CARDS = [
   { suffix: '',    date: 'Atomium, 24-25 October 2026', price: 'Weekend tickets from &#8364;10' },
   { suffix: '-fr', date: 'Atomium, 24-25 octobre 2026', price: 'Billets week-end d\u00e8s 10 &#8364;' },
+  { suffix: '-nl', date: 'Atomium, 24-25 oktober 2026', price: 'Weekendtickets vanaf 10 &#8364;' },
 ];
 
 for (const c of CARDS) {
