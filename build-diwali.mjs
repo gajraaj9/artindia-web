@@ -39,7 +39,13 @@ const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
    early still flips on its own. */
 const SALE_AT = new Date(d.event.sale_opens);
 const LIVE = Boolean(d.event.ticket_url) && new Date() >= SALE_AT;
-const TICKETS_HREF = LIVE ? d.event.ticket_url : '#register';
+/* An embedded checkout only exists once a widget URL has been pasted in from
+   the Ticket Tailor dashboard. Until then the CTAs keep going straight to the
+   box office: adding a hop to a live sale to reach an empty box would cost
+   orders. widget_url is the hard stop, exactly as ticket_url is for LIVE. */
+const EMBED = LIVE && Boolean(d.event.widget_url);
+const TICKETS_HREF = EMBED ? '#tickets' : (LIVE ? d.event.ticket_url : '#register');
+const CTA_EXTERNAL = LIVE && !EMBED;
 
 const out = join(HERE, 'dist-diwali');
 
@@ -93,7 +99,7 @@ function render(lang) {
     <div class="lamps">${Array.from({ length: 10 }, (_, i) => lamp(i === 9 ? 1.5 : 1)).join('')}</div>
     <div class="days">${days}</div>
     <div class="hero-actions">
-      <a class="btn" id="hero-cta" href="${esc(TICKETS_HREF)}"${LIVE ? ' rel="noopener"' : ''}>${
+      <a class="btn" id="hero-cta" href="${esc(TICKETS_HREF)}"${CTA_EXTERNAL ? ' rel="noopener"' : ''}>${
         e(LIVE ? d.tickets.cta_live : d.tickets.cta_presale)}</a>
       <span class="btn-note" id="cta-note">${e(d.event.cta_note)}</span>
     </div>
@@ -143,14 +149,28 @@ function render(lang) {
         <span class="t-price">${e(r.price)}</span>
         ${r.note ? `<span class="t-note">${e(r.note)}</span>` : ''}</li>`).join('');
     const notes = (tk.notes || []).map(n => `<p class="price-note">${e(n)}</p>`).join('');
+
+    /* The ladder is server rendered and readable the moment the page paints.
+       The checkout is the heavy part, so it only mounts when the section comes
+       near the viewport or someone taps a CTA. The mount reserves its height
+       up front, otherwise the widget appearing would shove the page under the
+       reader's thumb. Without a widget_url the section keeps the direct link,
+       which is the state the sale is in today. */
+    const embed = EMBED ? `
+    <div class="tt-mount" id="tt-mount" data-widget="${esc(d.event.widget_url)}">
+      <p class="tt-loading" id="tt-loading">${e(tk.embed_loading)}</p>
+    </div>
+    <p class="tt-fallback">${e(tk.embed_fallback)}
+      <a id="tt-fallback-link" href="${esc(d.event.ticket_url)}" rel="noopener">${e(tk.embed_fallback_link)}</a></p>`
+      : `<p class="ticket-cta"><a class="btn" id="ticket-cta" href="${esc(TICKETS_HREF)}"${CTA_EXTERNAL ? ' rel="noopener"' : ''}>${
+          e(LIVE ? tk.cta_live : tk.cta_presale)}</a></p>`;
+
     return `<section class="band tickets" id="tickets">
   <div class="wrap col">
     <p class="kicker gold">${e(tk.kicker)}</p>
     <h2>${e(tk.heading)}</h2>
     <ul class="prices">${rows}</ul>
-    ${notes}
-    <p class="ticket-cta"><a class="btn" id="ticket-cta" href="${esc(TICKETS_HREF)}"${LIVE ? ' rel="noopener"' : ''}>${
-      e(LIVE ? tk.cta_live : tk.cta_presale)}</a></p>
+    ${notes}${embed}
   </div></section>`;
   }
 
@@ -343,7 +363,7 @@ ${alternates}
     <a class="brand" href="${PATH_OF[lang]}"><span>Brussels Diwali Festival</span></a>
     <div class="bar-right">
       <div class="langsw" id="langsw" role="group" aria-label="${e(d.ui.lang_label)}">${langSwitch}</div>
-      <a class="bar-cta" href="${esc(TICKETS_HREF)}"${LIVE ? ' rel="noopener"' : ''}>${
+      <a class="bar-cta" href="${esc(TICKETS_HREF)}"${CTA_EXTERNAL ? ' rel="noopener"' : ''}>${
         e(LIVE ? d.tickets.cta_short : d.tickets.kicker)}</a>
     </div>
   </div>
@@ -371,7 +391,7 @@ ${footer()}
 <div class="stickybar" id="stickybar"${LIVE ? '' : ' style="display:none"'}>
   <div class="wrap sb-in">
     <span class="sb-txt">${e(d.ui.sticky_txt)}</span>
-    <a class="sb-cta" href="${esc(LIVE ? d.event.ticket_url : '#tickets')}"${LIVE ? ' rel="noopener"' : ''}>${e(d.ui.sticky_cta)}</a>
+    <a class="sb-cta" href="${esc(CTA_EXTERNAL ? d.event.ticket_url : '#tickets')}"${CTA_EXTERNAL ? ' rel="noopener"' : ''}>${e(d.ui.sticky_cta)}</a>
   </div>
 </div>
 <script>
@@ -398,28 +418,105 @@ try {
   for (const k of UTM_KEYS) utm[k] = sessionStorage.getItem(k) || '';
 } catch (_) { for (const k of UTM_KEYS) utm[k] = ''; }
 
+/* The embedded checkout. Ticket Tailor's widget script reads its settings off
+   its own script tag and swaps itself for an iframe, so mounting means writing
+   the tag into the reserved box at the moment we want it. Three triggers, and
+   whichever comes first wins: the section nears the viewport, someone taps a
+   CTA, or the anchor is already in the URL on arrival.
+
+   ref carries the campaign origin, so an order still counts against the poster
+   or the Instagram bio it came from. lang keeps the checkout in the language of
+   the page around it. */
+const mountWidget = (() => {
+  let armed = false, done = false;
+  function mount() {
+    if (done) return;
+    const box = document.getElementById('tt-mount');
+    if (!box) return;
+    done = true;
+    const s = document.createElement('script');
+    s.src = 'https://cdn.tickettailor.com/js/widgets/min/widget.js';
+    s.setAttribute('data-url', box.dataset.widget);
+    s.setAttribute('data-type', 'inline');
+    s.setAttribute('data-inline-minimal', 'false');
+    s.setAttribute('data-inline-show-logo', 'false');
+    s.setAttribute('data-inline-lang', LANG);
+    if (utm.utm_source) s.setAttribute('data-inline-ref', utm.utm_source);
+    /* If the script cannot load at all, say so rather than leaving a box that
+       spins for ever. The direct link underneath is always there. */
+    s.onerror = () => {
+      const l = document.getElementById('tt-loading');
+      if (l) l.classList.add('failed');
+    };
+    box.appendChild(s);
+    /* The loading line sits under the iframe until the widget paints over it. */
+    const seen = new MutationObserver(() => {
+      if (box.querySelector('iframe')) {
+        box.classList.add('loaded');
+        seen.disconnect();
+      }
+    });
+    seen.observe(box, { childList: true, subtree: true });
+  }
+  return {
+    arm() {
+      if (armed) return;
+      armed = true;
+      const box = document.getElementById('tt-mount');
+      if (!box) return;
+      if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver(es => {
+          if (es.some(x => x.isIntersecting)) { io.disconnect(); mount(); }
+        }, { rootMargin: '600px 0px' });
+        io.observe(box);
+      } else {
+        mount();
+      }
+      /* Tapping any ticket CTA should not wait for the scroll to finish. */
+      for (const a of document.querySelectorAll('#hero-cta, .bar-cta, .sb-cta')) {
+        a.addEventListener('click', mount, { once: true });
+      }
+      if (location.hash === '#tickets') mount();
+    },
+    mount,
+  };
+})();
+
 /* The sale switch. sale_opens is the moment tickets go live, with no offset
    applied to it. When the page was built after that moment the live state is
    already in the HTML and this block simply re-applies it, which is what lets
    it add the campaign ref without a second code path. An empty ticket_url is
    still the hard stop, and no URL parameter can flip it early. */
 const SALE_LIVE = Boolean(TICKET_URL) && new Date() >= SALE;
+const EMBED = ${JSON.stringify(EMBED)};
 
-if (SALE_LIVE) {
+/* The box office link, carrying the campaign origin. Used by the fallback
+   line under the widget, and by the CTAs when there is no widget. */
+function boxOffice() {
   let href = TICKET_URL;
   if (utm.utm_source) {
     href += (href.includes('?') ? '&' : '?') + 'ref=' + encodeURIComponent(utm.utm_source);
   }
-  for (const a of document.querySelectorAll('#hero-cta, #ticket-cta, .bar-cta, .sb-cta')) {
-    a.href = href;
-    a.rel = 'noopener';
+  return href;
+}
+
+if (SALE_LIVE) {
+  const href = boxOffice();
+  if (!EMBED) {
+    for (const a of document.querySelectorAll('#hero-cta, #ticket-cta, .bar-cta, .sb-cta')) {
+      a.href = href;
+      a.rel = 'noopener';
+    }
   }
+  const fb = document.getElementById('tt-fallback-link');
+  if (fb) fb.href = href;
   const L = ${JSON.stringify({
     cta_live: t(d.tickets.cta_live), cta_short: t(d.tickets.cta_short),
     kicker: t(d.register.kicker_live), heading: t(d.register.heading_live),
     lede: t(d.register.lede_live),
   })};
   for (const a of document.querySelectorAll('#hero-cta, #ticket-cta')) a.textContent = L.cta_live;
+  if (EMBED) mountWidget.arm();
   const barCta = document.querySelector('.bar-cta');
   if (barCta) barCta.textContent = L.cta_short;
   const rk = document.getElementById('reg-kicker');

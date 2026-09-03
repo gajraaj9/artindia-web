@@ -65,6 +65,7 @@
       "fr": "10 €"
     },
     "ticket_url": "https://buytickets.at/artindia/2392534",
+    "widget_url": "",
     "presale_end": "2026-09-30"
   },
   "tickets": {
@@ -134,8 +135,20 @@
       "fr": "Billetterie ouverte le vendredi 4 septembre"
     },
     "cta_short": {
-      "en": "Buy tickets",
+      "en": "Tickets",
       "fr": "Billets"
+    },
+    "embed_loading": {
+      "en": "Loading checkout…",
+      "fr": "Chargement du paiement…"
+    },
+    "embed_fallback": {
+      "en": "Checkout not loading?",
+      "fr": "Le paiement ne se charge pas ?"
+    },
+    "embed_fallback_link": {
+      "en": "Buy your tickets directly here.",
+      "fr": "Achetez vos billets directement ici."
     }
   },
   "practical": {

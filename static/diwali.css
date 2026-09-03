@@ -67,7 +67,8 @@ a{color:inherit;text-decoration:none}
 .bar-org:hover{color:var(--ink)}
 .bar-logo{height:32px;width:auto;flex:none}
 .bar-cta{font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
-  color:#1A1000;background:var(--marigold);border-radius:100px;padding:9px 18px}
+  color:#1A1000;background:var(--marigold);border-radius:100px;padding:9px 18px;
+  white-space:nowrap;flex:none}
 .bar-cta:hover{background:var(--ember)}
 /* Below 520px the mark carries the attribution on its own. */
 @media(max-width:520px){.bar-org span{display:none}}
@@ -425,3 +426,28 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
 /* ---------------- footer heritage line ---------------- */
 .foot-heritage{border-top:1px solid var(--line);margin-top:8px;padding-top:18px}
 .foot-heritage p{margin:0;font-size:13.5px;color:var(--ink-3);letter-spacing:.02em}
+
+/* ---------------- embedded checkout ---------------- */
+/* The box claims its height before the widget exists, so the iframe arriving
+   does not shove the rest of the page down under the reader's thumb. */
+.tt-mount{position:relative;margin:26px 0 0;min-height:520px;
+  border:1px solid var(--line);border-radius:16px;overflow:hidden;
+  background:rgba(242,239,230,.045)}
+@media(max-width:520px){.tt-mount{min-height:560px}}
+.tt-mount iframe{display:block;width:100%;border:0}
+.tt-loading{position:absolute;inset:0;display:flex;align-items:center;
+  justify-content:center;margin:0;padding:20px;text-align:center;
+  font-size:15px;color:var(--ink-3)}
+.tt-loading::before{content:"";width:14px;height:14px;margin-right:10px;
+  border:2px solid var(--line);border-top-color:var(--marigold);border-radius:50%;
+  animation:ttspin .9s linear infinite}
+@keyframes ttspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.tt-loading::before{animation:none}}
+/* Once the iframe has painted, the placeholder must not sit over it. */
+.tt-mount.loaded .tt-loading{display:none}
+.tt-loading.failed::before{display:none}
+
+.tt-fallback{margin:14px 0 0;font-size:14px;color:var(--ink-3)}
+.tt-fallback a{color:var(--marigold);text-decoration:underline;
+  text-underline-offset:2px}
+.tt-fallback a:hover{color:var(--ember)}
