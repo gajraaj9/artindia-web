@@ -365,10 +365,12 @@ ${alternates}
       <div class="langsw" id="langsw" role="group" aria-label="${e(d.ui.lang_label)}">${langSwitch}</div>
       <a class="bar-cta" href="${esc(TICKETS_HREF)}"${CTA_EXTERNAL ? ' rel="noopener"' : ''}>${
         e(LIVE ? d.tickets.cta_short : d.tickets.kicker)}</a>
+      <a class="bar-org" href="https://artindia.be" target="_blank" rel="noopener" title="Art India">
+        <img class="bar-logo" src="/static/logo-mark.png" alt="Art India" width="39" height="48"></a>
     </div>
   </div>
 </nav>
-<div class="pillbar">
+<div class="pillbar" id="pillbar">
   <div class="pill">
     <span class="pill-name">Brussels Diwali</span>
     <span class="pill-rule"></span>
@@ -399,6 +401,45 @@ const SALE = new Date("${d.event.sale_opens}");
 const TICKET_URL = ${JSON.stringify(d.event.ticket_url || '')};
 const PRICE_FROM = ${JSON.stringify(PRICE)};
 const LANG = ${JSON.stringify(lang)};
+
+/* The pill stays with the reader. It compacts once the hero is behind them,
+   and marks whichever section they are actually looking at. On phones the
+   bottom ticket bar already owns fixed space, so the pill is left to scroll
+   away rather than eat a second slice of a small screen. */
+(() => {
+  const bar = document.getElementById('pillbar');
+  if (!bar) return;
+  const links = [...bar.querySelectorAll('a[href^="#"]')];
+  const targets = links
+    .map(a => ({ a, el: document.getElementById(a.getAttribute('href').slice(1)) }))
+    .filter(x => x.el);
+
+  /* Which section is being read: the last one whose top has passed a line a
+     third of the way down the screen. Comparing positions rather than
+     intersection ratios matters, because a ratio is measured against the
+     target's own height and a tall section would always score lower than a
+     short one no matter where the reader is. */
+  let ticking = false;
+  const update = () => {
+    ticking = false;
+    bar.classList.toggle('compact', scrollY > 120);
+    if (!targets.length) return;
+    const line = innerHeight * 0.34;
+    let current = targets[0];
+    for (const t of targets) {
+      if (t.el.getBoundingClientRect().top <= line) current = t;
+    }
+    for (const t of targets) t.a.classList.toggle('on', t === current);
+  };
+  const onScroll = () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(update);
+  };
+  update();
+  addEventListener('scroll', onScroll, { passive: true });
+  addEventListener('resize', onScroll, { passive: true });
+})();
 
 /* A deliberate choice outranks the browser's guess from here on. */
 for (const a of document.querySelectorAll('#langsw a')) {
@@ -617,7 +658,7 @@ for (const f of ['favicon.svg', 'og-diwali.png', 'og-diwali-fr.png', '_redirects
 }
 /* Art India mark in the top bar, the organiser's logo rather than the festival's. */
 {
-  const p = join(HERE, 'static/brand/logo-mark.png');
+  const p = join(HERE, 'static/brand/logo-mark-hd.png');
   if (existsSync(p)) {
     mkdirSync(join(out, 'static'), { recursive: true });
     cpSync(p, join(out, 'static/logo-mark.png'));

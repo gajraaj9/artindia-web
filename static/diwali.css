@@ -57,15 +57,30 @@ a{color:inherit;text-decoration:none}
 .topbar{position:fixed;top:0;left:0;right:0;z-index:40;
   background:rgba(11,14,36,.72);backdrop-filter:blur(14px);
   border-bottom:1px solid var(--line)}
-.bar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-block:12px}
+/* A masthead rather than an app bar: roughly 40% more height, and the
+   organiser's mark sitting last on the right the way it does on a letterhead. */
+.bar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-block:14px}
+.brand{min-width:0;overflow:hidden;flex:1 1 auto}
 .brand span{font-size:12.5px;font-weight:600;letter-spacing:.16em;
-  text-transform:uppercase;color:var(--ink);white-space:nowrap}
-@media(max-width:560px){.brand span{font-size:11px;letter-spacing:.1em}}
-.bar-right{display:flex;align-items:center;gap:8px}
-.bar-org{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:500;
-  color:var(--ink-2);padding:6px 8px}
-.bar-org:hover{color:var(--ink)}
-.bar-logo{height:32px;width:auto;flex:none}
+  text-transform:uppercase;color:var(--ink);white-space:nowrap;
+  display:block;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:560px){
+  .brand span{font-size:9.5px;letter-spacing:.06em}
+  .bar{gap:6px;padding-block:10px}
+  .bar-right{gap:7px}
+  .bar-org{margin-left:5px}
+  .bar-logo{height:34px}
+  .bar-cta{font-size:10.5px;padding:7px 11px;letter-spacing:.06em}
+  .langsw{padding:2px}
+  .langsw a{font-size:10.5px;padding:4px 6px}
+}
+.bar-right{display:flex;align-items:center;gap:14px;flex:0 0 auto}
+/* The ticket button stays the loudest thing up here, so the mark is given air
+   rather than weight: 24px of it, which is also what stops the two reading as
+   one control. */
+.bar-org{display:flex;align-items:center;flex:none;margin-left:10px}
+.bar-org:hover{opacity:.85}
+.bar-logo{height:48px;width:auto;flex:none;display:block}
 .bar-cta{font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
   color:#1A1000;background:var(--marigold);border-radius:100px;padding:9px 18px;
   white-space:nowrap;flex:none}
@@ -75,8 +90,8 @@ a{color:inherit;text-decoration:none}
 
 /* ---------------- hero ---------------- */
 .hero{position:relative;min-height:100svh;display:flex;align-items:flex-end;
-  padding-bottom:clamp(48px,9vh,110px);overflow:hidden}
-@media(max-width:820px){.hero{padding-top:112px}}
+  padding-top:158px;padding-bottom:clamp(48px,9vh,110px);overflow:hidden}
+@media(max-width:820px){.hero{padding-top:132px}}
 .hero-media{position:absolute;inset:0}
 .hero-media picture,.hero-media img{width:100%;height:100%;object-fit:cover}
 .hero-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -98,10 +113,14 @@ a{color:inherit;text-decoration:none}
     rgba(6,8,24,.55) 62%, transparent 78%)}
 .hero-body > *{position:relative;z-index:1}
 
+/* The title is the page. On a wide screen it runs to about four fifths of the
+   column; on a phone it grows until one more step would break "Brussels
+   Diwali" onto a third line. */
 .hero h1{
   font-family:var(--display);font-weight:400;
-  font-size:clamp(2.6rem,9vw,6.4rem);line-height:1.02;letter-spacing:-.01em;
-  margin:0 0 6px;text-shadow:0 2px 40px rgba(11,14,36,.65);
+  font-size:clamp(2.7rem,10vw,9.5rem);line-height:1.0;letter-spacing:-.015em;
+  margin:0 0 10px;text-shadow:0 2px 40px rgba(11,14,36,.65);
+  text-wrap:balance;
 }
 .hero h1 em{font-style:normal;color:var(--ember)}
 
@@ -227,11 +246,21 @@ footer{border-top:1px solid var(--line);padding:56px 0 46px;background:rgba(11,1
 
 
 /* ---------------- pill sub-nav ------------------------------------------ */
-.pillbar{position:absolute;top:64px;left:0;right:0;z-index:30;
-  display:flex;justify-content:center;padding:0 var(--pad);pointer-events:none}
+/* Fixed, so the way back to tickets is never more than a glance away. It
+   shrinks once the hero is behind you. */
+.pillbar{position:fixed;top:82px;left:0;right:0;z-index:30;
+  display:flex;justify-content:center;padding:0 var(--pad);pointer-events:none;
+  transition:top .22s ease}
+.pillbar.compact{top:70px}
+.pillbar.compact .pill{padding:5px 16px;
+  background:rgba(242,239,230,.94);backdrop-filter:blur(10px);
+  box-shadow:0 6px 24px rgba(4,6,20,.5)}
+.pillbar.compact .pill a{padding:4px 10px}
+@media (prefers-reduced-motion:reduce){.pillbar{transition:none}}
 .pill{pointer-events:auto;display:flex;align-items:center;gap:4px;flex-wrap:wrap;
   justify-content:center;background:var(--ink);border-radius:100px;
-  padding:9px 22px;box-shadow:0 8px 34px rgba(4,6,20,.4);max-width:100%}
+  padding:9px 22px;box-shadow:0 8px 34px rgba(4,6,20,.4);max-width:100%;
+  transition:padding .22s ease, background .22s ease, box-shadow .22s ease}
 .pill-name{font-size:12px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
   color:var(--rust,#B4531C);padding-right:10px;white-space:nowrap}
 .pill-rule{width:1px;height:16px;background:rgba(20,17,13,.18);margin-right:8px}
@@ -240,8 +269,13 @@ footer{border-top:1px solid var(--line);padding:56px 0 46px;background:rgba(11,1
 .pill a:hover{color:#14110D}
 .pill a.on{color:#14110D;font-weight:600;box-shadow:inset 0 -2px 0 var(--marigold)}
 @media(max-width:820px){
-  /* Stays below the fixed bar and scrolls sideways rather than stacking. */
-  .pillbar{top:56px;padding:0 12px;justify-content:flex-start}
+  /* Absolute, not fixed: the bottom ticket bar already takes a fixed strip and
+     a second one would leave too little of a phone screen for the page. The
+     pill scrolls away with the hero instead. */
+  .pillbar{position:absolute;top:76px;padding:0 12px;justify-content:flex-start}
+  .pillbar.compact{top:76px}
+  .pillbar.compact .pill{padding:7px 8px;background:var(--ink);
+    backdrop-filter:none;box-shadow:0 8px 34px rgba(4,6,20,.4)}
   .pill{padding:7px 8px;overflow-x:auto;flex-wrap:nowrap;justify-content:flex-start;
     -webkit-overflow-scrolling:touch;scrollbar-width:none}
   .pill::-webkit-scrollbar{display:none}
@@ -352,7 +386,7 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
   max-width:34rem;margin:12px auto 0;
   text-shadow:0 1px 3px rgba(6,8,24,.9),0 2px 24px rgba(6,8,24,.7)}
 .tagline{font-family:var(--display);font-weight:400;
-  font-size:clamp(1.15rem,3.2vw,2rem);line-height:1.15;letter-spacing:.005em;
+  font-size:clamp(1.35rem,4vw,2.7rem);line-height:1.12;letter-spacing:.005em;
   color:var(--ember);margin:2px 0 0;
   text-shadow:0 1px 3px rgba(6,8,24,.9),0 2px 30px rgba(6,8,24,.75)}
 
