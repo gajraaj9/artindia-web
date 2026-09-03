@@ -23,6 +23,18 @@ const IMG = new Images(join(HERE, 'media'), join(HERE, '.cache/img'));
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
   .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+/* This build emits English only. Strings that have been translated are stored
+   as { en, fr } so the copy is ready the day an FR page exists; t_ picks the
+   language and shouts if the one it needs is missing, rather than quietly
+   serving English to a French reader. Plain strings pass straight through. */
+const LANG = 'en';
+const t_ = v => {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (v[LANG] == null) throw new Error(`missing ${LANG} translation for: ${JSON.stringify(v)}`);
+  return v[LANG];
+};
+
 const out = join(HERE, 'dist-diwali');
 
 /* ---------------------------------------------------------------- lamp */
@@ -56,14 +68,15 @@ function hero() {
   <div class="hero-media">${media}</div>
   <div class="hero-veil"></div>
   <div class="hero-body wrap">
-    <p class="kicker">${esc(d.event.edition)} · ${esc(d.event.place)}</p>
+    <p class="kicker">${esc(d.event.edition)} · 5,000+ visitors · ${esc(d.event.place)}</p>
     <h1>Brussels <em>Diwali</em> Festival</h1>
     <p class="tagline">${esc(d.event.tagline)}</p>
+    <p class="hero-line">Music, dance, food and fireworks. The largest Diwali celebration in Belgium.</p>
     <div class="lamps">${Array.from({ length: 10 }, (_, i) => lamp(i === 9 ? 1.5 : 1)).join('')}</div>
     <div class="days">${days}</div>
     <div class="hero-actions">
-      <a class="btn" href="#register">Weekend tickets from ${esc(d.event.price_from)}</a>
-      <span class="btn-note" id="countdown">On sale 4 September</span>
+      <a class="btn" id="hero-cta" href="#register">Tickets open Friday 4 September</a>
+      <span class="btn-note" id="cta-note">From ${esc(d.event.price_from)}. Children under 12 free.</span>
     </div>
   </div>
   <a class="hero-scroll" href="#intro" aria-label="Read on"></a>
@@ -188,24 +201,39 @@ function practical() {
     <div class="accordion">${items}</div></div></section>`;
 }
 
-function prices() {
+/* Tickets stand on their own, above the mailing list. Three lines and two
+   notes, nothing else: a price ladder people can read at a glance beats a
+   paragraph explaining it. The gate price is always called the gate price,
+   never the regular price, because it is the one you pay for turning up
+   without having planned ahead. */
+function tickets() {
   const t = d.tickets;
   if (!t || !t.rows) return '';
   const rows = t.rows.map(r => `<li>
-      <span class="p">${esc(r.price)}</span>
-      <span class="w">${esc(r.when)}</span></li>`).join('');
-  return `<ul class="prices">${rows}</ul>
-    ${t.note ? `<p class="price-note">${esc(t.note)}</p>` : ''}`;
+      <span class="t-label">${esc(t_(r.label))}</span>
+      <span class="t-price">${esc(t_(r.price))}</span>
+      ${r.note ? `<span class="t-note">${esc(t_(r.note))}</span>` : ''}</li>`).join('');
+  const notes = (t.notes || []).map(n => `<p class="price-note">${esc(t_(n))}</p>`).join('');
+  return `<section class="band tickets" id="tickets">
+  <div class="wrap col">
+    <p class="kicker gold">Tickets</p>
+    <h2>Weekend tickets</h2>
+    <ul class="prices">${rows}</ul>
+    ${notes}
+    <p class="ticket-cta"><a class="btn" id="ticket-cta" href="#register">Tickets open Friday 4 September</a></p>
+  </div></section>`;
 }
 
+/* The mailing list. Before the sale it is the only thing to do on the page,
+   so it asks to be first through the gate. Once tickets are live it stops
+   competing with them and becomes what it actually is, a way to hear what
+   is happening. The switch rewrites the heading. */
 function register() {
   return `<section class="band register" id="register">
   <div class="wrap col">
-    <p class="kicker gold">Tickets on sale 4 September 2026</p>
-    <h2>Be first through the gate</h2>
+    <p class="kicker gold" id="reg-kicker">Tickets on sale 4 September 2026</p>
+    <h2 id="reg-heading">Be first through the gate</h2>
     <p class="lede">Register now and we will write to you the morning tickets open. One email, nothing else.</p>
-    ${prices()}
-    <p class="lede ticket-note">Children under 12 come free, but they still need an event band. Register them with the rest of your booking. Everything on site is card only.</p>
     <p class="done" id="done" role="status"></p>
     <form id="signup" novalidate>
       <div class="field">
@@ -289,6 +317,13 @@ const html = `<!DOCTYPE html>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Mukta:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/diwali.css?v=${CSSV}">
+<!-- Cloudflare Web Analytics. Cookie free, so it needs no consent banner,
+     which is the whole reason it is here rather than GA4.
+     [DECISION: CF_ANALYTICS_TOKEN] Paste the token from the Cloudflare
+     dashboard and uncomment. Shipping it with a placeholder token would
+     send every visitor a request that 400s, so it stays commented.
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "CF_ANALYTICS_TOKEN"}'></script>
+-->
 <script type="application/ld+json">${jsonld}</script>
 </head>
 <body>
@@ -320,39 +355,74 @@ ${pillars()}
 ${theme()}
 ${quotes()}
 ${galleryHTML}
+${tickets()}
 ${practical()}
 ${partners()}
 ${register()}
 </main>
 ${footer()}
-<div class="stickybar">
+<!-- Hidden until the sale is live. The inline style is deliberate: .stickybar
+     is display:block inside a media query, which would beat a [hidden]
+     attribute or a class, so the switch clears an inline rule instead. -->
+<div class="stickybar" id="stickybar" style="display:none">
   <div class="wrap sb-in">
     <span class="sb-txt">Weekend tickets from ${esc(d.event.price_from)}</span>
-    <a class="sb-cta" href="#register">Get tickets</a>
+    <a class="sb-cta" href="#tickets">Get tickets</a>
   </div>
 </div>
 <script>
 const SALE = new Date("${d.event.sale_opens}");
 const TICKET_URL = ${JSON.stringify(d.event.ticket_url || '')};
-const el = document.getElementById('countdown');
-if (el) {
-  const days = Math.ceil((SALE - new Date()) / 86400000);
-  el.textContent = days > 0 ? days + ' days until tickets open' : 'On sale now';
-}
+const PRICE_FROM = ${JSON.stringify(d.event.price_from)};
+
+/* Campaign origin. Captured on landing and kept for the session, so a visitor
+   who arrives from a poster QR code and buys twenty minutes later still counts
+   as the poster's sale in Ticket Tailor. */
+const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign'];
+const utm = {};
+try {
+  const q = new URLSearchParams(location.search);
+  for (const k of UTM_KEYS) if (q.get(k)) sessionStorage.setItem(k, q.get(k));
+  for (const k of UTM_KEYS) utm[k] = sessionStorage.getItem(k) || '';
+} catch (_) { for (const k of UTM_KEYS) utm[k] = ''; }
 
 /* The sale switch. General sale opens eight hours after the registration
    mail goes out, so 18:00 on 4 September. Until that moment, and for as
    long as ticket_url is empty, every ticket button keeps scrolling to the
-   registration form. Two conditions and nothing else: no other states, and
-   no URL parameter that can flip it early. An empty ticket_url is the hard
-   stop, so the clock passing on its own changes nothing. */
+   registration form and the sticky bar stays hidden. Two conditions and
+   nothing else: no other states, and no URL parameter that can flip it
+   early. An empty ticket_url is the hard stop, so the clock passing on its
+   own changes nothing. */
 const OPEN_AT = new Date(SALE.getTime() + 8 * 3600 * 1000);
-if (TICKET_URL && new Date() >= OPEN_AT) {
-  for (const a of document.querySelectorAll('.hero-actions .btn, .bar-cta, .sb-cta')) {
-    a.href = TICKET_URL;
-    a.textContent = 'Buy tickets';
+const SALE_LIVE = Boolean(TICKET_URL) && new Date() >= OPEN_AT;
+
+if (SALE_LIVE) {
+  let href = TICKET_URL;
+  if (utm.utm_source) {
+    href += (href.includes('?') ? '&' : '?') + 'ref=' + encodeURIComponent(utm.utm_source);
+  }
+  /* All four CTAs point at the box office. Only the two roomy ones carry the
+     full label: the header pill is uppercase and letter-spaced, and the sticky
+     bar already shows the price beside it, so the long text would wrap or
+     overflow in both. */
+  for (const a of document.querySelectorAll('#hero-cta, #ticket-cta, .bar-cta, .sb-cta')) {
+    a.href = href;
     a.rel = 'noopener';
   }
+  for (const a of document.querySelectorAll('#hero-cta, #ticket-cta')) {
+    a.textContent = 'Get weekend tickets, ' + PRICE_FROM;
+  }
+  const barCta = document.querySelector('.bar-cta');
+  if (barCta) barCta.textContent = 'Buy tickets';
+  /* The mailing list stops competing with the ticket button. */
+  const rk = document.getElementById('reg-kicker');
+  const rh = document.getElementById('reg-heading');
+  if (rk) rk.textContent = 'Stay in touch';
+  if (rh) rh.textContent = 'Get festival updates';
+  /* Clears the inline rule so the stylesheet decides again: visible on
+     phones, still hidden on desktop. */
+  const sb = document.getElementById('stickybar');
+  if (sb) sb.style.display = '';
 }
 /* The form stays usable after a success: a family registering three people
    should get through three addresses without reloading. Both messages are
@@ -391,7 +461,10 @@ form.addEventListener('submit', async e => {
   try {
     const r = await fetch(FORM_ENDPOINT, { method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, source: 'diwali-2026' }) });
+      body: JSON.stringify({ email, source: 'diwali-2026',
+        referrer: document.referrer || '',
+        utm_source: utm.utm_source, utm_medium: utm.utm_medium,
+        utm_campaign: utm.utm_campaign }) });
     if (!r.ok) throw new Error('failed');
     form.reset();                 /* empty the field, ready for the next address */
     done.textContent = DONE_MSG;

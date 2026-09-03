@@ -19,15 +19,62 @@
     "tagline": "Europe celebrates Diwali",
     "sale_opens": "2026-09-04T10:00:00+02:00",
     "price_from": "€10",
-    "ticket_url": "https://buytickets.at/artindia/2392534"
+    "ticket_url": "https://buytickets.at/artindia/2392534",
+    "presale_end": "2026-09-30"
   },
   "tickets": {
-    "note": "No booking fee, no service charge.",
     "rows": [
-      { "price": "€10", "when": "online, 1 to 30 September" },
-      { "price": "€12", "when": "online, 1 to 23 October" },
-      { "price": "€15", "when": "at the gate" },
-      { "price": "free", "when": "children under 12, event band required" }
+      {
+        "id": "presale",
+        "label": {
+          "en": "Online presale",
+          "fr": "Prévente en ligne"
+        },
+        "price": {
+          "en": "€10",
+          "fr": "10 €"
+        },
+        "note": {
+          "en": "Until 30 September. Valid the whole weekend.",
+          "fr": "Jusqu'au 30 septembre. Valable tout le week-end."
+        }
+      },
+      {
+        "id": "gate",
+        "label": {
+          "en": "At the gate",
+          "fr": "Sur place"
+        },
+        "price": {
+          "en": "€15",
+          "fr": "15 €"
+        }
+      },
+      {
+        "id": "child",
+        "label": {
+          "en": "Children under 12",
+          "fr": "Enfants de moins de 12 ans"
+        },
+        "price": {
+          "en": "Free",
+          "fr": "Gratuit"
+        },
+        "note": {
+          "en": "Event band required, add them to your booking.",
+          "fr": "Bracelet obligatoire, ajoutez-les à votre réservation."
+        }
+      }
+    ],
+    "notes": [
+      {
+        "en": "No booking fees. One ticket covers both days.",
+        "fr": "Sans frais de réservation. Un billet pour les deux jours."
+      },
+      {
+        "en": "A family of four comes for €20.",
+        "fr": "Une famille de quatre vient pour 20 €."
+      }
     ]
   },
   "intro": {
@@ -184,7 +231,7 @@
     },
     {
       "label": "Tickets",
-      "href": "#register"
+      "href": "#tickets"
     },
     {
       "label": "The theme",

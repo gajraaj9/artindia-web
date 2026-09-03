@@ -18,12 +18,20 @@ const json = (status, body) =>
   });
 
 export async function onRequestPost({ request, env }) {
-  let email, source;
+  let email, source, referrer, utm_source, utm_medium, utm_campaign;
   try {
-    ({ email, source } = await request.json());
+    ({ email, source, referrer, utm_source, utm_medium, utm_campaign } = await request.json());
   } catch {
     return json(400, { ok: false, error: 'bad_request' });
   }
+
+  /* Campaign origin, trimmed hard. These are visitor-supplied strings that
+     end up in Brevo, so they are length-capped and never trusted raw.
+     MANUAL STEP: the attributes SOURCE_REFERRER, UTM_SOURCE, UTM_MEDIUM and
+     UTM_CAMPAIGN must exist on the Brevo list before they will store. Brevo
+     ignores attributes it does not know rather than failing the call, so a
+     missing attribute looks like success and silently loses the value. */
+  const attr = v => String(v || '').trim().slice(0, 255);
 
   email = String(email || '').trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email) || email.length > 254) {
@@ -51,6 +59,10 @@ export async function onRequestPost({ request, env }) {
       attributes: {
         SOURCE: source || 'diwali-2026',
         SIGNUP_DATE: new Date().toISOString().slice(0, 10),
+        SOURCE_REFERRER: attr(referrer),
+        UTM_SOURCE: attr(utm_source),
+        UTM_MEDIUM: attr(utm_medium),
+        UTM_CAMPAIGN: attr(utm_campaign),
       },
     }),
   });
