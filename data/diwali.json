@@ -2,7 +2,7 @@
   "flags": {
     "galleries_enabled": false,
     "practical_enabled": false,
-    "hero_video_enabled": false
+    "hero_video_enabled": true
   },
   "event": {
     "name": {
