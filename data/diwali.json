@@ -157,9 +157,9 @@
       "nl": "Weekendtickets"
     },
     "cta_live": {
-      "en": "Get weekend tickets, €10",
-      "fr": "Billets week-end, 10 €",
-      "nl": "Weekendtickets, 10 €"
+      "en": "Select tickets, €10",
+      "fr": "Choisir ses billets, 10 €",
+      "nl": "Kies je tickets, €10"
     },
     "cta_presale": {
       "en": "Tickets open Friday 4 September",
@@ -278,9 +278,9 @@
           "nl": "Als het regent"
         },
         "a": {
-          "en": "The festival goes ahead in any weather, the stage is covered and much of the food is under canvas. Tickets are not refundable for rain. Bring a coat; Brussels in October is Brussels in October.",
-          "fr": "Le festival a lieu par tous les temps, la scène est couverte et une grande partie des cuisines est sous toile. Les billets ne sont pas remboursables en cas de pluie. Prenez un manteau ; Bruxelles en octobre, c'est Bruxelles en octobre.",
-          "nl": "Het festival gaat door bij elk weer, het podium is overdekt en een groot deel van de keukens staat onder tentzeil. Tickets worden niet terugbetaald bij regen. Neem een jas mee; Brussel in oktober is Brussel in oktober."
+          "en": "The festival goes ahead in any weather, the performances are under cover and much of the food is under canvas. Tickets are not refundable for rain. Bring a coat; Brussels in October is Brussels in October.",
+          "fr": "Le festival a lieu par tous les temps, les représentations sont à l'abri et une grande partie des cuisines est sous toile. Les billets ne sont pas remboursables en cas de pluie. Prenez un manteau ; Bruxelles en octobre, c'est Bruxelles en octobre.",
+          "nl": "Het festival gaat door bij elk weer, de optredens zijn overdekt en een groot deel van de keukens staat onder tentzeil. Tickets worden niet terugbetaald bij regen. Neem een jas mee; Brussel in oktober is Brussel in oktober."
         }
       },
       {
@@ -290,9 +290,9 @@
           "nl": "Toegankelijkheid"
         },
         "a": {
-          "en": "The esplanade is flat and step-free throughout. Accessible toilets are next to the stage. If you are coming with a wheelchair or need assistance, write to us beforehand and we will make sure someone meets you at the gate.",
-          "fr": "L'esplanade est plate et sans marches sur toute sa surface. Des toilettes accessibles se trouvent à côté de la scène. Si vous venez en fauteuil roulant ou si vous avez besoin d'aide, écrivez-nous à l'avance et nous ferons en sorte que quelqu'un vous accueille à l'entrée.",
-          "nl": "De esplanade is vlak en overal zonder treden. Naast het podium zijn er aangepaste toiletten. Kom je met een rolstoel of heb je hulp nodig, schrijf ons dan vooraf en we zorgen dat iemand je aan de ingang opwacht."
+          "en": "The esplanade is flat and step-free throughout. Accessible toilets are next to the performance area. If you are coming with a wheelchair or need assistance, write to us beforehand and we will make sure someone meets you at the gate.",
+          "fr": "L'esplanade est plate et sans marches sur toute sa surface. Des toilettes accessibles se trouvent à côté de l'espace scénique. Si vous venez en fauteuil roulant ou si vous avez besoin d'aide, écrivez-nous à l'avance et nous ferons en sorte que quelqu'un vous accueille à l'entrée.",
+          "nl": "De esplanade is vlak en overal zonder treden. Naast de podiumzone zijn er aangepaste toiletten. Kom je met een rolstoel of heb je hulp nodig, schrijf ons dan vooraf en we zorgen dat iemand je aan de ingang opwacht."
         }
       }
     ]
@@ -484,9 +484,9 @@
           "nl": "Zien"
         },
         "body": {
-          "en": "An avenue of lamps from the metro to the spheres. Rangoli underfoot, silk in every colour. At 21:00 the sky above the Atomium catches fire.",
-          "fr": "Une avenue de lampes du métro jusqu'aux sphères. Des rangolis au sol, de la soie de toutes les couleurs. À 21 h, le ciel au-dessus de l'Atomium s'embrase.",
-          "nl": "Een laan van lampjes van de metro tot aan de bollen. Rangoli onder je voeten, zijde in alle kleuren. Om 21.00 uur vat de hemel boven het Atomium vuur."
+          "en": "An avenue of lamps and colourful stalls with costumes and crafts from every region of India. Mesmerising dances from across the country. At 21:00 the sky above the Atomium comes alive with fireworks.",
+          "fr": "Une avenue de lampes et d'échoppes colorées, avec costumes et artisanat de toutes les régions de l'Inde. Des danses envoûtantes de tout le pays. À 21 h, le ciel au-dessus de l'Atomium s'illumine d'un feu d'artifice.",
+          "nl": "Een laan vol lampen en kleurrijke kraampjes met kostuums en kunstnijverheid uit alle regio's van India. Betoverende dansen uit het hele land. Om 21 u komt de hemel boven het Atomium tot leven met vuurwerk."
         }
       },
       {
@@ -579,9 +579,9 @@
           "nl": "Namiddag"
         },
         "what": {
-          "en": "Classical stage and workshops",
-          "fr": "Scène classique et ateliers",
-          "nl": "Klassiek podium en workshops"
+          "en": "Classical music and workshops",
+          "fr": "Musique classique et ateliers",
+          "nl": "Klassieke muziek en workshops"
         },
         "note": {
           "en": "Classical dance, Hindustani and Carnatic music. Workshops in dance, rangoli, mehndi and cooking, for all ages.",
@@ -613,9 +613,9 @@
           "nl": "Avond"
         },
         "what": {
-          "en": "Brides of India and the big stage",
-          "fr": "Brides of India et la grande scène",
-          "nl": "Brides of India en het grote podium"
+          "en": "Brides of India and the evening programme",
+          "fr": "Brides of India et le programme du soir",
+          "nl": "Brides of India en het avondprogramma"
         },
         "note": {
           "en": "The fashion show, then bhangra, folk and Bollywood.",
@@ -777,9 +777,9 @@
       "nl": "Weekendtickets vanaf 10 €"
     },
     "sticky_cta": {
-      "en": "Get tickets",
-      "fr": "Billets",
-      "nl": "Tickets"
+      "en": "Select tickets",
+      "fr": "Choisir ses billets",
+      "nl": "Kies je tickets"
     },
     "lang_label": {
       "en": "Language",
