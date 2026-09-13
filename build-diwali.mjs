@@ -152,7 +152,10 @@ function render(lang) {
 .awaits{background-image:${veil},url("${u('jpg')}");
   background-image:${veil},image-set(url("${u('avif')}") type("image/avif"),
     url("${u('webp')}") type("image/webp"),url("${u('jpg')}") type("image/jpeg"));
-  background-size:cover;background-position:center;background-repeat:no-repeat}
+  /* Anchored on the Atomium itself, which sits left of centre in the frame.
+     Centre crops it out entirely on a phone, where the section is tall and
+     narrow and cover throws away most of the width. */
+  background-size:cover;background-position:36% 43%;background-repeat:no-repeat}
 </style>`;
   }
 
