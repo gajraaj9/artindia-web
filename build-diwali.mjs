@@ -145,23 +145,33 @@ function render(lang) {
     const img = IMG.entry('atomium-night');
     let bg = '';
     if (img) {
-      const w = img.widths.includes(1600) ? 1600 : img.widths[img.widths.length - 1];
-      const u = f => `/static/img/atomium-night-${img.hash}-${w}.${f}`;
-      const veil = 'linear-gradient(rgba(23,27,61,.6), rgba(23,27,61,.6))';
+      /* Two sizes, chosen per viewport. A background image has no srcset, so
+         without this a phone would download the 2400px file to fill 390px.
+         The wide rule pushes in to 125%: at 2400px that is still a downscale
+         up to a 1920px viewport, where 150% was upscaling a 1600px file by
+         1.8x and turning the photograph to mush. */
+      const pick = w => {
+        const have = img.widths.includes(w) ? w : img.widths[img.widths.length - 1];
+        return f => `/static/img/atomium-night-${img.hash}-${have}.${f}`;
+      };
+      const small = pick(1200), large = pick(2400);
+      const veil = 'linear-gradient(rgba(23,27,61,.55), rgba(23,27,61,.55))';
+      const layers = u => `${veil},image-set(url("${u('avif')}") type("image/avif"),`
+        + `url("${u('webp')}") type("image/webp"),url("${u('jpg')}") type("image/jpeg"))`;
       bg = `<style>
-.astrip{background-image:${veil},url("${u('jpg')}");
-  background-image:${veil},image-set(url("${u('avif')}") type("image/avif"),
-    url("${u('webp')}") type("image/webp"),url("${u('jpg')}") type("image/jpeg"));
-  /* Panned down so the car park falls outside the band. On a phone the whole
-     width is kept, because zooming there leaves a dark slice with the festival
-     cropped away; from tablet up it is pushed in to 150% so the Atomium and the
-     lit stalls both read at size. */
+.astrip{background-image:${veil},url("${small('jpg')}");
+  background-image:${layers(small)};
+  /* Panned down so the car park falls outside the band. The phone keeps the
+     full width: zooming there left a dark slice with the festival cropped. */
   background-size:cover;background-position:36% 50%;background-repeat:no-repeat}
 @media(min-width:820px){
-  .astrip{background-size:150%;background-position:42% 48%}
+  .astrip{background-image:${veil},url("${large('jpg')}");
+    background-image:${layers(large)};
+    background-size:125%;background-position:42% 48%}
 }
 </style>`;
     }
+
     return `${bg}<section class="astrip"><p class="wrap">${e(d.awaits.intro)}</p></section>`;
   }
 
