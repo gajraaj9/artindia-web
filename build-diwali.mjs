@@ -344,7 +344,10 @@ function render(lang) {
     const f = d.footer;
     const social = (f.social || []).filter(x => x.url).map(x =>
       `<a href="${esc(x.url)}" rel="noopener">${esc(x.name)}</a>`).join('');
-    const org = lang === 'fr' ? 'https://artindia.be/fr/' : 'https://artindia.be';
+    /* Trailing slash belongs on the base, not hoped for on each path. Without
+       it these concatenated to artindia.befestivals/ and friends. All three
+       languages point at the same parent pages. */
+    const org = 'https://artindia.be/';
     return `<footer>
   <div class="wrap foot-top">
     <p class="foot-mark">Brussels Diwali Festival</p>
