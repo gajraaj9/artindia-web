@@ -138,25 +138,25 @@ function render(lang) {
 </header>`;
   }
 
-  /* The backdrop for the section after the hero. Emitted as an inline rule
-     because the variant filenames carry a content hash that a static
-     stylesheet cannot know. Without the photograph nothing is emitted and the
-     section keeps the page background. */
-  function awaitsBg() {
-    const e2 = IMG.entry('atomium-night');
-    if (!e2) return '';
-    const w = e2.widths.includes(1600) ? 1600 : e2.widths[e2.widths.length - 1];
-    const u = f => `/static/img/atomium-night-${e2.hash}-${w}.${f}`;
-    const veil = 'linear-gradient(rgba(23,27,61,.6), rgba(23,27,61,.6))';
-    return `<style>
-.awaits{background-image:${veil},url("${u('jpg')}");
+  /* A thin band between the hero and the festival panels: the photograph, a
+     veil dark enough to read over, and one line. Deliberately not a backdrop
+     behind the five panels, which sit on the page ground as before. */
+  function atomiumStrip() {
+    const img = IMG.entry('atomium-night');
+    let bg = '';
+    if (img) {
+      const w = img.widths.includes(1600) ? 1600 : img.widths[img.widths.length - 1];
+      const u = f => `/static/img/atomium-night-${img.hash}-${w}.${f}`;
+      const veil = 'linear-gradient(rgba(23,27,61,.6), rgba(23,27,61,.6))';
+      bg = `<style>
+.astrip{background-image:${veil},url("${u('jpg')}");
   background-image:${veil},image-set(url("${u('avif')}") type("image/avif"),
     url("${u('webp')}") type("image/webp"),url("${u('jpg')}") type("image/jpeg"));
-  /* Anchored on the Atomium itself, which sits left of centre in the frame.
-     Centre crops it out entirely on a phone, where the section is tall and
-     narrow and cover throws away most of the width. */
+  /* Anchored on the Atomium, which sits left of centre in the frame. */
   background-size:cover;background-position:36% 43%;background-repeat:no-repeat}
 </style>`;
+    }
+    return `${bg}<section class="astrip"><p class="wrap">${e(d.awaits.intro)}</p></section>`;
   }
 
   /* --------------------------------------------- what awaits you (B2) */
@@ -181,11 +181,10 @@ function render(lang) {
         <h3>${e(p.title)}</h3>
         <p>${e(p.body)}</p>${gallery}</li>`;
     }).join('');
-    return `${awaitsBg()}<section class="band awaits" id="awaits">
+    return `<section class="band awaits" id="awaits">
   <div class="wrap">
     <p class="kicker gold">${e(a.kicker)}</p>
     <h2 class="section-h">${e(a.heading)}</h2>
-    <p class="lede">${e(a.intro)}</p>
     <ul class="senses">${panels}</ul>
   </div></section>`;
   }
@@ -474,6 +473,7 @@ ${alternates}
 </div>
 ${hero()}
 <main>
+${atomiumStrip()}
 ${awaits()}
 ${timeline()}
 ${tickets()}

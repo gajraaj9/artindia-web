@@ -497,6 +497,16 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
   .lang-list a.on{display:none}
 }
 
+/* ---------------- Atomium strip ---------------- */
+/* A band, not a section: about a third the height of a content band, one line
+   of type, nothing else to read. */
+.astrip{display:flex;align-items:center;justify-content:center;
+  min-height:clamp(148px,17vw,226px);background-color:var(--night-2);
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.astrip p{margin:0;text-align:center;font-weight:700;
+  font-size:clamp(1.02rem,2.2vw,1.5rem);line-height:1.3;color:var(--ink);
+  text-shadow:0 2px 16px rgba(6,8,24,.85),0 1px 3px rgba(6,8,24,.9)}
+
 /* ---------------- what awaits you ---------------- */
 /* Five senses. One column on a phone so the page stays short, a row of five on
    a wide screen. The list sits inside the section's own column now, so the
