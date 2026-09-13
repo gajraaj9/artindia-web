@@ -138,6 +138,24 @@ function render(lang) {
 </header>`;
   }
 
+  /* The backdrop for the section after the hero. Emitted as an inline rule
+     because the variant filenames carry a content hash that a static
+     stylesheet cannot know. Without the photograph nothing is emitted and the
+     section keeps the page background. */
+  function awaitsBg() {
+    const e2 = IMG.entry('atomium-night');
+    if (!e2) return '';
+    const w = e2.widths.includes(1600) ? 1600 : e2.widths[e2.widths.length - 1];
+    const u = f => `/static/img/atomium-night-${e2.hash}-${w}.${f}`;
+    const veil = 'linear-gradient(rgba(23,27,61,.6), rgba(23,27,61,.6))';
+    return `<style>
+.awaits{background-image:${veil},url("${u('jpg')}");
+  background-image:${veil},image-set(url("${u('avif')}") type("image/avif"),
+    url("${u('webp')}") type("image/webp"),url("${u('jpg')}") type("image/jpeg"));
+  background-size:cover;background-position:center;background-repeat:no-repeat}
+</style>`;
+  }
+
   /* --------------------------------------------- what awaits you (B2) */
   /* Five senses, five panels. Text led until the footage arrives; each panel
      is a slot a photograph or a loop can drop into without moving anything. */
@@ -160,7 +178,7 @@ function render(lang) {
         <h3>${e(p.title)}</h3>
         <p>${e(p.body)}</p>${gallery}</li>`;
     }).join('');
-    return `<section class="band awaits" id="awaits">
+    return `${awaitsBg()}<section class="band awaits" id="awaits">
   <div class="wrap">
     <p class="kicker gold">${e(a.kicker)}</p>
     <h2 class="section-h">${e(a.heading)}</h2>
@@ -783,7 +801,12 @@ form.addEventListener('submit', async ev => {
 }
 
 /* ---------------------------------------------------------------- build */
-if (IMG.has('diwali-hero')) await IMG.prepare('diwali-hero');
+/* The stems the ladder is generated for. images.mjs discovers everything in
+   media/, but only what is named here is actually resized and emitted, which is
+   why dropping a file in was not enough on its own. */
+for (const stem of ['diwali-hero', 'atomium-night']) {
+  if (IMG.has(stem)) await IMG.prepare(stem);
+}
 IMG.save();
 
 const css = readFileSync(join(HERE, 'static/diwali.css'), 'utf8');

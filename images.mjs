@@ -63,6 +63,12 @@ export class Images {
 
   has(stem) { return this.byStem.has(stem); }
 
+  /** The prepared entry, or null if the stem was never processed. */
+  entry(stem) {
+    const e = this.byStem.get(stem);
+    return e && e.ready ? e : null;
+  }
+
   /** Resize once per width and format; skip anything already generated. */
   async prepare(stem) {
     const entry = this.byStem.get(stem);
