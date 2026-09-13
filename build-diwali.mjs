@@ -152,8 +152,14 @@ function render(lang) {
 .astrip{background-image:${veil},url("${u('jpg')}");
   background-image:${veil},image-set(url("${u('avif')}") type("image/avif"),
     url("${u('webp')}") type("image/webp"),url("${u('jpg')}") type("image/jpeg"));
-  /* Anchored on the Atomium, which sits left of centre in the frame. */
-  background-size:cover;background-position:36% 43%;background-repeat:no-repeat}
+  /* Panned down so the car park falls outside the band. On a phone the whole
+     width is kept, because zooming there leaves a dark slice with the festival
+     cropped away; from tablet up it is pushed in to 150% so the Atomium and the
+     lit stalls both read at size. */
+  background-size:cover;background-position:36% 50%;background-repeat:no-repeat}
+@media(min-width:820px){
+  .astrip{background-size:150%;background-position:42% 48%}
+}
 </style>`;
     }
     return `${bg}<section class="astrip"><p class="wrap">${e(d.awaits.intro)}</p></section>`;
