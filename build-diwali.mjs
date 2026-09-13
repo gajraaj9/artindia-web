@@ -121,7 +121,7 @@ function render(lang) {
   <div class="hero-media">${media}</div>
   <div class="hero-veil"></div>
   <div class="hero-body wrap">
-    <p class="kicker">${e(d.event.edition)} · ${e(d.event.scale)} · ${e(d.event.place)}</p>
+    <p class="kicker">${e(d.event.edition)} · ${e(d.event.place)}</p>
     <h1>Brussels <em>Diwali</em> Festival</h1>
     <p class="tagline">${e(d.event.tagline)}</p>
     <p class="hero-line">${e(d.event.hero_line)}</p>
@@ -129,8 +129,9 @@ function render(lang) {
     <div class="days">${days}</div>
     <div class="hero-actions">
       <a class="btn" id="hero-cta" href="${esc(TICKETS_HREF)}"${CTA_EXTERNAL ? ' rel="noopener"' : ''}>${
-        e(LIVE ? d.tickets.cta_live : d.tickets.cta_presale)}</a>
-      <span class="btn-note" id="cta-note">${e(d.event.cta_note)}</span>
+        e(LIVE ? d.tickets.cta_hero : d.tickets.cta_presale)}</a>
+      <span class="btn-note" id="cta-note">${e(d.event.cta_note_1)}<br><span class="btn-note-2">${
+        e(d.event.cta_note_2)}</span></span>
     </div>
   </div>
   <a class="hero-scroll" href="#awaits" aria-label="${e(d.ui.read_on)}"></a>
@@ -163,6 +164,7 @@ function render(lang) {
   <div class="wrap">
     <p class="kicker gold">${e(a.kicker)}</p>
     <h2 class="section-h">${e(a.heading)}</h2>
+    <p class="lede">${e(a.intro)}</p>
     <ul class="senses">${panels}</ul>
   </div></section>`;
   }
@@ -690,11 +692,16 @@ if (SALE_LIVE) {
   const fb = document.getElementById('tt-fallback-link');
   if (fb) fb.href = href;
   const L = ${JSON.stringify({
-    cta_live: t(d.tickets.cta_live), cta_short: t(d.tickets.cta_short),
+    cta_live: t(d.tickets.cta_live), cta_hero: t(d.tickets.cta_hero),
+    cta_short: t(d.tickets.cta_short),
     kicker: t(d.register.kicker_live), heading: t(d.register.heading_live),
     lede: t(d.register.lede_live),
   })};
-  for (const a of document.querySelectorAll('#hero-cta, #ticket-cta')) a.textContent = L.cta_live;
+  /* The hero carries a short label; the ticket section keeps the price. */
+  const heroCta = document.getElementById('hero-cta');
+  if (heroCta) heroCta.textContent = L.cta_hero;
+  const ticketCta = document.getElementById('ticket-cta');
+  if (ticketCta) ticketCta.textContent = L.cta_live;
   if (EMBED) mountWidget.arm();
   const barCta = document.querySelector('.bar-cta');
   if (barCta) barCta.textContent = L.cta_short;

@@ -15,11 +15,6 @@
       "fr": "10e édition",
       "nl": "10e editie"
     },
-    "scale": {
-      "en": "5,000+ visitors",
-      "fr": "plus de 5 000 visiteurs",
-      "nl": "5.000+ bezoekers"
-    },
     "place": {
       "en": "Atomium Esplanade, Brussels",
       "fr": "Esplanade de l'Atomium, Bruxelles",
@@ -72,10 +67,15 @@
       "fr": "Musique, danse, cuisine et feu d'artifice. La plus grande fête de Diwali en Europe.",
       "nl": "Muziek, dans, eten en vuurwerk. Het grootste Diwalifeest van Europa."
     },
-    "cta_note": {
-      "en": "From €10. Children under 12 free.",
-      "fr": "Dès 10 €. Gratuit pour les moins de 12 ans.",
-      "nl": "Vanaf 10 €. Kinderen onder 12 gratis."
+    "cta_note_1": {
+      "en": "One ticket, unlimited access on both days",
+      "fr": "Un billet, accès illimité les deux jours",
+      "nl": "Eén ticket, onbeperkte toegang op beide dagen"
+    },
+    "cta_note_2": {
+      "en": "Children under 12 free",
+      "fr": "Gratuit pour les moins de 12 ans",
+      "nl": "Kinderen onder 12 jaar gratis"
     },
     "sale_opens": "2026-09-03T18:45:00+02:00",
     "price_from": {
@@ -160,6 +160,11 @@
       "en": "Select tickets, €10",
       "fr": "Choisir ses billets, 10 €",
       "nl": "Kies je tickets, €10"
+    },
+    "cta_hero": {
+      "en": "Presale Tickets",
+      "fr": "Billets en prévente",
+      "nl": "Voorverkooptickets"
     },
     "cta_presale": {
       "en": "Tickets open Friday 4 September",
@@ -474,6 +479,11 @@
       "en": "What awaits you",
       "fr": "Ce qui vous attend",
       "nl": "Wat je te wachten staat"
+    },
+    "intro": {
+      "en": "A unique setting, with the Atomium as your backdrop",
+      "fr": "Un cadre unique, avec l'Atomium en toile de fond",
+      "nl": "Een unieke locatie, met het Atomium als decor"
     },
     "panels": [
       {
