@@ -88,6 +88,19 @@ function render(lang) {
     return v[lang];
   };
   const e = v => esc(t(v));
+
+  /* The parent site publishes English and French. Dutch does not exist there:
+     every /nl/ path serves the English homepage, which is simply the catch-all
+     that artindia.be returns for any unmatched URL. Pointing Dutch at /nl/
+     would cost a reader the page as well as the language, so Dutch falls back
+     to the English page, which is at least the page they asked for. Give nl its
+     own entry the day artindia.be has Dutch. */
+  const PARENT = {
+    en: 'https://artindia.be/',
+    fr: 'https://artindia.be/fr/',
+    nl: 'https://artindia.be/',
+  };
+  const parent = PARENT[lang] || PARENT.en;
   const PRICE = t(d.event.price_from);
 
   /* ------------------------------------------------------------ hero */
@@ -344,10 +357,7 @@ function render(lang) {
     const f = d.footer;
     const social = (f.social || []).filter(x => x.url).map(x =>
       `<a href="${esc(x.url)}" rel="noopener">${esc(x.name)}</a>`).join('');
-    /* Trailing slash belongs on the base, not hoped for on each path. Without
-       it these concatenated to artindia.befestivals/ and friends. All three
-       languages point at the same parent pages. */
-    const org = 'https://artindia.be/';
+    const org = parent;
     return `<footer>
   <div class="wrap foot-top">
     <p class="foot-mark">Brussels Diwali Festival</p>
@@ -467,7 +477,7 @@ ${alternates}
 <nav class="topbar">
   <div class="wrap bar">
     <div class="bar-left">
-      <a class="bar-org" href="https://artindia.be" target="_blank" rel="noopener" title="Art India">
+      <a class="bar-org" href="${parent}" target="_blank" rel="noopener" title="Art India">
         <img class="bar-logo" src="/static/logo-mark.png" alt="Art India" width="39" height="48"></a>
       <a class="brand" href="${PATH_OF[lang]}"><span class="wm-a">Brussels Diwali</span><span class="wm-b"> Festival</span></a>
     </div>
