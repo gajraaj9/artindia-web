@@ -852,7 +852,11 @@ for (const lang of LANGS) {
   writeFileSync(join(dir, 'index.html'), render(lang));
 }
 cpSync(join(HERE, 'static/diwali.css'), join(out, 'diwali.css'));
-for (const f of ['favicon.svg', 'og-diwali.png', 'og-diwali-fr.png', 'og-diwali-nl.png', '_redirects']) {
+/* _routes.json keeps every static hit off the Functions worker: only /api/*
+   and /r/* are ours. Without it Pages runs the worker for every request to
+   the site and falls through to the asset, which works but is billed. */
+for (const f of ['favicon.svg', 'og-diwali.png', 'og-diwali-fr.png', 'og-diwali-nl.png',
+                 '_redirects', '_routes.json']) {
   const p = join(HERE, 'diwali-holding', f);
   if (existsSync(p)) cpSync(p, join(out, f));
 }
