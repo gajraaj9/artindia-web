@@ -171,16 +171,58 @@ export function ensureAttributes(env) {
   return attributesReady;
 }
 
-/** Upsert. `listIds` only ever adds: nothing here removes anyone from a list. */
-export async function upsertContact(env, email, attributes, listIds) {
+/* One POST to /contacts, with the response kept as text so it can be logged
+   whatever it turned out to be. */
+async function postContact(env, email, attributes, listIds) {
   const res = await brevo(env, '/contacts', {
     method: 'POST',
     body: JSON.stringify({ email, attributes, listIds, updateEnabled: true }),
   });
-  if (res.ok || res.status === 204) return { ok: true };
-  const detail = await res.text();
-  /* An address already on the list comes back as a 400 duplicate, which from
-     our side is the state we wanted. */
-  if (detail.includes('duplicate_parameter')) return { ok: true };
-  return { ok: false, status: res.status, detail };
+  const body = await res.text();
+  return { ok: res.ok || res.status === 204, status: res.status, body };
+}
+
+/* SMS and WHATSAPP are unique across the whole Brevo account. A number that
+   already sits on somebody else's contact — a test contact, an earlier order
+   under a different address — makes Brevo reject the ENTIRE upsert with
+   duplicate_parameter, not just the phone field. That used to be read as
+   success, which is how an order could be logged ok while the contact kept its
+   old number and none of the other attributes moved. */
+const PHONE_CONFLICT = /duplicate_parameter|invalid_parameter/;
+
+/**
+ * Upsert. `listIds` only ever adds: nothing here removes anyone from a list.
+ *
+ * Every response is logged with its status and body. When the phone fields are
+ * what Brevo objected to, the write is retried without them so the rest of the
+ * attributes still land, and the fallback says so in the log — a contact with
+ * the right ticket count and a stale number is worth having; a contact that
+ * silently took none of the update is not.
+ */
+export async function upsertContact(env, email, attributes = {}, listIds) {
+  const first = await postContact(env, email, attributes, listIds);
+  console.log('brevo upsert', email, first.status, first.body || '(empty body)');
+  if (first.ok) return { ok: true, status: first.status };
+
+  const hasPhone = 'SMS' in attributes || 'WHATSAPP' in attributes;
+
+  if (hasPhone && PHONE_CONFLICT.test(first.body)) {
+    const { SMS, WHATSAPP, ...withoutPhone } = attributes;
+    const retry = await postContact(env, email, withoutPhone, listIds);
+    console.warn('brevo upsert: retried without SMS/WHATSAPP for', email,
+      '— first attempt', first.status, first.body,
+      '— retry', retry.status, retry.body || '(empty body)',
+      '— dropped', JSON.stringify({ SMS, WHATSAPP }));
+    if (retry.ok) {
+      return { ok: true, status: retry.status, droppedPhone: true, why: first.body };
+    }
+    return { ok: false, status: retry.status, detail: retry.body };
+  }
+
+  /* No phone in play: a duplicate here only ever meant "already on the list",
+     which is the state we wanted. */
+  if (!hasPhone && first.body.includes('duplicate_parameter')) {
+    return { ok: true, status: first.status };
+  }
+  return { ok: false, status: first.status, detail: first.body };
 }

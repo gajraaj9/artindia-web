@@ -29,11 +29,16 @@
  *   { id, created_at, event, resource_url, payload }
  * where payload is the order.
  *
- * NOTE ON FIELD NAMES. Ticket Tailor's docs render their schema client side,
- * so the order field names below could not be read from the published spec and
- * are matched defensively across the plausible spellings. Set TT_LOG_PAYLOAD
- * on one real delivery, read the keys out of the Cloudflare log, and tighten
- * pick() once rather than guessing twice.
+ * FIELD NAMES. Confirmed against a real order.created delivery (or_83266022,
+ * 19 September 2026), not against the published spec, which renders client
+ * side and could not be read. Two notes worth keeping:
+ *
+ *   - the custom questions hang off buyer_details, not off the order
+ *   - there is no utm_* anywhere and meta_data comes back empty; referral_tag
+ *     is the only campaign signal, and it is whatever arrived as ?ref=
+ *
+ * Anything still unconfirmed is marked STILL A GUESS where it is read.
+ * TT_LOG_PAYLOAD stays for the next time the shape moves.
  */
 
 import {
@@ -92,10 +97,14 @@ async function verify(request, rawBody, secret) {
 
 /* ------------------------------------------------------------- extraction */
 
+/* FIELD NAMES ARE CONFIRMED. Read out of a real order.created delivery
+   (or_83266022) on 19 September 2026, so the defensive lists of candidate
+   spellings this function used to carry are gone. Where a name below is still
+   a guess it says so. TT_LOG_PAYLOAD is kept for the next time the shape
+   moves. */
+
 /* Ticket Tailor returns money in minor units as a string, so "1000" is ten
-   euros. A value that already carries a decimal point is taken at face value.
-   Both are logged on the first order so the assumption can be checked against
-   a real one rather than trusted. */
+   euros. A value that already carries a decimal point is taken at face value. */
 function money(raw) {
   if (raw == null) return 0;
   if (typeof raw === 'object') return money(raw.value ?? raw.amount);
@@ -115,118 +124,85 @@ function money(raw) {
 const CHILD_RE =
   /child|children|enfant|enfants|kind|kinderen|kid|under\s*12|moins\s*de\s*12|onder\s*12/i;
 
+/* line_items[] { quantity, total, description } */
 function countTickets(order) {
-  const lines = pick(order, 'line_items', 'issued_tickets', 'tickets', 'items') || [];
+  const lines = Array.isArray(order.line_items) ? order.line_items : [];
   let total = 0, child = 0;
-  for (const li of Array.isArray(lines) ? lines : []) {
-    const qty = Number(pick(li, 'quantity', 'qty') ?? 1) || 1;
-    const name = String(pick(li, 'description', 'ticket_type.name', 'name', 'ticket_type') || '');
-    const price = money(pick(li, 'total', 'price', 'total_paid', 'amount'));
+  for (const li of lines) {
+    const qty = Number(li.quantity ?? 1) || 1;
+    const name = String(li.description || '');
     total += qty;
-    if (CHILD_RE.test(name) || price === 0) child += qty;
+    if (CHILD_RE.test(name) || money(li.total) === 0) child += qty;
   }
   return { total, child };
 }
 
-/** The order's custom question answers, as [{label, answer}]. */
+/**
+ * The order's custom question answers, as [{label, answer}].
+ *
+ * They live on buyer_details, not on the order. Reading them off the order was
+ * the reason the first live buyer who said yes to WhatsApp was logged as
+ * not_eligible: the list came back empty, so their Yes read as a No. Anything
+ * that consumes this is a consent decision, so when it comes back empty the
+ * caller says so in the log rather than quietly treating it as a refusal.
+ */
 function questions(order) {
-  const qs = pick(order, 'custom_questions', 'questions', 'answers') || [];
+  const qs = (order.buyer_details || {}).custom_questions;
   return (Array.isArray(qs) ? qs : []).map(q => ({
-    label: String(pick(q, 'question', 'label', 'name') || ''),
-    answer: pick(q, 'answer', 'value', 'response'),
+    label: String(q.question || ''),
+    answer: q.answer,
   }));
 }
 
-/* The campaign origin. The widget is given data-inline-ref, which Ticket
-   Tailor carries on the order; the spelling varies by integration so several
-   are tried, including the custom question answers. */
-function findRef(order) {
-  const direct = pick(order, 'referral', 'ref', 'referrer', 'meta_data.ref',
-    'metadata.ref', 'meta.ref', 'utm_source', 'meta_data.utm_source');
-  if (direct) return String(direct).slice(0, 120);
-  for (const { label, answer } of questions(order)) {
-    if (/ref|utm|source|how did you hear/i.test(label) && answer) {
-      return String(answer).slice(0, 120);
-    }
-  }
-  return '';
-}
-
 /**
- * The referral code this order came in on, if any.
- *
- * /r/<CODE> sends buyers to the box office with both ?ref=<CODE> and
- * ?utm_campaign=<CODE>, because the site's own checkout only ever passed
- * utm_source through to Ticket Tailor — utm_campaign reaching the order is not
- * something we can assume. Whichever of the two survives, the code is a
- * six-character string out of a known alphabet, so anything that is not one is
- * some other campaign tag and is ignored.
+ * Where this order came from. Ticket Tailor puts whatever arrived as ?ref= on
+ * the box office URL into referral_tag — "event_page_widget" for the site's own
+ * checkout, a referral code for anyone who came through /r/<CODE>. meta_data
+ * came back empty on the real payload and no utm_* field survives checkout at
+ * all, so referral_tag is the only campaign signal there is.
  */
+const referralTag = order => String(order.referral_tag || '').trim().slice(0, 120);
+
+/* The same tag, when it is one of our referral codes rather than a channel
+   name. Anything that is not six characters of the code alphabet is somebody
+   else's campaign and credits nobody. */
 function findCampaign(order) {
-  const candidates = [
-    pick(order, 'utm_campaign', 'meta_data.utm_campaign', 'metadata.utm_campaign',
-      'meta.utm_campaign'),
-    pick(order, 'referral', 'ref', 'meta_data.ref', 'metadata.ref'),
-  ];
-  for (const { label, answer } of questions(order)) {
-    if (/campaign|utm/i.test(label)) candidates.push(answer);
-  }
-  for (const c of candidates) {
-    const code = String(c || '').trim().toUpperCase();
-    if (CODE_RE.test(code)) return code;
-  }
-  return '';
+  const tag = referralTag(order).toUpperCase();
+  return CODE_RE.test(tag) ? tag : '';
 }
 
-/* Marketing consent. Absent means false: an unanswered question is not
-   consent, and treating it as one would put non-consenting buyers on a
-   marketing list. The live question reads "Send me news about Art India", so
-   plain "news" is matched as well as the newsletter wording. */
-function findOptIn(order) {
-  const direct = pick(order, 'marketing_opt_in', 'opt_in', 'marketing_consent',
-    'buyer_details.marketing_opt_in', 'accepts_marketing');
-  if (direct !== undefined) return truthy(direct);
-  for (const { label, answer } of questions(order)) {
-    if (/marketing|newsletter|news|updates|mailing|opt.?in|nieuws|actualit/i.test(label)) {
-      return truthy(answer);
-    }
-  }
-  return false;
-}
+/* Marketing consent, sent at the order's top level as the string "true". Absent
+   means false: an unanswered question is not consent, and treating it as one
+   would put non-consenting buyers on a marketing list. */
+const findOptIn = order => truthy(order.marketing_opt_in);
 
-/* WhatsApp consent, asked at checkout as the lucky draw question. Same rule as
-   above: unanswered is no. This is the flag that decides whether we are allowed
-   to message someone, so it is never inferred from anything but the answer. */
+/* WhatsApp consent, asked at checkout as the lucky draw question and answered
+   "Yes" or "No". Same rule as above: anything but a yes is a no. This is the
+   flag that decides whether we are allowed to message someone, so it is never
+   inferred from anything but the answer. */
+const WA_QUESTION_RE = /lucky\s*draw|whatsapp|tirage|loterij|trekking/i;
+
 function findWaOptIn(order) {
   for (const { label, answer } of questions(order)) {
-    if (/lucky\s*draw|whatsapp|tirage|loterij|trekking/i.test(label)) return truthy(answer);
+    if (WA_QUESTION_RE.test(label)) return truthy(answer);
   }
   return false;
 }
 
-function findPhone(order) {
-  const raw = pick(order, 'buyer_details.phone', 'buyer_details.mobile',
-    'buyer_details.phone_number', 'phone', 'mobile', 'phone_number',
-    'buyer.phone', 'buyer.mobile');
-  if (raw) return normalisePhone(raw);
-  for (const { label, answer } of questions(order)) {
-    if (/phone|mobile|whatsapp|gsm|t[ée]l|nummer/i.test(label) && answer) {
-      const p = normalisePhone(answer);
-      if (p) return p;
-    }
-  }
-  return '';
-}
+/* buyer_details.phone arrives already in E.164 ("+32474919900"). It still goes
+   through normalisePhone, which leaves a good number alone and is the only
+   thing standing between a hand-typed one and a failed send. */
+const findPhone = order => normalisePhone((order.buyer_details || {}).phone);
 
 const LANGS = ['en', 'fr', 'nl'];
 
-/* Checkout language, when Ticket Tailor gives us one. Only stored, never acted
-   on in phase 1 — the welcome template is English for everyone — but storing it
-   now is what makes the FR and NL templates a one-line change later. */
+/* STILL A GUESS. The real payload carried no language field anywhere, so this
+   returns 'en' for every order today. It is stored rather than dropped because
+   the moment Ticket Tailor exposes the checkout locale — or the /r/ link starts
+   carrying one — the FR and NL templates become a one-line change. */
 function findLang(order) {
-  const raw = String(pick(order, 'locale', 'language', 'lang',
-    'buyer_details.locale', 'buyer_details.language', 'meta_data.lang') || '')
-    .trim().toLowerCase().slice(0, 2);
+  const raw = String(order.locale || order.language
+    || (order.buyer_details || {}).locale || '').trim().toLowerCase().slice(0, 2);
   return LANGS.includes(raw) ? raw : 'en';
 }
 
@@ -235,19 +211,21 @@ function findLang(order) {
  * They go on the buyers list so they get the practical emails, but they never
  * get a WhatsApp: the opt-in question was answered by whoever paid, and it was
  * answered about themselves.
+ *
+ * issued_tickets[] { id, first_name, last_name, email, description,
+ *                    listed_price, ticket_type_id }
  */
 function findAttendees(order, buyerEmail) {
-  const lines = pick(order, 'issued_tickets', 'line_items', 'tickets') || [];
+  const tickets = Array.isArray(order.issued_tickets) ? order.issued_tickets : [];
   const out = new Map();
-  for (const t of Array.isArray(lines) ? lines : []) {
-    const email = String(pick(t, 'email', 'attendee.email', 'buyer_details.email') || '')
-      .trim().toLowerCase();
+  for (const t of tickets) {
+    const email = String(t.email || '').trim().toLowerCase();
     if (!isEmail(email) || email === buyerEmail || out.has(email)) continue;
     out.set(email, {
       email,
-      firstName: String(pick(t, 'first_name', 'attendee.first_name', 'full_name') || '').trim(),
-      lastName: String(pick(t, 'last_name', 'attendee.last_name') || '').trim(),
-      ticketId: String(pick(t, 'id', 'barcode', 'ticket_id', 'reference') || '').trim(),
+      firstName: String(t.first_name || '').trim(),
+      lastName: String(t.last_name || '').trim(),
+      ticketId: String(t.id || '').trim(),
     });
   }
   return [...out.values()];
@@ -374,6 +352,23 @@ async function sendWelcome(env, kv, { orderId, phone, firstName, code }) {
   return { sent: true, messageId };
 }
 
+/**
+ * Why this order is not getting a WhatsApp, or '' if it is.
+ *
+ * One reason at a time, most specific first. It exists because the single
+ * not_eligible this used to log covered six unrelated causes, and the first
+ * live buyer who hit it cost a payload dump to explain.
+ */
+function waBlocker(env, { kv, waOptIn, phone, code }) {
+  if (!kv) return 'no_kv_binding';
+  if (!waOptIn) return 'no_optin';
+  if (!phone) return 'no_phone';
+  if (!code) return 'no_referral_code';
+  if (!env.WA_PHONE_ID) return 'no_wa_phone_id';
+  if (!env.WA_TOKEN && !truthy(env.WA_DRY_RUN)) return 'no_wa_token';
+  return '';
+}
+
 /* ---------------------------------------------------------------- handler */
 
 export async function onRequestPost({ request, env }) {
@@ -410,9 +405,8 @@ export async function onRequestPost({ request, env }) {
     return json(200, { ok: true, ignored: event });
   }
 
-  const orderId = String(pick(order, 'id', 'order_id', 'reference') || body.id || '');
-  const email = String(pick(order, 'buyer_details.email', 'email', 'buyer.email') || '')
-    .trim().toLowerCase();
+  const orderId = String(order.id || '');
+  const email = String((order.buyer_details || {}).email || '').trim().toLowerCase();
 
   if (!orderId || !email) {
     /* Nothing retryable about a payload we cannot read, so this is a 200 with
@@ -434,18 +428,18 @@ export async function onRequestPost({ request, env }) {
 
   await ensureAttributes(env);
 
-  const firstName = String(pick(order, 'buyer_details.first_name', 'first_name',
-    'buyer.first_name') || '').trim();
-  const lastName = String(pick(order, 'buyer_details.last_name', 'last_name',
-    'buyer.last_name') || '').trim();
+  const firstName = String((order.buyer_details || {}).first_name || '').trim();
+  const lastName = String((order.buyer_details || {}).last_name || '').trim();
   const { total: ticketCount, child: childCount } = countTickets(order);
+  /* STILL A GUESS: the logged payload was not read for the order total, so the
+     plausible spellings stay until one of them is confirmed. */
   const orderValue = money(pick(order, 'total_paid', 'total', 'subtotal', 'amount'));
   const orderDate = (() => {
-    const raw = pick(order, 'created_at', 'created', 'date') || body.created_at;
+    const raw = order.created_at || body.created_at;
     const dt = new Date(typeof raw === 'number' ? raw * 1000 : raw);
     return isNaN(dt) ? new Date().toISOString().slice(0, 10) : dt.toISOString().slice(0, 10);
   })();
-  const ref = findRef(order);
+  const ref = referralTag(order);
   const campaign = findCampaign(order);
   const optIn = findOptIn(order);
   const waOptIn = findWaOptIn(order);
@@ -472,6 +466,7 @@ export async function onRequestPost({ request, env }) {
      through to the WhatsApp step, which has an idempotency key of its own, so
      a delivery that reached Brevo and then failed at Meta can still be retried. */
   const duplicate = seen.includes(orderId);
+  let phoneDropped = false;
 
   /* The referral code is the buyer's own, and it is the same code every time,
      so an existing one is reused rather than reissued. */
@@ -526,6 +521,11 @@ export async function onRequestPost({ request, env }) {
       console.error('tt-order: brevo upsert threw', String(e), 'order', orderId);
       return json(500, { ok: false, error: 'brevo_upsert' });
     }
+    phoneDropped = Boolean(res.droppedPhone);
+    if (res.droppedPhone) {
+      console.warn('tt-order: contact written WITHOUT the phone for', email,
+        'order', orderId, '— Brevo said', res.why);
+    }
     if (!res.ok) {
       console.error('tt-order: brevo upsert failed', res.status, res.detail, 'order', orderId);
       /* 500 so Ticket Tailor retries. The order id is only recorded as part of a
@@ -560,8 +560,9 @@ export async function onRequestPost({ request, env }) {
 
   /* The WhatsApp. Everything above has already been written, so from here on
      nothing is allowed to change the response Ticket Tailor gets. */
-  let wa = { sent: false, reason: 'not_eligible' };
-  if (kv && waOptIn && phone && code && env.WA_PHONE_ID && (env.WA_TOKEN || truthy(env.WA_DRY_RUN))) {
+  const blocked = waBlocker(env, { kv, waOptIn, phone, code });
+  let wa = { sent: false, reason: blocked };
+  if (!blocked) {
     try {
       wa = await sendWelcome(env, kv, { orderId, phone, firstName, code });
     } catch (e) {
@@ -569,15 +570,28 @@ export async function onRequestPost({ request, env }) {
       wa = { sent: false, reason: 'threw' };
     }
   }
+  /* A no that came from an empty question list is a parsing failure, not a
+     refusal, and the two used to look identical in the log. Print what the
+     buyer was actually asked so the next time the payload moves it is one
+     glance rather than another live order. */
+  if (blocked === 'no_optin') {
+    console.log('wa skipped: no_optin', orderId,
+      'questions asked:', JSON.stringify(questions(order).map(q => q.label)));
+  }
 
   console.log('tt-order ok', orderId, email, 'tickets', ticketCount,
     'child', childCount, 'value', orderValue, 'ref', ref || '-',
-    'code', code || '-', 'wa', wa.sent ? 'sent' : wa.reason,
+    'code', code || '-', 'wa', wa.sent ? 'sent' : `skipped:${wa.reason}`,
     duplicate ? 'duplicate' : '');
   return json(200, {
     ok: true, order_id: orderId, duplicate,
     tickets: ticketCount, children: childCount, value: orderValue,
-    referral_code: code || null, whatsapp: wa.sent,
+    referral_code: code || null,
+    whatsapp: wa.sent,
+    /* Named in the response as well as the log, so a replay says why without
+       anyone having to go and read the tail. */
+    whatsapp_skipped: wa.sent ? null : wa.reason,
+    phone_dropped: phoneDropped,
   });
 }
 

@@ -6,9 +6,10 @@
  * second delivery of the same order neither double-counts the tickets nor
  * sends a second WhatsApp, and that a referred order credits the referrer.
  *
- * The payload below is the shape /api/tt-order expects. Ticket Tailor's real
- * field names are still unconfirmed (see TT_LOG_PAYLOAD in the function), so
- * treat this fixture as the assumption, not as evidence.
+ * The fixture is the shape of a real order.created delivery (or_83266022,
+ * 19 September 2026): custom questions on buyer_details, consent answers as
+ * the string "Yes", marketing_opt_in as the string "true" at the top level,
+ * and referral_tag carrying whatever arrived as ?ref=.
  */
 
 import test from 'node:test';
@@ -82,27 +83,33 @@ const ENV = {
   WA_PHONE_ID: '1316460834883808',
 };
 
-function order(overrides = {}) {
+const QUESTIONS = [
+  { question: 'I want to participate in the lucky draw and get festival news on WhatsApp',
+    answer: 'Yes' },
+  { question: 'Send me news about Art India', answer: 'Yes' },
+];
+
+function order({ buyer = {}, ...overrides } = {}) {
   return {
     event: 'order.created',
     payload: {
       id: 'or_TEST1',
       created_at: '2026-09-19T10:00:00Z',
       total_paid: '2000',
+      marketing_opt_in: 'true',
+      referral_tag: 'event_page_widget',
+      meta_data: [],
       buyer_details: {
         first_name: 'Anouk',
         last_name: 'Peeters',
         email: 'Anouk@Example.com',
-        phone: '0490 61 66 61',
+        phone: '+32474919900',
+        custom_questions: QUESTIONS,
+        ...buyer,
       },
       line_items: [
         { description: 'Weekend ticket', quantity: 2, total: '2000' },
         { description: 'Children under 12', quantity: 1, total: '0' },
-      ],
-      custom_questions: [
-        { question: 'I want to participate in the lucky draw and get festival news on WhatsApp',
-          answer: 'Yes' },
-        { question: 'Send me news about Art India', answer: 'Yes' },
       ],
       ...overrides,
     },
@@ -130,8 +137,8 @@ test('a buyer who said yes gets the attributes, a code and a WhatsApp', async ()
 
   const c = db.get('anouk@example.com');
   assert.equal(c.attributes.FIRSTNAME, 'Anouk');
-  assert.equal(c.attributes.SMS, '+32490616661');
-  assert.equal(c.attributes.WHATSAPP, '+32490616661', 'phone lands on both channels');
+  assert.equal(c.attributes.SMS, '+32474919900');
+  assert.equal(c.attributes.WHATSAPP, '+32474919900', 'phone lands on both channels');
   assert.equal(c.attributes.WA_OPTIN, true);
   assert.equal(c.attributes.MARKETING_OPTIN, true, '"Send me news about…" is the live wording');
   assert.equal(c.attributes.LANG, 'en');
@@ -144,7 +151,7 @@ test('a buyer who said yes gets the attributes, a code and a WhatsApp', async ()
 
   const sent = calls.find(x => x.path.endsWith('/messages'));
   assert.ok(sent, 'the WhatsApp went out');
-  assert.equal(sent.body.to, '32490616661', 'E.164 without the plus');
+  assert.equal(sent.body.to, '32474919900', 'E.164 without the plus');
   assert.equal(sent.body.template.name, 'diwali_welcome_en');
   assert.deepEqual(sent.body.template.components[0].parameters.map(p => p.text), [
     'Anouk',
@@ -174,10 +181,13 @@ test('a redelivery of the same order neither recounts nor re-sends', async () =>
 test('no is no: nothing is sent and the flag is stored false', async () => {
   const { db, calls } = stubWorld();
   const res = await post({ ...ENV, REFERRALS: memoryKv() }, order({
-    custom_questions: [
-      { question: 'I want to participate in the lucky draw…', answer: 'No' },
-      { question: 'Send me news about Art India', answer: 'No' },
-    ],
+    marketing_opt_in: 'false',
+    buyer: {
+      custom_questions: [
+        { question: 'I want to participate in the lucky draw…', answer: 'No' },
+        { question: 'Send me news about Art India', answer: 'No' },
+      ],
+    },
   }));
 
   assert.equal((await res.json()).whatsapp, false);
@@ -210,7 +220,7 @@ test('a referred order credits the referrer by its adult tickets', async () => {
     },
   });
 
-  await post({ ...ENV, REFERRALS: kv }, order({ referral: 'ABC234' }));
+  await post({ ...ENV, REFERRALS: kv }, order({ referral_tag: 'ABC234' }));
 
   assert.equal(db.get('ravi@artindia.be').attributes.REFERRED_BY, 6, '4 + 2 adults');
 });
@@ -227,7 +237,7 @@ test('a buyer cannot credit themselves', async () => {
     },
   });
 
-  await post({ ...ENV, REFERRALS: kv }, order({ referral: 'ABC234' }));
+  await post({ ...ENV, REFERRALS: kv }, order({ referral_tag: 'ABC234' }));
 
   assert.equal(db.get('anouk@example.com').attributes.REFERRED_BY, 1, 'unchanged');
 });
@@ -265,4 +275,143 @@ test('a non-order event is acknowledged and ignored', async () => {
   const res = await post({ ...ENV, REFERRALS: memoryKv() },
     { event: 'order.updated', payload: { id: 'or_X' } });
   assert.deepEqual(await res.json(), { ok: true, ignored: 'order.updated' });
+});
+
+/* --------------------------------------------------- confirmed-shape guards */
+
+test('the lucky draw answer is read off buyer_details, not the order', async () => {
+  /* The regression. When questions() looked at the order's top level this came
+     back empty, a Yes read as a No, and the first live buyer who opted in was
+     logged as not_eligible with nothing to say why. */
+  const { db, calls } = stubWorld();
+  const res = await post({ ...ENV, REFERRALS: memoryKv() }, order());
+
+  assert.equal(db.get('anouk@example.com').attributes.WA_OPTIN, true);
+  assert.equal((await res.json()).whatsapp, true);
+  assert.ok(calls.some(x => x.path.endsWith('/messages')));
+});
+
+test('questions in the old place are not consent, and say so', async () => {
+  const { db } = stubWorld();
+  const payload = order();
+  payload.payload.custom_questions = payload.payload.buyer_details.custom_questions;
+  delete payload.payload.buyer_details.custom_questions;
+
+  const out = await (await post({ ...ENV, REFERRALS: memoryKv() }, payload)).json();
+
+  assert.equal(out.whatsapp, false);
+  assert.equal(out.whatsapp_skipped, 'no_optin', 'the reason is named, not "not_eligible"');
+  assert.equal(db.get('anouk@example.com').attributes.WA_OPTIN, false, 'fails closed');
+});
+
+test('every skip names its own reason', async () => {
+  const cases = [
+    ['no_kv_binding', {}, order()],
+    ['no_optin', { REFERRALS: memoryKv() },
+      order({ buyer: { custom_questions: [{ question: 'Lucky draw?', answer: 'No' }] } })],
+    ['no_phone', { REFERRALS: memoryKv() }, order({ buyer: { phone: '' } })],
+    ['no_wa_phone_id', { REFERRALS: memoryKv(), WA_PHONE_ID: '' }, order()],
+    ['no_wa_token', { REFERRALS: memoryKv(), WA_TOKEN: '' }, order()],
+  ];
+  for (const [expected, envPatch, payload] of cases) {
+    stubWorld();
+    const out = await (await post({ ...ENV, ...envPatch }, payload)).json();
+    assert.equal(out.whatsapp_skipped, expected);
+  }
+});
+
+test('the widget tag is a channel name, not a referral code', async () => {
+  const kv = memoryKv({
+    'code:ABC234': JSON.stringify({ email: 'ravi@artindia.be', firstname: 'Ravi' }),
+  });
+  const { db } = stubWorld({
+    contacts: {
+      'ravi@artindia.be': {
+        email: 'ravi@artindia.be', listIds: [12], attributes: { REFERRED_BY: 4 },
+      },
+    },
+  });
+
+  await post({ ...ENV, REFERRALS: kv }, order());  /* referral_tag: event_page_widget */
+
+  assert.equal(db.get('ravi@artindia.be').attributes.REFERRED_BY, 4, 'nobody credited');
+  assert.equal(db.get('anouk@example.com').attributes.UTM_SOURCE, 'event_page_widget',
+    'but it is still recorded as where the order came from');
+});
+
+/* ------------------------------------------------- the Brevo phone conflict */
+
+/**
+ * SMS and WHATSAPP are unique across a Brevo account, and a collision makes
+ * Brevo reject the whole upsert rather than just the phone. A real order hit
+ * this: the contact kept a stale +91 number and took none of the rest of the
+ * update, while the log said the order was fine.
+ */
+function stubPhoneConflict() {
+  const db = new Map();
+  const bodies = [];
+  globalThis.fetch = async (url, init = {}) => {
+    const u = new URL(url);
+    const method = (init.method || 'GET').toUpperCase();
+    const body = init.body ? JSON.parse(init.body) : null;
+
+    if (u.hostname === 'graph.facebook.com') {
+      return new Response(JSON.stringify({ messages: [{ id: 'wamid.TEST' }] }), { status: 200 });
+    }
+    if (u.pathname === '/v3/contacts/attributes') return new Response(JSON.stringify({ attributes: [] }), { status: 200 });
+    if (u.pathname.startsWith('/v3/contacts/attributes/')) return new Response(null, { status: 204 });
+
+    if (u.pathname === '/v3/contacts' && method === 'POST') {
+      bodies.push(body);
+      const attrs = body.attributes || {};
+      if ('SMS' in attrs || 'WHATSAPP' in attrs) {
+        return new Response(JSON.stringify({
+          code: 'duplicate_parameter',
+          message: 'SMS is already associated with another Contact',
+        }), { status: 400 });
+      }
+      db.set(body.email.toLowerCase(), { email: body.email, attributes: attrs, listIds: body.listIds || [] });
+      return new Response(null, { status: 204 });
+    }
+    if (u.pathname.startsWith('/v3/contacts/')) return new Response('{}', { status: 404 });
+    throw new Error(`unstubbed ${method} ${url}`);
+  };
+  return { db, bodies };
+}
+
+test('a phone Brevo will not take is dropped, and the rest of the update lands', async () => {
+  const { db, bodies } = stubPhoneConflict();
+  const out = await (await post({ ...ENV, REFERRALS: memoryKv() }, order())).json();
+
+  assert.equal(out.ok, true);
+  assert.equal(out.phone_dropped, true, 'the caller is told');
+
+  assert.equal(bodies.length, 2, 'one attempt with the phone, one without');
+  assert.ok('SMS' in bodies[0].attributes);
+  assert.ok(!('SMS' in bodies[1].attributes), 'SMS stripped on the retry');
+  assert.ok(!('WHATSAPP' in bodies[1].attributes), 'WHATSAPP stripped too');
+
+  const c = db.get('anouk@example.com');
+  assert.equal(c.attributes.TICKET_COUNT, 3, 'the numbers still landed');
+  assert.equal(c.attributes.WA_OPTIN, true);
+  assert.equal(c.attributes.MARKETING_OPTIN, true);
+  assert.match(c.attributes.REFERRAL_CODE, /^[A-HJ-NP-Z2-9]{6}$/);
+  assert.ok(c.listIds.includes(12));
+});
+
+test('a rejected upsert is never reported as ok', async () => {
+  globalThis.fetch = async (url, init = {}) => {
+    const u = new URL(url);
+    if (u.pathname === '/v3/contacts/attributes') return new Response(JSON.stringify({ attributes: [] }), { status: 200 });
+    if (u.pathname.startsWith('/v3/contacts/attributes/')) return new Response(null, { status: 204 });
+    if (u.pathname === '/v3/contacts' && (init.method || '').toUpperCase() === 'POST') {
+      return new Response(JSON.stringify({ code: 'unauthorized', message: 'Key not found' }), { status: 401 });
+    }
+    if (u.pathname.startsWith('/v3/contacts/')) return new Response('{}', { status: 404 });
+    throw new Error(`unstubbed ${url}`);
+  };
+
+  const res = await post({ ...ENV, REFERRALS: memoryKv() }, order());
+  assert.equal(res.status, 500, 'Ticket Tailor should retry this one');
+  assert.equal((await res.json()).error, 'brevo_upsert');
 });

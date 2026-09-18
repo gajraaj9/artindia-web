@@ -94,7 +94,7 @@ own reserved fields and are never created.
 ## Testing
 
 ```sh
-npm test          # 25 tests, no network: phone, codes, both webhooks
+npm test          # 31 tests, no network: phone, codes, both webhooks
 ```
 
 Then the live path, in this order:
@@ -111,16 +111,63 @@ Then the live path, in this order:
    office with `ref` and `utm_campaign` set to the code.
 5. Reply `STOP` to the message and confirm `WA_OPTIN` goes false in Brevo.
 
+## Confirmed payload shape
+
+Read off a real `order.created` delivery (`or_83266022`, 19 September 2026).
+
+```
+order.id                                 or_83266022
+order.buyer_details.{first_name,last_name,email,phone}     phone already E.164
+order.buyer_details.custom_questions[]   { question, answer }   answers are "Yes"/"No"
+order.marketing_opt_in                   the STRING "true"
+order.referral_tag                       whatever arrived as ?ref=
+order.line_items[]                       { quantity, total, description }
+order.issued_tickets[]                   { id, first_name, last_name, email,
+                                           description, listed_price, ticket_type_id }
+order.meta_data                          []  — always empty
+```
+
+Two things to keep in mind:
+
+- **The custom questions hang off `buyer_details`, not off the order.** Reading
+  them at the order level is what made the first opted-in buyer come out as
+  `not_eligible`.
+- **There is no `utm_*` anywhere.** `referral_tag` is the only campaign signal,
+  and it carries whatever the box office URL had as `?ref=` — so
+  `event_page_widget` for the site's own checkout, and the referral code for
+  anyone who came through `/r/<CODE>`. Attribution reads `referral_tag` only.
+
+Still unconfirmed, and marked `STILL A GUESS` in the code: the order total field
+and the checkout language. There is no language field in the payload at all, so
+`LANG` is `en` for every order until Ticket Tailor exposes one.
+
+## Reading the log
+
+A skipped WhatsApp names its own cause rather than a single `not_eligible`:
+
+| Reason | Means |
+|---|---|
+| `no_kv_binding` | `REFERRALS` is not bound |
+| `no_optin` | the lucky draw question was not answered yes — the log then prints every question label the order actually carried, so a moved or renamed question is one glance |
+| `no_phone` | `buyer_details.phone` missing or not E.164 |
+| `no_referral_code` | KV could not issue one |
+| `no_wa_phone_id` / `no_wa_token` | the variable is unset |
+
+The same reason comes back in the webhook's JSON response as
+`whatsapp_skipped`, so a replay says why without anyone reading the tail.
+
 ## Known soft spots
 
-- **Ticket Tailor field names are still assumptions.** The published schema is
-  rendered client side and could not be read. `pick()` matches several
-  spellings for every field. Set `TT_LOG_PAYLOAD=true`, take one real order,
-  read the keys out of the log, then tighten `pick()` once and remove the flag.
-- **`utm_campaign` is not known to survive checkout.** The site's own widget
-  only ever passed `utm_source` through as `data-inline-ref`, so `/r/<CODE>`
-  sets `ref` *and* the `utm_*` trio, and the webhook accepts the code from
-  either. Whichever one turns up in the real payload, attribution works.
+- **Brevo phone numbers are unique account-wide.** `SMS` and `WHATSAPP` cannot
+  sit on two contacts, and a collision makes Brevo reject the *whole* upsert
+  with `duplicate_parameter` — not just the phone. That used to be read as
+  success, so an order could log `ok` while the contact kept a stale number and
+  took none of the rest of the update. Now every upsert logs its status and
+  body, and a phone conflict is retried without `SMS`/`WHATSAPP` so the
+  remaining attributes land; the fallback logs loudly and sets
+  `phone_dropped: true` on the response. **A contact showing the wrong number is
+  therefore a real state to look for** — it means the number is on another
+  contact and needs clearing there first.
 - **Referral credit is read-add-write.** Two orders crediting the same person
   in the same second could lose one count. At this volume that is a
   leaderboard rounding error, not money.
