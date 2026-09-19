@@ -43,6 +43,9 @@ function stubWorld({ contacts = {} } = {}) {
     calls.push({ method, path: u.pathname, body });
 
     if (u.hostname === 'graph.facebook.com') {
+      if (u.pathname.includes('/message_templates')) {
+        return new Response(JSON.stringify({ data: [] }), { status: 200 });
+      }
       return new Response(JSON.stringify({ messages: [{ id: 'wamid.TEST' }] }), { status: 200 });
     }
 
@@ -152,11 +155,19 @@ test('a buyer who said yes gets the attributes, a code and a WhatsApp', async ()
   const sent = calls.find(x => x.path.endsWith('/messages'));
   assert.ok(sent, 'the WhatsApp went out');
   assert.equal(sent.body.to, '32474919900', 'E.164 without the plus');
-  assert.equal(sent.body.template.name, 'diwali_welcome_en');
-  assert.deepEqual(sent.body.template.components[0].parameters.map(p => p.text), [
+  assert.equal(sent.body.template.name, 'diwali_welcome_en_v2');
+
+  const parts = Object.fromEntries(sent.body.template.components.map(x => [x.type, x]));
+  assert.equal(parts.header.parameters[0].image.link,
+    'https://diwali.artindia.be/img/wa-header.jpg', 'the header carries the image');
+  assert.deepEqual(parts.body.parameters.map(x => x.text), [
     'Anouk',
     `https://diwali.artindia.be/r/${c.attributes.REFERRAL_CODE}`,
   ]);
+  assert.equal(parts.button.sub_type, 'url');
+  assert.equal(parts.button.index, '0');
+  assert.deepEqual(parts.button.parameters.map(x => x.text), [c.attributes.REFERRAL_CODE],
+    'the button takes the code alone, not the whole URL');
 
   assert.ok(await kv.get(`code:${c.attributes.REFERRAL_CODE}`, 'json'));
   assert.equal((await kv.get('order:or_TEST1', 'json')).waMessageId, 'wamid.TEST');
@@ -206,8 +217,9 @@ test('a dry run writes Brevo, logs the payload and sends nothing', async () => {
   assert.equal(dry.sent, false);
   assert.equal(dry.reason, 'dry_run');
   assert.equal(dry.to, '+32474919900');
-  assert.equal(dry.preview.template.name, 'diwali_welcome_en',
+  assert.equal(dry.preview.template.name, 'diwali_welcome_en_v2',
     'the payload comes back so a replay needs no log stream');
+  assert.equal(dry.template, 'diwali_welcome_en_v2');
   assert.ok(db.get('anouk@example.com').attributes.WA_OPTIN, 'the contact is still written');
   assert.ok(!calls.some(x => x.path.endsWith('/messages')), 'Meta is never called');
   assert.equal(await kv.get('order:or_TEST1'), null,
@@ -362,6 +374,9 @@ function stubPhoneConflict() {
     const body = init.body ? JSON.parse(init.body) : null;
 
     if (u.hostname === 'graph.facebook.com') {
+      if (u.pathname.includes('/message_templates')) {
+        return new Response(JSON.stringify({ data: [] }), { status: 200 });
+      }
       return new Response(JSON.stringify({ messages: [{ id: 'wamid.TEST' }] }), { status: 200 });
     }
     if (u.pathname === '/v3/contacts/attributes') return new Response(JSON.stringify({ attributes: [] }), { status: 200 });
@@ -453,4 +468,113 @@ test('a successful send hands back the Meta message id', async () => {
   assert.equal(out.whatsapp.sent, true);
   assert.equal(out.whatsapp.message_id, 'wamid.TEST');
   assert.equal(out.whatsapp.reason, undefined, 'no reason when it went');
+});
+
+/* --------------------------------------------------------- template v2 */
+
+/**
+ * Meta answers the template lookup with `lookup`, then refuses the first send
+ * with `refuseCode` (null accepts it) and accepts anything after.
+ */
+function stubMeta({ lookup = { data: [] }, refuseCode = null } = {}) {
+  const sends = [];
+  globalThis.fetch = async (url, init = {}) => {
+    const u = new URL(url);
+    const body = init.body ? JSON.parse(init.body) : null;
+
+    if (u.hostname === 'graph.facebook.com') {
+      if (u.pathname.includes('/message_templates')) {
+        return new Response(JSON.stringify(lookup), { status: 200 });
+      }
+      sends.push(body);
+      if (refuseCode && sends.length === 1) {
+        return new Response(JSON.stringify({
+          error: { message: 'template problem', code: refuseCode, type: 'OAuthException' },
+        }), { status: 400 });
+      }
+      return new Response(JSON.stringify({ messages: [{ id: `wamid.S${sends.length}` }] }), { status: 200 });
+    }
+    if (u.pathname === '/v3/contacts/attributes') return new Response(JSON.stringify({ attributes: [] }), { status: 200 });
+    if (u.pathname.startsWith('/v3/contacts/attributes/')) return new Response(null, { status: 204 });
+    if (u.pathname === '/v3/contacts') return new Response(null, { status: 204 });
+    return new Response(JSON.stringify({ code: 'document_not_found' }), { status: 404 });
+  };
+  return { sends };
+}
+
+test('a template error drops back to the older template rather than sending nothing', async () => {
+  for (const code of [132000, 132001, 132012, 131053]) {
+    const { sends } = stubMeta({ refuseCode: code });
+    const kv = memoryKv();
+    const out = await (await post({ ...ENV, REFERRALS: kv }, order())).json();
+
+    assert.equal(out.whatsapp.sent, true, `code ${code}`);
+    assert.equal(out.whatsapp.template, 'diwali_welcome_en');
+    assert.equal(out.whatsapp.fell_back, true);
+    assert.equal(sends.length, 2, 'v2 tried, then v1');
+    assert.equal(sends[0].template.name, 'diwali_welcome_en_v2');
+    assert.equal(sends[1].template.name, 'diwali_welcome_en');
+    assert.equal(sends[1].template.components.length, 1, 'v1 is body only — no header, no button');
+    assert.equal((await kv.get('order:or_TEST1', 'json')).template, 'diwali_welcome_en',
+      'the order records which template actually went');
+  }
+});
+
+test('an error that is not about the template is not retried', async () => {
+  const { sends } = stubMeta({ refuseCode: 131026 });  /* not a WhatsApp user */
+  const out = await (await post({ ...ENV, REFERRALS: memoryKv() }, order())).json();
+
+  assert.equal(out.whatsapp.sent, false);
+  assert.equal(out.whatsapp.error.code, 131026);
+  assert.equal(out.whatsapp.fell_back, undefined);
+  assert.equal(sends.length, 1, 'sending the same message again would not have helped');
+});
+
+test('the approved language and button position come from the WABA, not a guess', async () => {
+  const { sends } = stubMeta({
+    lookup: { data: [{
+      name: 'diwali_welcome_en_v2',
+      language: 'en_US',
+      status: 'APPROVED',
+      components: [
+        { type: 'HEADER', format: 'IMAGE', example: { header_handle: ['https://scontent.whatsapp.net/…'] } },
+        { type: 'BODY', text: 'Hi {{1}}, your link {{2}}' },
+        { type: 'BUTTONS', buttons: [
+          { type: 'PHONE_NUMBER', text: 'Call' },
+          { type: 'URL', text: 'Share', url: 'https://diwali.artindia.be/r/{{1}}' },
+        ] },
+      ],
+    }] },
+  });
+
+  await post({ ...ENV, WA_WABA_ID: '1394943695946021', REFERRALS: memoryKv() }, order());
+
+  const t = sends[0].template;
+  assert.equal(t.language.code, 'en_US', 'en and en_US are different templates to Meta');
+  const button = t.components.find(c => c.type === 'button');
+  assert.equal(button.index, '1', 'the URL button is second, so index 1');
+});
+
+test('a template with no media header gets no header parameter', async () => {
+  const { sends } = stubMeta({
+    lookup: { data: [{
+      name: 'diwali_welcome_en_v2', language: 'en', status: 'APPROVED',
+      components: [{ type: 'BODY', text: 'Hi {{1}} {{2}}' }],
+    }] },
+  });
+
+  /* A different account id, so this does not read the previous test's cached
+     shape — the cache is keyed by account and name. */
+  await post({ ...ENV, WA_WABA_ID: '999_no_header', REFERRALS: memoryKv() }, order());
+
+  const types = sends[0].template.components.map(c => c.type);
+  assert.deepEqual(types, ['body'], 'no header, no button — sending either would be a 132000');
+});
+
+test('the header image URL is overridable without a deploy', async () => {
+  const { sends } = stubMeta();
+  await post({ ...ENV, REFERRALS: memoryKv(), WA_HEADER_IMAGE_URL: 'https://example.com/x.jpg' },
+    order());
+  const header = sends[0].template.components.find(c => c.type === 'header');
+  assert.equal(header.parameters[0].image.link, 'https://example.com/x.jpg');
 });

@@ -885,6 +885,20 @@ for (const f of ['diwali-hero.mp4', 'diwali-hero.webm']) {
     cpSync(p, join(out, 'static/media', f));
   }
 }
+/* The WhatsApp template header. Meta fetches this itself when a message goes
+   out, so it has to be a real, public, unredirected URL — /img/wa-header.jpg,
+   1200x628. Drop the file at media/wa-header.jpg and it ships; until it exists
+   the v2 send fails its media fetch and falls back to the older template. */
+{
+  const p = join(HERE, 'media/wa-header.jpg');
+  if (existsSync(p)) {
+    mkdirSync(join(out, 'img'), { recursive: true });
+    cpSync(p, join(out, 'img/wa-header.jpg'));
+  } else {
+    console.warn('  ! media/wa-header.jpg missing — /img/wa-header.jpg will 404 '
+      + 'and the WhatsApp v2 template will fall back to diwali_welcome_en');
+  }
+}
 if (existsSync(join(HERE, 'functions'))) {
   cpSync(join(HERE, 'functions'), join(out, 'functions'), { recursive: true });
 }

@@ -60,6 +60,9 @@ diwali-2026 → Settings → Variables and secrets, **Production and Preview**:
 | `WA_DRY_RUN` | `true` until the first live test passes, then `false` |
 | `WA_APP_SECRET` | optional but worth setting — see below |
 | `WA_ADMIN_TOKEN` | random 32 chars — secret. Guards `/api/wa-status` |
+| `WA_TEMPLATE` | optional. Default `diwali_welcome_en_v2` |
+| `WA_TEMPLATE_FALLBACK` | optional. Default `diwali_welcome_en` |
+| `WA_HEADER_IMAGE_URL` | optional. Default `https://diwali.artindia.be/img/wa-header.jpg` |
 | `TT_LOG_PAYLOAD` | `true` for one delivery, then remove |
 
 Already set, unchanged: `BREVO_API_KEY`, `BREVO_LIST_ID` (9),
@@ -99,7 +102,7 @@ own reserved fields and are never created.
 ## Testing
 
 ```sh
-npm test          # 44 tests, no network: phone, codes, both webhooks
+npm test          # 49 tests, no network: phone, codes, both webhooks
 ```
 
 Then the live path. Replaying a saved payload is scripted:
@@ -184,6 +187,62 @@ A skipped WhatsApp names its own cause rather than a single `not_eligible`:
 The same reason comes back in the webhook's JSON response under `whatsapp`,
 alongside Meta's own error body when Meta was the one that refused — so a
 replay says why without anyone reading the tail.
+
+## The welcome template
+
+`diwali_welcome_en_v2` — image header, `{{1}}` first name and `{{2}}` referral
+URL in the body, and a dynamic URL button whose parameter is **the referral
+code alone**, not the whole link: the button already carries the rest of the
+URL from its approved definition.
+
+### The header image is a hard requirement
+
+A media header is **not** baked into an approved template. The sample supplied
+at approval is only for Meta's reviewers, and the `header_handle` on the
+template definition is an upload handle from that review — it cannot be used to
+send. Every send has to supply the image itself, so:
+
+```
+media/wa-header.jpg      1200x628, added to the repo
+        ↓ build-diwali.mjs copies it
+https://diwali.artindia.be/img/wa-header.jpg
+```
+
+That URL has to be publicly fetchable by Meta — no redirect, no auth. The build
+prints a warning when the file is missing.
+
+### What the WABA lookup is for
+
+Before the first send in each worker, the template is read from
+`GET /{WA_WABA_ID}/message_templates?name=…` and cached for ten minutes. It is
+not where the image comes from; it answers two questions that silently fail the
+send otherwise:
+
+- **which language code it was approved under.** `en` and `en_US` are different
+  templates as far as sending is concerned, and the wrong one is a `132001`.
+- **whether there is a URL button, and at what index.** A button parameter sent
+  to a template without one is a `132000`; the index is the button's position,
+  which is not necessarily 0.
+
+If the lookup cannot be made — no `WA_WABA_ID`, or the call fails — the full
+shape is assumed and the fallback below covers a wrong guess.
+
+### Falling back
+
+When Meta refuses v2 with a template-shaped error, `diwali_welcome_en` goes out
+instead, so the buyer gets something rather than nothing. Logged loudly, and
+`"fell_back": true` comes back on the response — a fallback nobody notices is a
+v2 that is quietly never used.
+
+Codes that trigger it: `132000` parameter count, `132001` no such template in
+that language, `132005` text too long, `132007` format mismatch, `132012`
+parameter format, `132015`/`132016` paused, `132068`/`132069`, and `131052`/
+`131053` — Meta could not fetch the header image. Anything else (a number that
+is not on WhatsApp, an expired token) is not retried, because sending the same
+message again would not have helped.
+
+The template that actually went out is recorded on the `order:<id>` KV record
+and returned as `whatsapp.template`.
 
 ## Checking whether a message arrived
 
