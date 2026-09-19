@@ -1,0 +1,50 @@
+{
+  "id": "wh_replay_or_83267317",
+  "created_at": "2026-09-19T08:14:22Z",
+  "event": "order.created",
+  "resource_url": "https://api.tickettailor.com/v1/orders/or_83267317",
+  "payload": {
+    "id": "or_83267317",
+    "created_at": "2026-09-19T08:14:20Z",
+    "status": "completed",
+    "total_paid": "1000",
+    "currency": "eur",
+    "marketing_opt_in": "true",
+    "referral_tag": "event_page_widget",
+    "meta_data": [],
+    "buyer_details": {
+      "first_name": "Ravi",
+      "last_name": "Kaushik",
+      "email": "gajraaj@gmail.com",
+      "phone": "+32474919900",
+      "custom_questions": [
+        {
+          "question": "I want to participate in the lucky draw and get festival news on WhatsApp",
+          "answer": "Yes"
+        },
+        {
+          "question": "Send me news about Art India",
+          "answer": "Yes"
+        }
+      ]
+    },
+    "line_items": [
+      {
+        "quantity": 1,
+        "total": "1000",
+        "description": "Weekend Ticket · Presale"
+      }
+    ],
+    "issued_tickets": [
+      {
+        "id": "ti_replay_83267317_1",
+        "first_name": "Ravi",
+        "last_name": "Kaushik",
+        "email": "gajraaj@gmail.com",
+        "description": "Weekend Ticket · Presale",
+        "listed_price": "1000",
+        "ticket_type_id": "tt_weekend_presale"
+      }
+    ]
+  }
+}

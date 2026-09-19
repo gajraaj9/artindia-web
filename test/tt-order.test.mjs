@@ -173,7 +173,8 @@ test('a redelivery of the same order neither recounts nor re-sends', async () =>
   const out = await res.json();
 
   assert.equal(out.duplicate, true);
-  assert.equal(out.whatsapp, false);
+  assert.equal(out.whatsapp.sent, false);
+  assert.equal(out.whatsapp.reason, 'already_sent');
   assert.equal(world.db.get('anouk@example.com').attributes.TICKET_COUNT, 3, 'not 6');
   assert.ok(!world.calls.some(x => x.path.endsWith('/messages')), 'no second WhatsApp');
 });
@@ -190,7 +191,7 @@ test('no is no: nothing is sent and the flag is stored false', async () => {
     },
   }));
 
-  assert.equal((await res.json()).whatsapp, false);
+  assert.equal((await res.json()).whatsapp.sent, false);
   assert.equal(db.get('anouk@example.com').attributes.WA_OPTIN, false);
   assert.equal(db.get('anouk@example.com').attributes.MARKETING_OPTIN, false);
   assert.ok(!calls.some(x => x.path.endsWith('/messages')));
@@ -201,7 +202,12 @@ test('a dry run writes Brevo, logs the payload and sends nothing', async () => {
   const kv = memoryKv();
   const res = await post({ ...ENV, REFERRALS: kv, WA_DRY_RUN: 'true' }, order());
 
-  assert.equal((await res.json()).whatsapp, false);
+  const dry = (await res.json()).whatsapp;
+  assert.equal(dry.sent, false);
+  assert.equal(dry.reason, 'dry_run');
+  assert.equal(dry.to, '+32474919900');
+  assert.equal(dry.preview.template.name, 'diwali_welcome_en',
+    'the payload comes back so a replay needs no log stream');
   assert.ok(db.get('anouk@example.com').attributes.WA_OPTIN, 'the contact is still written');
   assert.ok(!calls.some(x => x.path.endsWith('/messages')), 'Meta is never called');
   assert.equal(await kv.get('order:or_TEST1'), null,
@@ -287,7 +293,7 @@ test('the lucky draw answer is read off buyer_details, not the order', async () 
   const res = await post({ ...ENV, REFERRALS: memoryKv() }, order());
 
   assert.equal(db.get('anouk@example.com').attributes.WA_OPTIN, true);
-  assert.equal((await res.json()).whatsapp, true);
+  assert.equal((await res.json()).whatsapp.sent, true);
   assert.ok(calls.some(x => x.path.endsWith('/messages')));
 });
 
@@ -299,8 +305,8 @@ test('questions in the old place are not consent, and say so', async () => {
 
   const out = await (await post({ ...ENV, REFERRALS: memoryKv() }, payload)).json();
 
-  assert.equal(out.whatsapp, false);
-  assert.equal(out.whatsapp_skipped, 'no_optin', 'the reason is named, not "not_eligible"');
+  assert.equal(out.whatsapp.sent, false);
+  assert.equal(out.whatsapp.reason, 'no_optin', 'the reason is named, not "not_eligible"');
   assert.equal(db.get('anouk@example.com').attributes.WA_OPTIN, false, 'fails closed');
 });
 
@@ -316,7 +322,7 @@ test('every skip names its own reason', async () => {
   for (const [expected, envPatch, payload] of cases) {
     stubWorld();
     const out = await (await post({ ...ENV, ...envPatch }, payload)).json();
-    assert.equal(out.whatsapp_skipped, expected);
+    assert.equal(out.whatsapp.reason, expected);
   }
 });
 
@@ -414,4 +420,37 @@ test('a rejected upsert is never reported as ok', async () => {
   const res = await post({ ...ENV, REFERRALS: memoryKv() }, order());
   assert.equal(res.status, 500, 'Ticket Tailor should retry this one');
   assert.equal((await res.json()).error, 'brevo_upsert');
+});
+
+test('Meta\'s own refusal comes back on the response', async () => {
+  const { } = stubWorld();
+  const base = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    if (new URL(url).hostname === 'graph.facebook.com') {
+      return new Response(JSON.stringify({
+        error: {
+          message: '(#132001) Template name does not exist in the translation',
+          type: 'OAuthException', code: 132001,
+        },
+      }), { status: 400 });
+    }
+    return base(url, init);
+  };
+
+  const out = await (await post({ ...ENV, REFERRALS: memoryKv() }, order())).json();
+
+  assert.equal(out.ok, true, 'a refused WhatsApp never fails the webhook');
+  assert.equal(out.whatsapp.sent, false);
+  assert.equal(out.whatsapp.reason, 'send_failed');
+  assert.equal(out.whatsapp.status, 400);
+  assert.equal(out.whatsapp.error.code, 132001, 'Meta\'s error body, not a summary');
+  assert.equal(out.whatsapp.to, '+32474919900');
+});
+
+test('a successful send hands back the Meta message id', async () => {
+  stubWorld();
+  const out = await (await post({ ...ENV, REFERRALS: memoryKv() }, order())).json();
+  assert.equal(out.whatsapp.sent, true);
+  assert.equal(out.whatsapp.message_id, 'wamid.TEST');
+  assert.equal(out.whatsapp.reason, undefined, 'no reason when it went');
 });

@@ -94,10 +94,33 @@ own reserved fields and are never created.
 ## Testing
 
 ```sh
-npm test          # 31 tests, no network: phone, codes, both webhooks
+npm test          # 33 tests, no network: phone, codes, both webhooks
 ```
 
-Then the live path, in this order:
+Then the live path. Replaying a saved payload is scripted:
+
+```sh
+export TT_WEBHOOK_SECRET='...'        # leading space keeps it out of history
+scripts/replay.sh --dry scripts/payload-or_83267317.json    # sign, send nothing
+scripts/replay.sh scripts/payload-or_83267317.json          # send it
+```
+
+It signs the body exactly as Ticket Tailor does, posts it, and prints the
+response — which carries the whole WhatsApp outcome, so the log stream is
+optional:
+
+```json
+"whatsapp": { "sent": false, "reason": "dry_run", "to": "+32474919900",
+              "preview": { ... the exact payload Meta would have received } }
+"whatsapp": { "sent": true,  "to": "+32474919900", "message_id": "wamid.…" }
+"whatsapp": { "sent": false, "reason": "send_failed", "status": 400,
+              "error": { "code": 132001, "message": "Template name does not exist…" } }
+```
+
+The script refuses to run without `TT_WEBHOOK_SECRET`, and asks before posting
+to the live host. Remember it writes to the real Brevo list.
+
+In this order:
 
 1. `WA_DRY_RUN=true`. Replay a saved Ticket Tailor payload with a test address
    and Ravi's own mobile. Check the Cloudflare log for `wa dry-run` and the
@@ -153,8 +176,9 @@ A skipped WhatsApp names its own cause rather than a single `not_eligible`:
 | `no_referral_code` | KV could not issue one |
 | `no_wa_phone_id` / `no_wa_token` | the variable is unset |
 
-The same reason comes back in the webhook's JSON response as
-`whatsapp_skipped`, so a replay says why without anyone reading the tail.
+The same reason comes back in the webhook's JSON response under `whatsapp`,
+alongside Meta's own error body when Meta was the one that refused — so a
+replay says why without anyone reading the tail.
 
 ## Known soft spots
 

@@ -299,8 +299,10 @@ const WA_API = 'https://graph.facebook.com/v21.0';
  * redelivering, so every failure here is logged and swallowed.
  */
 async function sendWelcome(env, kv, { orderId, phone, firstName, code }) {
-  const already = await kv.get(orderKey(orderId));
-  if (already) return { sent: false, reason: 'already_sent' };
+  const already = await kv.get(orderKey(orderId), 'json');
+  if (already) {
+    return { sent: false, reason: 'already_sent', to: phone, messageId: already.waMessageId };
+  }
 
   const payload = {
     messaging_product: 'whatsapp',
@@ -323,7 +325,9 @@ async function sendWelcome(env, kv, { orderId, phone, firstName, code }) {
     /* Nothing is written to KV on a dry run, so the same order can be replayed
        as often as it takes to get the mapping right. */
     console.log('wa dry-run', orderId, JSON.stringify(payload));
-    return { sent: false, reason: 'dry_run' };
+    /* The payload comes back on the response as well as going to the log, so a
+       replay can be read without opening the log stream at all. */
+    return { sent: false, reason: 'dry_run', to: phone, preview: payload };
   }
 
   const res = await fetch(`${WA_API}/${env.WA_PHONE_ID}/messages`, {
@@ -338,7 +342,12 @@ async function sendWelcome(env, kv, { orderId, phone, firstName, code }) {
   const body = await res.text();
   if (!res.ok) {
     console.error('wa send failed', orderId, res.status, body);
-    return { sent: false, reason: 'send_failed' };
+    /* Meta says why in the body — a stale token, a template that is not
+       approved, a number that is not on WhatsApp. It is the single most useful
+       thing on a failed send, so it is handed back rather than only logged. */
+    let error = body.slice(0, 1000);
+    try { error = JSON.parse(body).error || error; } catch { /* keep the text */ }
+    return { sent: false, reason: 'send_failed', to: phone, status: res.status, error };
   }
 
   let messageId = '';
@@ -349,7 +358,7 @@ async function sendWelcome(env, kv, { orderId, phone, firstName, code }) {
     sentAt: new Date().toISOString(), waMessageId: messageId,
   }));
   console.log('wa sent', orderId, messageId);
-  return { sent: true, messageId };
+  return { sent: true, to: phone, messageId };
 }
 
 /**
@@ -579,6 +588,16 @@ export async function onRequestPost({ request, env }) {
       'questions asked:', JSON.stringify(questions(order).map(q => q.label)));
   }
 
+  /* Keys only when there is something in them — a response full of nulls is
+     harder to read than a short one. */
+  const whatsapp = { sent: wa.sent };
+  if (!wa.sent) whatsapp.reason = wa.reason;
+  if (wa.to) whatsapp.to = wa.to;
+  if (wa.messageId) whatsapp.message_id = wa.messageId;
+  if (wa.status) whatsapp.status = wa.status;
+  if (wa.error) whatsapp.error = wa.error;
+  if (wa.preview) whatsapp.preview = wa.preview;
+
   console.log('tt-order ok', orderId, email, 'tickets', ticketCount,
     'child', childCount, 'value', orderValue, 'ref', ref || '-',
     'code', code || '-', 'wa', wa.sent ? 'sent' : `skipped:${wa.reason}`,
@@ -587,11 +606,11 @@ export async function onRequestPost({ request, env }) {
     ok: true, order_id: orderId, duplicate,
     tickets: ticketCount, children: childCount, value: orderValue,
     referral_code: code || null,
-    whatsapp: wa.sent,
-    /* Named in the response as well as the log, so a replay says why without
-       anyone having to go and read the tail. */
-    whatsapp_skipped: wa.sent ? null : wa.reason,
     phone_dropped: phoneDropped,
+    /* The whole WhatsApp outcome, so a replay never has to go to the log
+       stream: whether it went, why it did not, the number it was addressed to,
+       Meta's message id, and Meta's own error body when it refused. */
+    whatsapp,
   });
 }
 
