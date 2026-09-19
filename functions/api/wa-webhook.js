@@ -21,7 +21,10 @@
  *   BREVO_API_KEY     already set
  */
 
-import { json, truthy, normalisePhone, getContact, upsertContact } from './_shared.js';
+import {
+  json, truthy, normalisePhone, getContact, upsertContact,
+  safeEqual, statusKey, STATUS_TTL_SECONDS,
+} from './_shared.js';
 
 const text = (status, body) =>
   new Response(body, {
@@ -54,13 +57,6 @@ function hex(buf) {
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function safeEqual(a, b) {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
 /* Meta signs the raw body with the app secret as sha256=<hex>. */
 async function verifySignature(request, rawBody, secret) {
   const header = request.headers.get('x-hub-signature-256') || '';
@@ -70,6 +66,75 @@ async function verifySignature(request, rawBody, secret) {
     'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const mac = await crypto.subtle.sign('HMAC', key, enc.encode(rawBody));
   return safeEqual(hex(mac), sig);
+}
+
+/* ---------------------------------------------------------------- status */
+
+/* Meta sends timestamps as unix seconds in a string. */
+function when(raw) {
+  const n = Number(raw);
+  const dt = Number.isFinite(n) && n > 0 ? new Date(n * 1000) : new Date();
+  return isNaN(dt) ? new Date().toISOString() : dt.toISOString();
+}
+
+const errorsOf = s =>
+  (s.errors || []).map(e => ({
+    code: Number(e.code) || null,
+    title: e.title || e.message || '',
+  }));
+
+/**
+ * Keep every delivery report against its message id.
+ *
+ * One message produces several — sent, then delivered, then read — so the
+ * record carries a history as well as the latest, and /api/wa-status hands
+ * the whole thing back. Read-then-write, so two reports landing in the same
+ * instant could lose one; at this volume that is a missing line in a delivery
+ * trail, and the alternative is a lock. Meta can also redeliver a callback it
+ * thinks we missed, so an identical entry is not appended twice.
+ *
+ * Out-of-order arrival is possible and is not corrected: history is the order
+ * we were told, which is what you want when the question is "what did Meta
+ * actually say and when".
+ */
+async function recordStatus(kv, s) {
+  const wamid = String(s.id || '');
+  if (!wamid) return;
+
+  const entry = {
+    status: String(s.status || 'unknown'),
+    at: when(s.timestamp),
+    ...(errorsOf(s).length ? { errors: errorsOf(s) } : {}),
+  };
+
+  let record = null;
+  try {
+    record = await kv.get(statusKey(wamid), 'json');
+  } catch (e) {
+    console.error('wa-webhook: status read failed', wamid, String(e));
+  }
+
+  const history = Array.isArray(record && record.history) ? record.history : [];
+  const last = history[history.length - 1];
+  if (!last || last.status !== entry.status || last.at !== entry.at) history.push(entry);
+
+  const next = {
+    id: wamid,
+    recipient: String(s.recipient_id || (record && record.recipient) || ''),
+    status: entry.status,
+    timestamp: entry.at,
+    errors: entry.errors || [],
+    history: history.slice(-20),
+    firstSeenAt: (record && record.firstSeenAt) || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    await kv.put(statusKey(wamid), JSON.stringify(next),
+      { expirationTtl: STATUS_TTL_SECONDS });
+  } catch (e) {
+    console.error('wa-webhook: status write failed', wamid, String(e));
+  }
 }
 
 /* ---------------------------------------------------------------- opt-out */
@@ -138,11 +203,16 @@ async function process(env, body) {
       }
 
       for (const s of value.statuses || []) {
-        const errors = s.errors || [];
+        const errors = errorsOf(s);
         console.log('wa status', JSON.stringify({
-          id: s.id, status: s.status, recipient_id: s.recipient_id,
-          errors: errors.map(e => ({ code: e.code, title: e.title })),
+          id: s.id, status: s.status, recipient_id: s.recipient_id, errors,
         }));
+        /* Stored whatever it says. A delivered is as much a part of the trail
+           as a failure, and /api/wa-status is the only way to read it back
+           without the log stream. */
+        if (env.REFERRALS) await recordStatus(env.REFERRALS, s);
+        else console.warn('wa-webhook: REFERRALS KV not bound, status not stored');
+
         if (s.status !== 'failed') continue;
         if (!errors.some(e => DEAD_CODES.has(Number(e.code)))) continue;
         await optOut(env, fromMeta(s.recipient_id), 'delivery failed');

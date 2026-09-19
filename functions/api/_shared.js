@@ -107,6 +107,30 @@ export async function referralCode(email, attempt = 0) {
   return code;
 }
 
+/* --------------------------------------------------------------- kv keys */
+
+/* One shape, one place. tt-order writes code: and order:, wa-webhook writes
+   status:, and wa-status reads all three — a key format that drifted between
+   them would fail by finding nothing, which is the hardest kind to notice. */
+export const codeKey = code => `code:${code}`;
+export const orderKey = id => `order:${id}`;
+export const statusKey = wamid => `status:${wamid}`;
+
+/* Delivery reports are operational, not a record we owe anyone. Ninety days
+   covers the festival and the weeks either side of it, and then they age out
+   rather than growing without limit. */
+export const STATUS_TTL_SECONDS = 90 * 24 * 60 * 60;
+
+/* Workers has no timingSafeEqual. Compare every byte regardless of mismatch so
+   the duration of the comparison says nothing about how much was right. */
+export function safeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 /* ------------------------------------------------------------------ brevo */
 
 export const brevo = (env, path, init = {}) =>

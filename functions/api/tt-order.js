@@ -43,7 +43,7 @@
 
 import {
   json, pick, truthy, isEmail, normalisePhone, referralCode, CODE_RE,
-  getContact, ensureAttributes, upsertContact,
+  getContact, ensureAttributes, upsertContact, codeKey, orderKey,
 } from './_shared.js';
 
 /* ------------------------------------------------------------------ crypto */
@@ -232,9 +232,6 @@ function findAttendees(order, buyerEmail) {
 }
 
 /* ------------------------------------------------------------- referrals */
-
-const codeKey = code => `code:${code}`;
-const orderKey = id => `order:${id}`;
 
 /**
  * The buyer's own referral code, stored in KV so /r/<CODE> can resolve it.

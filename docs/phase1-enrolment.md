@@ -34,7 +34,11 @@ Two key shapes live in it:
 ```
 code:<CODE>          { email, firstname, createdAt }
 order:<tt_order_id>  { sentAt, waMessageId }
+status:<wamid>       { id, recipient, status, timestamp, errors[], history[] }
 ```
+
+`status:` records expire after ninety days — they are an operational trail,
+not a record we owe anyone. `order:` and `code:` do not expire.
 
 `order:` is the idempotency key for the send — while it exists, that order
 will never produce a second WhatsApp. Deleting one is how you deliberately
@@ -55,6 +59,7 @@ diwali-2026 → Settings → Variables and secrets, **Production and Preview**:
 | `WA_VERIFY_TOKEN` | random 32 chars, generated below — secret |
 | `WA_DRY_RUN` | `true` until the first live test passes, then `false` |
 | `WA_APP_SECRET` | optional but worth setting — see below |
+| `WA_ADMIN_TOKEN` | random 32 chars — secret. Guards `/api/wa-status` |
 | `TT_LOG_PAYLOAD` | `true` for one delivery, then remove |
 
 Already set, unchanged: `BREVO_API_KEY`, `BREVO_LIST_ID` (9),
@@ -94,7 +99,7 @@ own reserved fields and are never created.
 ## Testing
 
 ```sh
-npm test          # 33 tests, no network: phone, codes, both webhooks
+npm test          # 44 tests, no network: phone, codes, both webhooks
 ```
 
 Then the live path. Replaying a saved payload is scripted:
@@ -179,6 +184,43 @@ A skipped WhatsApp names its own cause rather than a single `not_eligible`:
 The same reason comes back in the webhook's JSON response under `whatsapp`,
 alongside Meta's own error body when Meta was the one that refused — so a
 replay says why without anyone reading the tail.
+
+## Checking whether a message arrived
+
+Every delivery report Meta sends is stored against its message id, so this is
+a curl rather than a log stream:
+
+```sh
+curl -H "X-Admin-Token: $WA_ADMIN_TOKEN" \
+  'https://diwali.artindia.be/api/wa-status?id=wamid.HBgL...'
+
+curl -H "X-Admin-Token: $WA_ADMIN_TOKEN" \
+  'https://diwali.artindia.be/api/wa-status?order=or_83267317'
+```
+
+`?order=` hops through the message id the send wrote onto `order:<id>`.
+
+```json
+{ "ok": true,
+  "status": { "id": "wamid.…", "recipient": "32474919900",
+              "status": "read", "timestamp": "2026-09-19T00:28:50.000Z",
+              "errors": [],
+              "history": [ {"status":"sent","at":"…"},
+                           {"status":"delivered","at":"…"},
+                           {"status":"read","at":"…"} ] } }
+```
+
+| Answer | Means |
+|---|---|
+| `401 unauthorized` | wrong or missing `X-Admin-Token` |
+| `503 not_configured` | `WA_ADMIN_TOKEN` is unset — it refuses everyone rather than letting everyone in |
+| `503 kv_not_bound` | `REFERRALS` is not bound |
+| `404 order_not_found` | no `order:` record, so the webhook never got that order |
+| `200` with `"status": null` | the order exists but never produced a message — the reason is in the tt-order response |
+| `404 no_status_yet` | the message went, no report has landed yet |
+
+History is the order Meta told us, not a corrected timeline: reports can arrive
+out of order and that is left visible on purpose.
 
 ## Known soft spots
 
