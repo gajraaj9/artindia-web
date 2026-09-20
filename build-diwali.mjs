@@ -885,6 +885,24 @@ for (const f of ['diwali-hero.mp4', 'diwali-hero.webm']) {
     cpSync(p, join(out, 'static/media', f));
   }
 }
+/* The bot's knowledge base, compiled into the function.
+   docs/faq.md is the editable source; this writes it into a module the
+   Functions bundler can import, because a Worker cannot read the filesystem
+   and must never fetch its own knowledge at runtime. Raw here, stripped of
+   [CONFIRM] lines and hidden comments at load time by _bot.js, so the
+   stripping has one implementation and one set of tests. */
+{
+  const src = join(HERE, 'docs/faq.md');
+  if (!existsSync(src)) throw new Error('docs/faq.md is missing — the bot has no knowledge without it');
+  const raw = readFileSync(src, 'utf8');
+  const escaped = raw.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
+  writeFileSync(join(HERE, 'functions/api/_faq.js'),
+    '/* GENERATED from docs/faq.md by build-diwali.mjs. Do not edit.\n'
+    + '   Edit docs/faq.md and rebuild. */\n\n'
+    + 'export const FAQ_RAW = `' + escaped + '`;\n');
+  console.log(`  FAQ compiled: ${raw.length} chars from docs/faq.md`);
+}
+
 /* The WhatsApp template header. Meta fetches this itself when a message goes
    out, so it has to be a real, public, unredirected URL — /img/wa-header.jpg,
    1200x628. Drop the file at media/wa-header.jpg and it ships; until it exists

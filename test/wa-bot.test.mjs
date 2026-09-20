@@ -1,0 +1,460 @@
+/**
+ * The bot's pure parts, and the inbound routing around them.
+ *
+ * The model is stubbed everywhere: what is being checked is that the right
+ * thing is asked, the right thing is sent, and that consent and the daily
+ * ceiling are respected — not what Claude says.
+ */
+
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import {
+  stripFaq, FAQ, detectLang, pickLang, STOP_RE, HUMAN_RE, MENU_RE,
+  buildMenu, utcDay, botKey, FALLBACK,
+} from '../functions/api/_bot.js';
+import { FAQ_RAW } from '../functions/api/_faq.js';
+import { onRequestPost as waWebhook } from '../functions/api/wa-webhook.js';
+
+/* --------------------------------------------------------------- the faq */
+
+test('the compiled FAQ is the file on disk', () => {
+  assert.equal(FAQ_RAW, readFileSync('docs/faq.md', 'utf8'),
+    'functions/api/_faq.js is stale — run node build-diwali.mjs');
+});
+
+test('the prices that start on 1 October are not in what the model sees', () => {
+  assert.ok(FAQ_RAW.includes('12 EUR'), 'the hidden October price is in the source');
+  assert.ok(!FAQ.includes('12 EUR'),
+    'quoting 12 EUR during the 10 EUR presale is the worst thing the bot could say');
+  assert.ok(!FAQ.includes('<!--') && !FAQ.includes('-->'), 'no comment markers survive');
+});
+
+test('unsigned-off facts are dropped, whole line', () => {
+  const stripped = stripFaq([
+    'Q: How many visitors?',
+    'A: About 25,000 [CONFIRM] per weekend.',
+    'Q: When are the fireworks?',
+    'A: Around 21:00.',
+  ].join('\n'));
+  assert.ok(!stripped.includes('25,000'));
+  assert.ok(!stripped.includes('[CONFIRM]'));
+  assert.ok(stripped.includes('Around 21:00'), 'the rest is untouched');
+});
+
+test('a multi-line comment goes entirely', () => {
+  assert.equal(stripFaq('keep\n<!-- one\ntwo\nthree -->\nkeep2').replace(/\n+/g, '|'),
+    'keep|keep2');
+});
+
+test('all three languages survive, with their real content', () => {
+  for (const marker of ['===== EN =====', '===== FR =====', '===== NL =====']) {
+    assert.ok(FAQ.includes(marker), marker);
+  }
+  assert.ok(FAQ.includes('Presale 10 EUR until 30 September'));
+  assert.ok(FAQ.includes("Prévente 10 EUR jusqu'au 30 septembre"));
+  assert.ok(FAQ.includes('Voorverkoop 10 EUR tot 30 september'));
+});
+
+/* ------------------------------------------------------------- languages */
+
+test('the language of a short question', () => {
+  assert.equal(detectLang('Quel est le prix des billets ?'), 'fr');
+  assert.equal(detectLang('Hoeveel kosten de kaartjes?'), 'nl');
+  assert.equal(detectLang('What time are the fireworks?'), 'en');
+  assert.equal(detectLang('Bonjour, je voudrais venir avec mes enfants'), 'fr');
+  assert.equal(detectLang('Hallo, mag ik mijn hond meebrengen?'), 'nl');
+  assert.equal(detectLang(''), '', 'nothing to go on says so rather than guessing');
+  assert.equal(detectLang('🙏'), '');
+});
+
+test('what the buyer told us beats what the message looks like', () => {
+  assert.equal(pickLang({ brevoLang: 'fr', cachedLang: 'nl', messageText: 'hello there' }), 'fr');
+  assert.equal(pickLang({ cachedLang: 'nl', messageText: 'hello there' }), 'nl');
+  assert.equal(pickLang({ messageText: 'Quel est le prix ?' }), 'fr');
+  assert.equal(pickLang({ messageText: '👍' }), 'en', 'English is the floor');
+  assert.equal(pickLang({}), 'en');
+  assert.equal(pickLang({ brevoLang: 'de' }), 'en', 'a language we do not speak is not used');
+  assert.equal(pickLang({ brevoLang: 'FR' }), 'fr');
+});
+
+/* ----------------------------------------------------------------- words */
+
+test('STOP is exact, so a sentence about stopping is not an opt-out', () => {
+  for (const yes of ['stop', 'STOP', ' Stop ', 'arret', 'arrêt', 'unsubscribe']) {
+    assert.ok(STOP_RE.test(yes), yes);
+  }
+  for (const no of ['stop sending me the programme', 'non-stop', 'stopp', '', 'arrêtez']) {
+    assert.ok(!STOP_RE.test(no), no);
+  }
+});
+
+test('human and menu are equally exact', () => {
+  for (const yes of ['human', 'HUMAIN', ' mens ']) assert.ok(HUMAN_RE.test(yes), yes);
+  assert.ok(!HUMAN_RE.test('is there a human I can talk to'));
+  assert.ok(MENU_RE.test(' Menu '));
+  assert.ok(!MENU_RE.test('what is on the menu'));
+});
+
+/* ------------------------------------------------------------------ menu */
+
+test('the menu fits inside what WhatsApp accepts', () => {
+  for (const lang of ['en', 'fr', 'nl']) {
+    for (const buyer of [true, false]) {
+      const m = buildMenu('+32474919900', lang, buyer);
+      assert.equal(m.to, '32474919900', 'no plus');
+      assert.equal(m.interactive.type, 'button');
+      const buttons = m.interactive.action.buttons;
+      assert.ok(buttons.length <= 3, `${lang} ${buyer}: max three buttons`);
+      for (const b of buttons) {
+        assert.ok(b.reply.title.length <= 20, `${lang}: "${b.reply.title}" is ${b.reply.title.length}`);
+        assert.ok(b.reply.title.length > 0);
+      }
+    }
+  }
+});
+
+test('a buyer and a stranger get different buttons', () => {
+  const ids = (lang, buyer) =>
+    buildMenu('+32474919900', lang, buyer).interactive.action.buttons.map(b => b.reply.id);
+  assert.deepEqual(ids('en', true), ['MY_LINK', 'MY_CHANCES', 'TALK_HUMAN']);
+  assert.deepEqual(ids('en', false), ['TICKETS', 'INFO', 'TALK_HUMAN']);
+  assert.deepEqual(ids('fr', true), ['MY_LINK', 'MY_CHANCES', 'TALK_HUMAN'], 'ids never translate');
+});
+
+/* --------------------------------------------------------------- the day */
+
+test('the daily counter is keyed on the UTC day and rolls at midnight', () => {
+  assert.equal(utcDay(new Date('2026-09-21T23:59:59Z')), '2026-09-21');
+  assert.equal(utcDay(new Date('2026-09-22T00:00:01Z')), '2026-09-22');
+  assert.equal(utcDay(new Date('2026-09-22T01:30:00+02:00')), '2026-09-21',
+    'Brussels midnight is not UTC midnight, and the counter follows UTC');
+  assert.equal(botKey.count('+32474919900', '2026-09-21'), 'bot:count:+32474919900:2026-09-21');
+});
+
+/* --------------------------------------------------------------- routing */
+
+function memoryKv(seed = {}) {
+  const store = new Map(Object.entries(seed));
+  return {
+    store,
+    async get(k, t) { const v = store.get(k); return v === undefined ? null : (t === 'json' ? JSON.parse(v) : v); },
+    async put(k, v) { store.set(k, v); },
+    async delete(k) { store.delete(k); },
+    async list({ prefix = '' } = {}) {
+      return { keys: [...store.keys()].filter(k => k.startsWith(prefix)).map(name => ({ name })), list_complete: true };
+    },
+  };
+}
+
+const BUYER = {
+  email: 'ravi@artindia.be',
+  attributes: {
+    WHATSAPP: '+32474919900', LANG: 'en', REFERRAL_CODE: 'JKRM7W',
+    TICKET_COUNT: 4, CHILD_COUNT: 2, WA_OPTIN: true,
+  },
+};
+
+/** Brevo, Meta and Anthropic, with `answer` deciding what the model says. */
+function world({ contact = null, answer = 'The fireworks are around 21:00.' } = {}) {
+  const sent = [];
+  const emails = [];
+  const prompts = [];
+  globalThis.fetch = async (url, init = {}) => {
+    const u = new URL(url);
+    const body = init.body ? JSON.parse(init.body) : null;
+
+    if (u.hostname === 'graph.facebook.com') {
+      sent.push(body);
+      return new Response(JSON.stringify({ messages: [{ id: `wamid.${sent.length}` }] }), { status: 200 });
+    }
+    if (u.hostname === 'api.anthropic.com') {
+      prompts.push(body);
+      return new Response(JSON.stringify({
+        content: [{ type: 'text', text: answer }],
+        usage: { input_tokens: 10, output_tokens: 5 },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (u.pathname === '/v3/smtp/email') {
+      emails.push(body);
+      return new Response(JSON.stringify({ messageId: 'x' }), { status: 201 });
+    }
+    if (u.pathname === '/v3/contacts') return new Response(null, { status: 204 });
+    if (u.pathname.startsWith('/v3/contacts/')) {
+      return contact
+        ? new Response(JSON.stringify(contact), { status: 200 })
+        : new Response('{}', { status: 404 });
+    }
+    throw new Error(`unstubbed ${url}`);
+  };
+  return { sent, emails, prompts };
+}
+
+const ENV = kv => ({
+  BREVO_API_KEY: 'k', WA_VERIFY_TOKEN: 'v', WA_TOKEN: 't', WA_PHONE_ID: 'p',
+  ANTHROPIC_API_KEY: 'sk-ant-test', WA_BOT_ENABLED: 'true', WA_BOT_DAILY_LIMIT: '20',
+  REFERRALS: kv,
+});
+
+async function inbound(env, message, contacts) {
+  let work = Promise.resolve();
+  await waWebhook({
+    request: new Request('https://diwali.artindia.be/api/wa-webhook', {
+      method: 'POST',
+      body: JSON.stringify({ entry: [{ changes: [{ value: { messages: [message], contacts } }] }] }),
+    }),
+    env,
+    waitUntil: p => { work = p; },
+  });
+  await work;
+}
+
+const msg = (over = {}) => ({ id: 'wamid.IN1', from: '32474919900', type: 'text', ...over });
+const texts = sent => sent.filter(s => s.type === 'text').map(s => s.text.body);
+
+test('the first message of the day gets the menu, then an answer', async () => {
+  const { sent, prompts } = world({ contact: BUYER });
+  await inbound(ENV(memoryKv()), msg({ text: { body: 'When are the fireworks?' } }));
+
+  assert.equal(sent[0].type, 'interactive', 'menu leads');
+  assert.deepEqual(sent[0].interactive.action.buttons.map(b => b.reply.id),
+    ['MY_LINK', 'MY_CHANCES', 'TALK_HUMAN'], 'a buyer gets the buyer menu');
+  assert.equal(texts(sent)[0], 'The fireworks are around 21:00.');
+  assert.equal(prompts[0].max_tokens, 300);
+  assert.ok(prompts[0].system[0].text.includes('Saturday 24 and Sunday 25 October'),
+    'the FAQ goes with the question');
+  assert.equal(prompts[0].system[1].text, 'Reply in English.');
+});
+
+test('the second message the same day skips the menu', async () => {
+  const kv = memoryKv();
+  const env = ENV(kv);
+  world({ contact: BUYER });
+  await inbound(env, msg({ id: 'wamid.A', text: { body: 'When are the fireworks?' } }));
+  const { sent } = world({ contact: BUYER });
+  await inbound(env, msg({ id: 'wamid.B', text: { body: 'And the food?' } }));
+  assert.ok(!sent.some(s => s.type === 'interactive'), 'no second menu');
+});
+
+test('Meta redelivering a message changes nothing', async () => {
+  const kv = memoryKv();
+  const env = ENV(kv);
+  world({ contact: BUYER });
+  await inbound(env, msg({ text: { body: 'When are the fireworks?' } }));
+  const { sent } = world({ contact: BUYER });
+  await inbound(env, msg({ text: { body: 'When are the fireworks?' } }));
+  assert.equal(sent.length, 0, 'the same message id is answered once');
+});
+
+test('NOT_COVERED sends the fallback and writes the question down', async () => {
+  const kv = memoryKv();
+  const { sent } = world({ contact: BUYER, answer: 'NOT_COVERED' });
+  await inbound(ENV(kv), msg({ text: { body: 'Can I bring my drone?' } }));
+
+  assert.equal(texts(sent)[0], FALLBACK.en);
+  const key = [...kv.store.keys()].find(k => k.startsWith('bot:unanswered:'));
+  assert.ok(key, 'it is logged for the FAQ to grow from');
+  const row = JSON.parse(kv.store.get(key));
+  assert.equal(row.text, 'Can I bring my drone?');
+  assert.equal(row.reason, 'not_covered');
+  assert.equal(row.phone, '+32474919900');
+});
+
+test('a model that is down is handled exactly like a question it cannot answer', async () => {
+  const kv = memoryKv();
+  const sent = [];
+  globalThis.fetch = async (url, init = {}) => {
+    const u = new URL(url);
+    if (u.hostname === 'api.anthropic.com') return new Response('upstream boom', { status: 500 });
+    if (u.hostname === 'graph.facebook.com') {
+      sent.push(JSON.parse(init.body));
+      return new Response(JSON.stringify({ messages: [{ id: 'w' }] }), { status: 200 });
+    }
+    if (u.pathname.startsWith('/v3/contacts/')) return new Response(JSON.stringify(BUYER), { status: 200 });
+    return new Response(null, { status: 204 });
+  };
+  await inbound(ENV(kv), msg({ text: { body: 'Anything?' } }));
+
+  assert.equal(texts(sent)[0], FALLBACK.en, 'the buyer still gets an answer');
+  assert.ok([...kv.store.keys()].some(k => k.startsWith('bot:unanswered:')));
+});
+
+test('with the bot off, free text gets the fallback and the model is never called', async () => {
+  const kv = memoryKv();
+  const { sent, prompts } = world({ contact: BUYER });
+  await inbound({ ...ENV(kv), WA_BOT_ENABLED: 'false' },
+    msg({ text: { body: 'When are the fireworks?' } }));
+
+  assert.equal(prompts.length, 0, 'no spend while the kill switch is off');
+  assert.equal(texts(sent)[0], FALLBACK.en);
+  assert.ok(sent.some(s => s.type === 'interactive'), 'the menu still works');
+});
+
+test('the daily ceiling stops at the limit and apologises once', async () => {
+  const kv = memoryKv({
+    [botKey.count('+32474919900', utcDay())]: '20',
+    [botKey.seen('+32474919900')]: '1',
+  });
+  const first = world({ contact: BUYER });
+  await inbound(ENV(kv), msg({ id: 'wamid.L1', text: { body: 'one more?' } }));
+  assert.equal(first.prompts.length, 0, 'the model is not called past the limit');
+  assert.equal(texts(first.sent)[0], FALLBACK.en);
+
+  const second = world({ contact: BUYER });
+  await inbound(ENV(kv), msg({ id: 'wamid.L2', text: { body: 'and another?' } }));
+  assert.equal(second.sent.length, 0, 'the twenty-second question is met with silence');
+});
+
+test('a successful answer moves the counter, a fallback does not', async () => {
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const key = botKey.count('+32474919900', utcDay());
+
+  world({ contact: BUYER });
+  await inbound(ENV(kv), msg({ id: 'wamid.C1', text: { body: 'fireworks?' } }));
+  assert.equal(kv.store.get(key), '1');
+
+  world({ contact: BUYER, answer: 'NOT_COVERED' });
+  await inbound(ENV(kv), msg({ id: 'wamid.C2', text: { body: 'drone?' } }));
+  assert.equal(kv.store.get(key), '1', 'an unanswered question is not a spent reply');
+});
+
+/* --------------------------------------------------------------- buttons */
+
+const button = (id, over = {}) => msg({
+  type: 'interactive',
+  interactive: { type: 'button_reply', button_reply: { id, title: id } },
+  ...over,
+});
+
+test('My link gives the buyer their code, and a stranger the shop', async () => {
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const buyer = world({ contact: BUYER });
+  await inbound(ENV(kv), button('MY_LINK'));
+  assert.equal(texts(buyer.sent)[0],
+    'Your personal link: https://diwali.artindia.be/r/JKRM7W. Every friend who buys with it adds one entry for you.');
+
+  const kv2 = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const stranger = world({ contact: null });
+  await inbound(ENV(kv2), button('MY_LINK', { id: 'wamid.S1' }));
+  assert.match(texts(stranger.sent)[0], /can't find a ticket on this number/);
+});
+
+test('My chances counts adults plus referrals, never children', async () => {
+  const kv = memoryKv({
+    [botKey.seen('+32474919900')]: '1',
+    [botKey.refcount('JKRM7W')]: '3',
+  });
+  const { sent } = world({ contact: BUYER });
+  await inbound(ENV(kv), button('MY_CHANCES'));
+  /* 4 tickets less 2 children = 2 adults, plus 3 referred. */
+  assert.equal(texts(sent)[0], 'You have 5 entries in the draw. Share your link to add more.');
+});
+
+test('one entry is singular', async () => {
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const { sent } = world({
+    contact: { ...BUYER, attributes: { ...BUYER.attributes, TICKET_COUNT: 1, CHILD_COUNT: 0 } },
+  });
+  await inbound(ENV(kv), button('MY_CHANCES'));
+  assert.match(texts(sent)[0], /You have 1 entry in the draw/);
+});
+
+test('the guest buttons answer from the FAQ without the model', async () => {
+  for (const [id, expect] of [['TICKETS', /Presale 10 EUR/], ['INFO', /Saturday 24 and Sunday 25/]]) {
+    const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+    const { sent, prompts } = world({ contact: null });
+    await inbound(ENV(kv), button(id));
+    assert.match(texts(sent)[0], expect, id);
+    assert.equal(prompts.length, 0, `${id} is canned, not generated`);
+  }
+});
+
+/* ----------------------------------------------------------- escalation */
+
+test('asking for a person replies, records it and emails the team', async () => {
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const { sent, emails } = world({ contact: BUYER });
+
+  await inbound(ENV(kv), msg({ id: 'wamid.H0', text: { body: 'where do I park' } }));
+  await inbound(ENV(kv), msg({ id: 'wamid.H1', text: { body: 'human' } }),
+    [{ profile: { name: 'Ravi' } }]);
+
+  assert.match(texts(sent).at(-1), /team member will reply here during office hours/);
+  assert.match(texts(sent).at(-1), /diwali@artindia\.be/);
+  assert.ok(!texts(sent).at(-1).includes('diwello'), 'the brief\'s typo is not shipped');
+
+  const key = [...kv.store.keys()].find(k => k.startsWith('bot:escalation:'));
+  assert.ok(key);
+  const row = JSON.parse(kv.store.get(key));
+  assert.equal(row.phone, '+32474919900');
+  assert.equal(row.name, 'Ravi');
+  assert.equal(row.last_message, 'human');
+  assert.equal(row.history.length, 2, 'the conversation, not just the trigger');
+
+  assert.equal(emails.length, 1);
+  assert.equal(emails[0].to[0].email, 'diwali@artindia.be');
+  assert.equal(emails[0].subject, 'WhatsApp: +32474919900 needs a reply');
+  assert.match(emails[0].textContent, /where do I park/);
+  assert.match(emails[0].textContent, /api\/wa-send/, 'the email says how to answer');
+});
+
+test('the TALK_HUMAN button escalates the same way', async () => {
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const { emails } = world({ contact: BUYER });
+  await inbound(ENV(kv), button('TALK_HUMAN'));
+  assert.equal(emails.length, 1);
+});
+
+/* --------------------------------------------------------------- consent */
+
+test('STOP is answered once, then the number goes quiet', async () => {
+  const kv = memoryKv();
+  const stop = world({ contact: BUYER });
+  await inbound(ENV(kv), msg({ id: 'wamid.X1', text: { body: 'STOP' } }));
+
+  assert.deepEqual(texts(stop.sent), ['You will not receive further WhatsApp messages from Art India.']);
+  assert.ok(!stop.sent.some(s => s.type === 'interactive'), 'no menu on an opt-out');
+  assert.ok(kv.store.has(botKey.optout('+32474919900')));
+
+  const again = world({ contact: BUYER });
+  await inbound(ENV(kv), msg({ id: 'wamid.X2', text: { body: 'stop' } }));
+  assert.equal(texts(again.sent).length, 1, 'a second STOP is confirmed, not ignored');
+});
+
+test('writing in after opting out re-opens the conversation', async () => {
+  const kv = memoryKv({ [botKey.optout('+32474919900')]: '2026-09-20T00:00:00Z' });
+  const { sent } = world({ contact: BUYER });
+  await inbound(ENV(kv), msg({ id: 'wamid.R1', text: { body: 'When are the fireworks?' } }));
+
+  assert.equal(texts(sent).at(-1), 'The fireworks are around 21:00.');
+  assert.ok(!kv.store.has(botKey.optout('+32474919900')), 'the gate is lifted');
+});
+
+test('a photo gets one apology a day, not one per photo', async () => {
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const first = world({ contact: BUYER });
+  await inbound(ENV(kv), msg({ id: 'wamid.P1', type: 'image', image: { id: 'i1' } }));
+  assert.equal(texts(first.sent)[0], FALLBACK.en);
+
+  const second = world({ contact: BUYER });
+  await inbound(ENV(kv), msg({ id: 'wamid.P2', type: 'image', image: { id: 'i2' } }));
+  assert.equal(second.sent.length, 0);
+});
+
+test('a French buyer is answered in French throughout', async () => {
+  const kv = memoryKv();
+  const fr = { ...BUYER, attributes: { ...BUYER.attributes, LANG: 'fr' } };
+  const { sent, prompts } = world({ contact: fr, answer: 'Le feu d\'artifice est vers 21h00.' });
+  await inbound(ENV(kv), msg({ text: { body: 'À quelle heure est le feu ?' } }));
+
+  assert.equal(prompts[0].system[1].text, 'Reply in French.');
+  assert.equal(sent[0].interactive.body.text, 'Comment puis-je vous aider ?');
+  assert.equal(texts(sent)[0], 'Le feu d\'artifice est vers 21h00.');
+});
+
+test('without the KV binding nothing is answered and nothing throws', async () => {
+  const { sent } = world({ contact: BUYER });
+  await inbound({ ...ENV(undefined), REFERRALS: undefined },
+    msg({ text: { body: 'hello' } }));
+  assert.equal(sent.length, 0);
+});

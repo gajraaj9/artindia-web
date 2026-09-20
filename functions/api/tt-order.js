@@ -49,7 +49,7 @@
 
 import {
   json, pick, truthy, isEmail, normalisePhone, referralCode, CODE_RE,
-  getContact, ensureAttributes, upsertContact, codeKey, orderKey,
+  getContact, ensureAttributes, upsertContact, codeKey, orderKey, refcountKey,
 } from './_shared.js';
 
 /* ------------------------------------------------------------------ crypto */
@@ -286,6 +286,19 @@ async function creditReferrer(env, kv, code, buyerEmail, adults) {
     console.error('tt-order: referrer credit failed', res.status, res.detail);
     return null;
   }
+
+  /* The same number again in KV. Brevo is where the marketing list lives;
+     refcount: is what the WhatsApp bot reads when somebody taps "My chances",
+     and reaching for Brevo on every button tap would put a third-party API in
+     front of a chat reply. Written after Brevo, so the counter can only lag,
+     never lead. */
+  try {
+    const before = Number(await kv.get(refcountKey(code))) || 0;
+    await kv.put(refcountKey(code), String(before + adults));
+  } catch (e) {
+    console.error('tt-order: refcount write failed', code, String(e));
+  }
+
   return { email: entry.email, code, credited: adults, total: after };
 }
 

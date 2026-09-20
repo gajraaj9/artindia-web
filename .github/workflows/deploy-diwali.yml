@@ -17,6 +17,10 @@ on:
       - media/**
       - static/**
       - functions/**
+      # The bot's knowledge. The build compiles docs/faq.md into the function,
+      # so editing the FAQ is a deploy — without this line the new answers
+      # would sit in git and never reach the number.
+      - docs/faq.md
       # The build copies favicon.svg, og-diwali.png and _redirects out of
       # here, so the share card and the /go/ links count as build inputs.
       - diwali-holding/**

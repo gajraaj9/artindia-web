@@ -22,9 +22,15 @@
  */
 
 import {
-  json, truthy, normalisePhone, getContact, upsertContact,
-  safeEqual, statusKey, STATUS_TTL_SECONDS,
+  json, truthy, normalisePhone, getContact, upsertContact, brevo,
+  safeEqual, statusKey, STATUS_TTL_SECONDS, codeKey,
 } from './_shared.js';
+import {
+  STOP_RE, HUMAN_RE, MENU_RE, FALLBACK, OPTOUT_CONFIRM, ESCALATION_REPLY,
+  NOT_A_BUYER, TICKETS_ANSWER, INFO_ANSWER, myLinkReply, myChancesReply,
+  buildMenu, pickLang, askFaq, sendText, sendToMeta, botKey,
+  DAY_SECONDS, KEEP_SECONDS, utcDay, stamp,
+} from './_bot.js';
 
 const text = (status, body) =>
   new Response(body, {
@@ -144,8 +150,6 @@ async function recordStatus(kv, s) {
    missing its trunk zero, and only the plus says so. */
 const fromMeta = n => normalisePhone('+' + String(n || '').replace(/\D/g, ''));
 
-const STOP_RE = /^\s*(stop|arrêt|arret)\s*$/i;
-
 /* Meta error codes that mean the number will never receive this message:
    131026 the recipient is not a WhatsApp user, 131047 the 24-hour window has
    closed and re-engagement was refused. Either way, stop trying. */
@@ -158,18 +162,23 @@ const DEAD_CODES = new Set([131026, 131047]);
  * fall back to the SMS one. The update is then done by email, which is the
  * identifier Brevo is happiest with.
  */
-async function optOut(env, phone, why) {
-  if (!phone || !env.BREVO_API_KEY) return false;
-
-  let contact = null;
+export async function findContact(env, phone) {
+  if (!phone || !env.BREVO_API_KEY) return null;
   for (const type of ['whatsapp_id', 'phone_id']) {
     try {
-      contact = await getContact(env, phone, type);
-      if (contact) break;
+      const contact = await getContact(env, phone, type);
+      if (contact) return contact;
     } catch (e) {
       console.error('wa-webhook: lookup by', type, 'failed', String(e));
     }
   }
+  return null;
+}
+
+async function optOut(env, phone, why) {
+  if (!phone || !env.BREVO_API_KEY) return false;
+
+  const contact = await findContact(env, phone);
   if (!contact || !contact.email) {
     console.warn('wa-webhook: no Brevo contact for', phone, '(', why, ')');
     return false;
@@ -184,6 +193,278 @@ async function optOut(env, phone, why) {
   return true;
 }
 
+/* ---------------------------------------------------------------- inbound */
+
+const ttl = seconds => ({ expirationTtl: seconds });
+
+/** True the second time Meta delivers the same message, and every time after. */
+async function alreadyHandled(kv, id) {
+  if (!id) return false;
+  const key = botKey.message(id);
+  if (await kv.get(key)) return true;
+  await kv.put(key, new Date().toISOString(), ttl(DAY_SECONDS));
+  return false;
+}
+
+/* The last five things this number said, for the escalation email. Whoever
+   picks it up needs the conversation, not just the sentence that tripped it. */
+async function rememberMessage(kv, phone, body) {
+  if (!body) return [];
+  let history = [];
+  try { history = (await kv.get(botKey.history(phone), 'json')) || []; } catch { /* first one */ }
+  history.push({ at: new Date().toISOString(), text: String(body).slice(0, 500) });
+  history = history.slice(-5);
+  await kv.put(botKey.history(phone), JSON.stringify(history), ttl(DAY_SECONDS));
+  return history;
+}
+
+/**
+ * Draw entries.
+ *
+ * Adults only. TICKET_COUNT counts everyone on the order and CHILD_COUNT the
+ * under-12s, and the FAQ promises "every adult ticket is one entry" — so a
+ * family of four with two children has two, not four.
+ */
+function entriesFor(contact, referred) {
+  const a = (contact && contact.attributes) || {};
+  const n = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  return Math.max(0, n(a.TICKET_COUNT) - n(a.CHILD_COUNT)) + Math.max(0, referred);
+}
+
+const isBuyer = contact => Boolean(
+  contact && contact.attributes
+  && (contact.attributes.REFERRAL_CODE || Number(contact.attributes.TICKET_COUNT) > 0));
+
+async function refCount(kv, code) {
+  if (!code) return 0;
+  try { return Number(await kv.get(botKey.refcount(code))) || 0; } catch { return 0; }
+}
+
+/**
+ * Hand the conversation to a person.
+ *
+ * The reply promises office hours rather than a time, the escalation is
+ * written to KV so /api/wa-unanswered shows it, and the email carries the
+ * conversation plus the exact curl that answers it — an escalation nobody can
+ * act on from their phone is an escalation that waits until Monday.
+ */
+async function escalate(env, kv, { phone, lang, name, history }) {
+  await sendText(env, phone, ESCALATION_REPLY[lang] || ESCALATION_REPLY.en);
+
+  const record = {
+    phone, name: name || '', lang,
+    last_message: (history[history.length - 1] || {}).text || '',
+    history,
+    at: new Date().toISOString(),
+  };
+  await kv.put(botKey.escalation(stamp()), JSON.stringify(record), ttl(KEEP_SECONDS));
+
+  const to = env.ESCALATION_EMAIL || 'diwali@artindia.be';
+  if (!env.BREVO_API_KEY) {
+    console.warn('wa-webhook: no Brevo key, escalation email not sent for', phone);
+    return;
+  }
+
+  const lines = history.map(h => `  ${h.at}  ${h.text}`).join('\n') || '  (no text messages)';
+  const body = [
+    `${name || 'A visitor'} (${phone}) asked to speak to the team.`,
+    `Language: ${lang}`,
+    '',
+    'Last messages:',
+    lines,
+    '',
+    'Reply from a terminal (inside the 24h window):',
+    '',
+    `  curl -X POST https://diwali.artindia.be/api/wa-send \\`,
+    `    -H "X-Admin-Token: $WA_ADMIN_TOKEN" \\`,
+    `    -H 'content-type: application/json' \\`,
+    `    -d '{"to":"${phone}","text":"your reply here"}'`,
+  ].join('\n');
+
+  try {
+    const res = await brevo(env, '/smtp/email', {
+      method: 'POST',
+      body: JSON.stringify({
+        sender: { email: env.BREVO_SENDER_EMAIL || to, name: 'Diwali WhatsApp bot' },
+        to: [{ email: to }],
+        subject: `WhatsApp: ${phone} needs a reply`,
+        textContent: body,
+      }),
+    });
+    if (!res.ok) console.error('wa-webhook: escalation email failed', res.status, await res.text());
+    else console.log('wa-webhook: escalation emailed to', to, 'for', phone);
+  } catch (e) {
+    console.error('wa-webhook: escalation email threw', String(e));
+  }
+}
+
+/** The FAQ path, with the per-number daily ceiling in front of it. */
+async function answerQuestion(env, kv, { phone, lang, body }) {
+  const fallback = FALLBACK[lang] || FALLBACK.en;
+
+  if (!truthy(env.WA_BOT_ENABLED)) {
+    await sendText(env, phone, fallback);
+    return;
+  }
+
+  const day = utcDay();
+  const limit = Number(env.WA_BOT_DAILY_LIMIT) || 20;
+  const used = Number(await kv.get(botKey.count(phone, day))) || 0;
+
+  if (used >= limit) {
+    /* One fallback, then silence for the rest of the day. Somebody who has
+       asked twenty questions is not being helped by a twenty-first copy of
+       the same apology. */
+    const told = botKey.count(phone, day) + ':limited';
+    if (!await kv.get(told)) {
+      await sendText(env, phone, fallback);
+      await kv.put(told, '1', ttl(2 * DAY_SECONDS));
+      console.warn('wa-webhook: daily limit reached for', phone, used, '>=', limit);
+    }
+    return;
+  }
+
+  const { answer, reason } = await askFaq(env, { text: body, lang });
+
+  if (!answer) {
+    await sendText(env, phone, fallback);
+    await kv.put(botKey.unanswered(stamp()), JSON.stringify({
+      phone, lang, text: String(body).slice(0, 500), reason, at: new Date().toISOString(),
+    }), ttl(KEEP_SECONDS));
+    console.log('wa-webhook: unanswered', reason, JSON.stringify(String(body).slice(0, 120)));
+    return;
+  }
+
+  await sendText(env, phone, answer);
+  await kv.put(botKey.count(phone, day), String(used + 1), ttl(2 * DAY_SECONDS));
+}
+
+/**
+ * One inbound message, start to finish.
+ *
+ * Order matters and follows the brief: dedupe, then STOP, then who they are
+ * and what language, then buttons, then text. STOP is early on purpose — it is
+ * the one message that must never be answered by the bot.
+ */
+async function handleInbound(env, m, value) {
+  const kv = env.REFERRALS;
+  if (!kv) {
+    console.warn('wa-webhook: REFERRALS KV not bound, inbound message ignored');
+    return;
+  }
+
+  const phone = fromMeta(m.from);
+  if (!phone) return;
+  if (await alreadyHandled(kv, m.id)) {
+    console.log('wa-webhook: duplicate delivery', m.id);
+    return;
+  }
+
+  const body = String((m.text && m.text.body) || '').trim();
+  const buttonId = String(
+    (m.interactive && m.interactive.button_reply && m.interactive.button_reply.id)
+    || (m.button && m.button.payload) || '').trim();
+  const name = ((value.contacts || [])[0] || {}).profile
+    ? value.contacts[0].profile.name : '';
+
+  const history = await rememberMessage(kv, phone, body);
+
+  /* STOP first, and nothing else runs. */
+  if (STOP_RE.test(body)) {
+    await optOut(env, phone, 'stop reply');
+    const contact = await findContact(env, phone);
+    const lang = pickLang({
+      brevoLang: contact && contact.attributes && contact.attributes.LANG,
+      cachedLang: await kv.get(botKey.lang(phone)),
+      messageText: body,
+    });
+    await sendText(env, phone, OPTOUT_CONFIRM[lang] || OPTOUT_CONFIRM.en);
+    await kv.put(botKey.optout(phone), new Date().toISOString(), ttl(KEEP_SECONDS));
+    return;
+  }
+
+  /* Any other message re-opens the conversation. WA_OPTIN stays false — that
+     is a marketing consent and only a purchase sets it back — but somebody who
+     writes to us after opting out is asking a question, not being marketed to. */
+  if (await kv.get(botKey.optout(phone))) {
+    await kv.delete(botKey.optout(phone));
+    console.log('wa-webhook: opted-out number wrote in, conversation re-opened', phone);
+  }
+
+  const contact = await findContact(env, phone);
+  const lang = pickLang({
+    brevoLang: contact && contact.attributes && contact.attributes.LANG,
+    cachedLang: await kv.get(botKey.lang(phone)),
+    messageText: body,
+  });
+  await kv.put(botKey.lang(phone), lang, ttl(KEEP_SECONDS));
+
+  const buyer = isBuyer(contact);
+  const code = String((contact && contact.attributes && contact.attributes.REFERRAL_CODE) || '');
+  const fallback = FALLBACK[lang] || FALLBACK.en;
+
+  /* The menu leads, on the first message in a day and whenever it is asked
+     for. The brief describes it both ways round; this is the order its own
+     manual test expects. */
+  const firstToday = !await kv.get(botKey.seen(phone));
+  if (firstToday) await kv.put(botKey.seen(phone), '1', ttl(DAY_SECONDS));
+  if (firstToday || MENU_RE.test(body)) {
+    await sendToMeta(env, buildMenu(phone, lang, buyer));
+    if (MENU_RE.test(body)) return;
+  }
+
+  if (buttonId) {
+    switch (buttonId) {
+      case 'MY_LINK':
+        await sendText(env, phone, code
+          ? myLinkReply(lang, code)
+          : (NOT_A_BUYER[lang] || NOT_A_BUYER.en));
+        return;
+      case 'MY_CHANCES': {
+        if (!buyer) { await sendText(env, phone, NOT_A_BUYER[lang] || NOT_A_BUYER.en); return; }
+        const n = entriesFor(contact, await refCount(kv, code));
+        await sendText(env, phone, myChancesReply(lang, n));
+        return;
+      }
+      case 'TICKETS':
+        await sendText(env, phone, TICKETS_ANSWER[lang] || TICKETS_ANSWER.en);
+        return;
+      case 'INFO':
+        await sendText(env, phone, INFO_ANSWER[lang] || INFO_ANSWER.en);
+        return;
+      case 'TALK_HUMAN':
+        await escalate(env, kv, { phone, lang, name, history });
+        return;
+      case 'MENU':
+        await sendToMeta(env, buildMenu(phone, lang, buyer));
+        return;
+      default:
+        console.warn('wa-webhook: unknown button', buttonId);
+        await sendText(env, phone, fallback);
+        return;
+    }
+  }
+
+  if (HUMAN_RE.test(body)) {
+    await escalate(env, kv, { phone, lang, name, history });
+    return;
+  }
+
+  /* Images, audio, stickers, a dropped pin: one fallback per day, so an album
+     of twelve photos does not get twelve replies. */
+  if (!body) {
+    if (firstToday) return;   /* the menu they just got is answer enough */
+    const told = botKey.seen(phone) + ':media';
+    if (!await kv.get(told)) {
+      await sendText(env, phone, fallback);
+      await kv.put(told, '1', ttl(DAY_SECONDS));
+    }
+    return;
+  }
+
+  await answerQuestion(env, kv, { phone, lang, body });
+}
+
 /* ---------------------------------------------------------------- handler */
 
 /* Everything Meta sends is handled after the 200 has gone out. Meta retries a
@@ -195,11 +476,8 @@ async function process(env, body) {
       const value = change.value || {};
 
       for (const m of value.messages || []) {
-        const bodyText = (m.text && m.text.body) || '';
-        if (!STOP_RE.test(bodyText)) continue;
-        /* Nothing is sent back. This is a marketing opt-out, and a reply to it
-           would itself be a message they just told us to stop sending. */
-        await optOut(env, fromMeta(m.from), 'stop reply');
+        await handleInbound(env, m, value).catch(e =>
+          console.error('wa-webhook: inbound threw', m && m.id, String(e)));
       }
 
       for (const s of value.statuses || []) {

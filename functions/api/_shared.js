@@ -115,6 +115,10 @@ export async function referralCode(email, attempt = 0) {
 export const codeKey = code => `code:${code}`;
 export const orderKey = id => `order:${id}`;
 export const statusKey = wamid => `status:${wamid}`;
+/* How many paid adult tickets came in on someone's referral link. Kept beside
+   Brevo's REFERRED_BY so the WhatsApp bot can answer "my chances" from KV
+   rather than calling Brevo on every button tap. */
+export const refcountKey = code => `refcount:${code}`;
 
 /* Delivery reports are operational, not a record we owe anyone. Ninety days
    covers the festival and the weeks either side of it, and then they age out
