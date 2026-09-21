@@ -412,10 +412,15 @@ async function handleInbound(env, m, value) {
      underneath a greeting is the rudest thing the bot can do. */
   const firstToday = !await kv.get(botKey.seen(phone));
   if (firstToday) await kv.put(botKey.seen(phone), '1', ttl(DAY_SECONDS));
-  const wantsMenu = MENU_RE.test(body) || isGreeting(body);
+  const greeted = isGreeting(body);
+  const wantsMenu = MENU_RE.test(body) || greeted;
   if (firstToday || wantsMenu) {
-    /* Diya introduces herself once per window, on the menu that opens it. */
-    await sendToMeta(env, buildMenu(phone, lang, buyer, firstToday));
+    /* Diya introduces herself on the menu that opens a window, and whenever
+       somebody actually says hello — which is when a host introduces herself.
+       Tying it to the window alone meant a visitor whose first message of the
+       day was a question, and who said "Bonjour" two hours later, never met
+       her at all. */
+    await sendToMeta(env, buildMenu(phone, lang, buyer, firstToday || greeted));
     if (wantsMenu) return;
   }
 

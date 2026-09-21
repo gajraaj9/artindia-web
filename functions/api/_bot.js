@@ -70,13 +70,23 @@ export function detectLang(text) {
 }
 
 /**
- * Which language to answer in, in the order the brief sets out: what the
- * contact told us when they bought, then what they last used, then what this
- * message looks like, then English.
+ * Which language to answer in.
+ *
+ * The message they just sent comes first, then what they last used, then what
+ * Brevo has, then English.
+ *
+ * The brief puts Brevo's LANG first, and that would be right if LANG meant
+ * anything. It does not: Ticket Tailor's order payload carries no language
+ * field at all, so every buyer is stored as 'en' whatever they speak. Trusting
+ * it first is why "Bonjour !" came back with an English menu. A message in
+ * front of us is evidence; a field that was defaulted is not.
+ *
+ * Reverse this the day Ticket Tailor exposes the checkout locale and LANG
+ * starts carrying a real choice.
  */
 export function pickLang({ brevoLang, cachedLang, messageText } = {}) {
   const ok = v => (LANGS.includes(String(v || '').toLowerCase()) ? String(v).toLowerCase() : '');
-  return ok(brevoLang) || ok(cachedLang) || ok(detectLang(messageText)) || 'en';
+  return ok(detectLang(messageText)) || ok(cachedLang) || ok(brevoLang) || 'en';
 }
 
 /* ------------------------------------------------------------- what it says */

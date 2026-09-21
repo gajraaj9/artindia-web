@@ -68,9 +68,16 @@ test('the language of a short question', () => {
   assert.equal(detectLang('🙏'), '');
 });
 
-test('what the buyer told us beats what the message looks like', () => {
-  assert.equal(pickLang({ brevoLang: 'fr', cachedLang: 'nl', messageText: 'hello there' }), 'fr');
-  assert.equal(pickLang({ cachedLang: 'nl', messageText: 'hello there' }), 'nl');
+test('the message in front of us beats a field that was defaulted', () => {
+  /* The regression. Brevo's LANG is 'en' for every buyer because Ticket
+     Tailor's payload has no language field, so trusting it first answered
+     "Bonjour !" with an English menu. */
+  assert.equal(pickLang({ brevoLang: 'en', messageText: 'Bonjour !' }), 'fr');
+  assert.equal(pickLang({ brevoLang: 'en', messageText: 'Hoeveel kosten de kaartjes?' }), 'nl');
+
+  assert.equal(pickLang({ cachedLang: 'fr', messageText: '👍' }), 'fr',
+    'no signal in this message, so what they last used');
+  assert.equal(pickLang({ brevoLang: 'nl' }), 'nl', 'a button tap has no text at all');
   assert.equal(pickLang({ messageText: 'Quel est le prix ?' }), 'fr');
   assert.equal(pickLang({ messageText: '👍' }), 'en', 'English is the floor');
   assert.equal(pickLang({}), 'en');
@@ -536,13 +543,37 @@ test('saying hello gets the menu and nothing underneath it', async () => {
   assert.ok(!texts(sent).includes(FALLBACK.en));
 });
 
-test('hello later in the same window gets the menu without the introduction', async () => {
+test('saying hello later in the window still gets the introduction', async () => {
+  /* Someone whose first message of the day was a question, saying hello two
+     hours later, should still meet Diya. */
   const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
   const { sent } = world({ contact: BUYER });
   await inbound(ENV(kv), msg({ id: 'wamid.G2', text: { body: 'hi' } }));
 
   assert.equal(sent.length, 1);
+  assert.equal(sent[0].interactive.body.text,
+    "Namaste, I'm Diya, the festival's digital host 🪔 How can I help?");
+});
+
+test('the plain menu is for MENU and for an answered question, not a hello', async () => {
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const { sent } = world({ contact: BUYER });
+  await inbound(ENV(kv), msg({ id: 'wamid.M9', text: { body: 'menu' } }));
   assert.equal(sent[0].interactive.body.text, 'How can I help?');
+});
+
+test('Bonjour is answered in French even when Brevo says en', async () => {
+  /* The screenshot: a French greeting from a buyer stored as LANG=en came
+     back with the English menu. */
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const { sent } = world({ contact: BUYER });   /* BUYER.attributes.LANG === 'en' */
+  await inbound(ENV(kv), msg({ id: 'wamid.B9', text: { body: 'Bonjour !' } }));
+
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].interactive.body.text,
+    "Namaste, je suis Diya, l'hôtesse digitale du festival 🪔 Comment puis-je vous aider ?");
+  assert.equal(kv.store.get(botKey.lang('+32474919900')), 'fr',
+    'and French is remembered for the button taps that follow');
 });
 
 test('bonjour is answered in French, even from a number we do not know', async () => {

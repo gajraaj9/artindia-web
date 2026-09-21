@@ -10,13 +10,15 @@ thing in the system prompt, above the rules and the FAQ: warm, brief, at most
 one 🪔 a message, an AI assistant who says so if asked and never claims to be a
 person, a life or a feeling.
 
-She introduces herself once per 24h window, on the menu that opens it:
+She introduces herself on the menu that opens a 24h window, and whenever
+somebody actually says hello:
 
 > Namaste, I'm Diya, the festival's digital host 🪔 How can I help?
 
-Every later menu in the same window is just "How can I help?" in their
-language. Being told who she is four times in an hour reads like a bot, which
-is the one thing the persona exists to avoid. She never signs off.
+A menu that comes from `MENU` or after an answered question is just "How can
+I help?" in their language — being told who she is four times in an hour reads
+like a bot, which is the one thing the persona exists to avoid. She never signs
+off.
 
 Its entire knowledge is [`faq.md`](faq.md). It is told to answer from that and
 nothing else, and to say `NOT_COVERED` when the answer is not in there — which
@@ -78,8 +80,12 @@ Already set and reused: `WA_TOKEN`, `WA_PHONE_ID`, `WA_APP_SECRET`,
    opted out. A sentence *about* stopping is not an opt-out — the match is exact.
 3. **Writing in again after opting out** re-opens the conversation. `WA_OPTIN`
    stays false; that is a marketing consent and only a purchase sets it back.
-4. **Language**: what they told us when they bought, else what they last used,
-   else what this message looks like, else English.
+4. **Language**: the message in front of us, else what they last used, else
+   what Brevo has, else English. Brevo's `LANG` is deliberately *last*: Ticket
+   Tailor's payload has no language field, so every buyer is stored as `en`
+   whatever they speak, and trusting it first answered "Bonjour !" with an
+   English menu. Put it back in front the day Ticket Tailor exposes the
+   checkout locale.
 5. **A bare greeting** — hi, hello, hey, bonjour, salut, hallo, hoi, namaste,
    with or without punctuation and an emoji — gets the menu and nothing else.
    It is an opening, not a question: putting "I can't answer that here" under
