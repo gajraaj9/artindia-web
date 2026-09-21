@@ -122,7 +122,7 @@ An escalation emails `ESCALATION_EMAIL` with the visitor's name, number,
 language and last five messages, plus a link:
 
 ```
-https://diwali.artindia.be/admin/reply.html?to=+32474919900
+https://diwali.artindia.be/admin/reply?to=+32474919900
 ```
 
 That page has the number already filled in. Paste the admin token once and the

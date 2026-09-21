@@ -428,7 +428,9 @@ test('asking for a person replies, records it and emails the team', async () => 
   assert.match(emails[0].textContent, /where do I park/);
   assert.ok(!emails[0].textContent.includes('curl'), 'no terminal command in the email');
   assert.match(emails[0].textContent,
-    /admin\/reply\.html\?to=%2B32474919900/, 'a link with the number already in it');
+    /admin\/reply\?to=%2B32474919900/, 'a link with the number already in it');
+  assert.ok(!emails[0].textContent.includes('reply.html'),
+    'the canonical URL, so the link lands in one hop rather than a 308');
 });
 
 test('the TALK_HUMAN button escalates the same way', async () => {

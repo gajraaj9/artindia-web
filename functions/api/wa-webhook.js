@@ -270,7 +270,9 @@ async function escalate(env, kv, { phone, lang, name, history }) {
   /* A link, not a curl. Whoever picks this up is holding a phone, and an
      escalation you cannot act on until you are back at a terminal waits until
      Monday. The page carries the number already filled in. */
-  const replyUrl = `https://diwali.artindia.be/admin/reply.html?to=${encodeURIComponent(phone)}`;
+  /* /admin/reply, not /admin/reply.html: Cloudflare Pages strips the
+     extension and 308s, and an email link should land in one hop. */
+  const replyUrl = `https://diwali.artindia.be/admin/reply?to=${encodeURIComponent(phone)}`;
   const body = [
     `${name || 'A visitor'} (${phone}) asked to speak to the team.`,
     `Language: ${lang}`,
