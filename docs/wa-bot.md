@@ -141,6 +141,31 @@ curl -X POST https://diwali.artindia.be/api/wa-send \
   -d '{"to":"+32474919900","text":"Hello, the fireworks are at 21:00."}'
 ```
 
+## The dashboard
+
+**`/admin/wa`** — one page, unlocked with the same admin token as the reply
+page. Three tabs:
+
+- **Conversations** — one row per number, newest first, with the name from
+  Brevo when we have it, buyer or prospect, language, and the last line. A row
+  whose last message came from *them* is flagged **needs a look**: nobody has
+  answered it. Tap to open the transcript, both halves, labelled by what each
+  line was — an answer the model wrote, a canned button reply, an apology, a
+  team reply. Each row links straight to the reply page.
+- **Welcome** — every buyer the welcome template went to, with sent /
+  delivered / read / failed counts on top and Meta's own error text on the
+  failures.
+- **Unanswered** — the same list as `/api/wa-unanswered`, so the FAQ can be
+  grown from real questions.
+
+A **Bot: ON / OFF** badge at the top reads `WA_BOT_ENABLED`, so "why is
+everything getting the fallback" is answered before it is asked.
+
+It reads `GET /api/wa-admin` in a single call — it gets opened on a phone, on
+4G, usually because something needs answering now, and three round trips there
+is three chances to stall. The page builds every row as DOM nodes rather than
+HTML: message text is written by strangers and must never be parsed as markup.
+
 ## Growing the FAQ
 
 ```sh
@@ -166,6 +191,8 @@ All in the `REFERRALS` namespace.
 | `bot:history:<phone>` | last 5 inbound texts | 24h |
 | `bot:count:<phone>:<YYYY-MM-DD>` | model replies used today | 48h |
 | `bot:count:<phone>:<day>:limited` | already told them the limit | 48h |
+| `bot:log:<phone>` | `{phone, name, buyer, lang, updatedAt, messages[]}` — last 40 lines both ways | 30d |
+| `bot:welcome:<phone>` | `{ts, name, template, waMessageId, status, last_status_ts}` | 30d |
 | `bot:unanswered:<ts>` | `{phone, lang, text, reason}` | 90d |
 | `bot:escalation:<ts>` | `{phone, name, lang, last_message, history}` | 90d |
 | `refcount:<CODE>` | paid adult tickets referred by that code | never |

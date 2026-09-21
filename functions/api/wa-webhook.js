@@ -30,7 +30,7 @@ import {
   NOT_A_BUYER, TICKETS_ANSWER, INFO_ANSWER, GETTING_THERE_ANSWER,
   myLinkReply, myChancesReply, myTicketsReply,
   buildMenu, pickLang, askFaq, sendText, sendToMeta, botKey, isGreeting,
-  DAY_SECONDS, KEEP_SECONDS, utcDay, stamp,
+  DAY_SECONDS, KEEP_SECONDS, LOG_SECONDS, utcDay, stamp, logMessage,
 } from './_bot.js';
 
 const text = (status, body) =>
@@ -142,6 +142,32 @@ async function recordStatus(kv, s) {
   } catch (e) {
     console.error('wa-webhook: status write failed', wamid, String(e));
   }
+
+  await updateWelcome(kv, next);
+}
+
+/**
+ * Carry a delivery report onto the welcome record, if it belongs to it.
+ *
+ * Matched on the message id, not just the number: a buyer who also asks a
+ * question gets other messages, and a read receipt for one of those must not
+ * make the welcome look read.
+ */
+async function updateWelcome(kv, status) {
+  const phone = fromMeta(status.recipient);
+  if (!phone) return;
+  try {
+    const welcome = await kv.get(botKey.welcome(phone), 'json');
+    if (!welcome || welcome.waMessageId !== status.id) return;
+    await kv.put(botKey.welcome(phone), JSON.stringify({
+      ...welcome,
+      status: status.status,
+      last_status_ts: status.timestamp,
+      errors: status.errors || [],
+    }), { expirationTtl: LOG_SECONDS });
+  } catch (e) {
+    console.error('wa-webhook: welcome status update failed', phone, String(e));
+  }
 }
 
 /* ---------------------------------------------------------------- opt-out */
@@ -220,6 +246,28 @@ async function rememberMessage(kv, phone, body) {
 }
 
 /**
+ * Say something, and write it down.
+ *
+ * Every outbound line goes through here so the dashboard shows both halves of
+ * a conversation. The kind is what the dashboard labels it: an answer the
+ * model wrote reads differently from a canned button reply or an apology.
+ */
+async function say(env, kv, phone, body, kind, about) {
+  const res = await sendText(env, phone, body);
+  await logMessage(kv, phone, { dir: 'out', kind, text: body }, about);
+  return res;
+}
+
+/** The menu, written down as the line the visitor actually sees. */
+async function showMenu(env, kv, phone, lang, buyer, firstContact, about) {
+  const menu = buildMenu(phone, lang, buyer, firstContact);
+  const res = await sendToMeta(env, menu);
+  await logMessage(kv, phone,
+    { dir: 'out', kind: 'menu', text: menu.interactive.body.text }, about);
+  return res;
+}
+
+/**
  * Draw entries.
  *
  * Adults only. TICKET_COUNT counts everyone on the order and CHILD_COUNT the
@@ -249,8 +297,8 @@ async function refCount(kv, code) {
  * conversation plus the exact curl that answers it — an escalation nobody can
  * act on from their phone is an escalation that waits until Monday.
  */
-async function escalate(env, kv, { phone, lang, name, history }) {
-  await sendText(env, phone, ESCALATION_REPLY[lang] || ESCALATION_REPLY.en);
+async function escalate(env, kv, { phone, lang, name, history, about }) {
+  await say(env, kv, phone, ESCALATION_REPLY[lang] || ESCALATION_REPLY.en, 'escalation', about);
 
   const record = {
     phone, name: name || '', lang,
@@ -304,11 +352,11 @@ async function escalate(env, kv, { phone, lang, name, history }) {
 }
 
 /** The FAQ path, with the per-number daily ceiling in front of it. */
-async function answerQuestion(env, kv, { phone, lang, body }) {
+async function answerQuestion(env, kv, { phone, lang, body, about }) {
   const fallback = FALLBACK[lang] || FALLBACK.en;
 
   if (!truthy(env.WA_BOT_ENABLED)) {
-    await sendText(env, phone, fallback);
+    await say(env, kv, phone, fallback, 'fallback', about);
     return;
   }
 
@@ -322,7 +370,7 @@ async function answerQuestion(env, kv, { phone, lang, body }) {
        the same apology. */
     const told = botKey.count(phone, day) + ':limited';
     if (!await kv.get(told)) {
-      await sendText(env, phone, fallback);
+      await say(env, kv, phone, fallback, 'limit', about);
       await kv.put(told, '1', ttl(2 * DAY_SECONDS));
       console.warn('wa-webhook: daily limit reached for', phone, used, '>=', limit);
     }
@@ -332,7 +380,7 @@ async function answerQuestion(env, kv, { phone, lang, body }) {
   const { answer, reason } = await askFaq(env, { text: body, lang });
 
   if (!answer) {
-    await sendText(env, phone, fallback);
+    await say(env, kv, phone, fallback, 'fallback', about);
     await kv.put(botKey.unanswered(stamp()), JSON.stringify({
       phone, lang, text: String(body).slice(0, 500), reason, at: new Date().toISOString(),
     }), ttl(KEEP_SECONDS));
@@ -340,7 +388,7 @@ async function answerQuestion(env, kv, { phone, lang, body }) {
     return;
   }
 
-  await sendText(env, phone, answer);
+  await say(env, kv, phone, answer, 'answer', about);
   await kv.put(botKey.count(phone, day), String(used + 1), ttl(2 * DAY_SECONDS));
 }
 
@@ -374,6 +422,14 @@ async function handleInbound(env, m, value) {
 
   const history = await rememberMessage(kv, phone, body);
 
+  /* The visitor's own line, written down before anything is decided about it,
+     so the dashboard shows what arrived even when the reply fails. */
+  await logMessage(kv, phone, {
+    dir: 'in',
+    kind: buttonId ? 'button' : (body ? 'text' : (m.type || 'media')),
+    text: body || buttonId || `(${m.type || 'media'})`,
+  }, { name });
+
   /* STOP first, and nothing else runs. */
   if (STOP_RE.test(body)) {
     await optOut(env, phone, 'stop reply');
@@ -383,7 +439,7 @@ async function handleInbound(env, m, value) {
       cachedLang: await kv.get(botKey.lang(phone)),
       messageText: body,
     });
-    await sendText(env, phone, OPTOUT_CONFIRM[lang] || OPTOUT_CONFIRM.en);
+    await say(env, kv, phone, OPTOUT_CONFIRM[lang] || OPTOUT_CONFIRM.en, 'optout', { lang });
     await kv.put(botKey.optout(phone), new Date().toISOString(), ttl(KEEP_SECONDS));
     return;
   }
@@ -407,6 +463,8 @@ async function handleInbound(env, m, value) {
   const buyer = isBuyer(contact);
   const code = String((contact && contact.attributes && contact.attributes.REFERRAL_CODE) || '');
   const fallback = FALLBACK[lang] || FALLBACK.en;
+  /* What the dashboard needs about this person, carried to every write. */
+  const about = { name, buyer, lang };
 
   /* The menu leads, on the first message in a day and whenever it is asked
      for. The brief describes it both ways round; this is the order its own
@@ -425,7 +483,7 @@ async function handleInbound(env, m, value) {
        Tying it to the window alone meant a visitor whose first message of the
        day was a question, and who said "Bonjour" two hours later, never met
        her at all. */
-    await sendToMeta(env, buildMenu(phone, lang, buyer, firstToday || greeted));
+    await showMenu(env, kv, phone, lang, buyer, firstToday || greeted, about);
     if (wantsMenu) return;
   }
 
@@ -433,51 +491,52 @@ async function handleInbound(env, m, value) {
     const notABuyer = NOT_A_BUYER[lang] || NOT_A_BUYER.en;
     switch (buttonId) {
       case 'MY_TICKETS': {
-        if (!buyer) { await sendText(env, phone, notABuyer); return; }
+        if (!buyer) { await say(env, kv, phone, notABuyer, 'canned', about); return; }
         const a = (contact && contact.attributes) || {};
         const n = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
         const children = n(a.CHILD_COUNT);
-        await sendText(env, phone,
-          myTicketsReply(lang, Math.max(0, n(a.TICKET_COUNT) - children), children));
+        await say(env, kv, phone,
+          myTicketsReply(lang, Math.max(0, n(a.TICKET_COUNT) - children), children),
+          'canned', about);
         return;
       }
       case 'MY_LINK':
-        await sendText(env, phone, code ? myLinkReply(lang, code) : notABuyer);
+        await say(env, kv, phone, code ? myLinkReply(lang, code) : notABuyer, 'canned', about);
         return;
       case 'MY_CHANCES': {
-        if (!buyer) { await sendText(env, phone, notABuyer); return; }
+        if (!buyer) { await say(env, kv, phone, notABuyer, 'canned', about); return; }
         const n = entriesFor(contact, await refCount(kv, code));
-        await sendText(env, phone, myChancesReply(lang, n));
+        await say(env, kv, phone, myChancesReply(lang, n), 'canned', about);
         return;
       }
       /* TICKETS and INFO are the ids the first menu shipped with. Kept, because
          a menu already sitting in somebody's chat history is still tappable. */
       case 'BUY_TICKETS':
       case 'TICKETS':
-        await sendText(env, phone, TICKETS_ANSWER[lang] || TICKETS_ANSWER.en);
+        await say(env, kv, phone, TICKETS_ANSWER[lang] || TICKETS_ANSWER.en, 'canned', about);
         return;
       case 'FESTIVAL_INFO':
       case 'INFO':
-        await sendText(env, phone, INFO_ANSWER[lang] || INFO_ANSWER.en);
+        await say(env, kv, phone, INFO_ANSWER[lang] || INFO_ANSWER.en, 'canned', about);
         return;
       case 'GETTING_THERE':
-        await sendText(env, phone, GETTING_THERE_ANSWER[lang] || GETTING_THERE_ANSWER.en);
+        await say(env, kv, phone, GETTING_THERE_ANSWER[lang] || GETTING_THERE_ANSWER.en, 'canned', about);
         return;
       case 'TALK_HUMAN':
-        await escalate(env, kv, { phone, lang, name, history });
+        await escalate(env, kv, { phone, lang, name, history, about });
         return;
       case 'MENU':
-        await sendToMeta(env, buildMenu(phone, lang, buyer, firstToday));
+        await showMenu(env, kv, phone, lang, buyer, firstToday, about);
         return;
       default:
         console.warn('wa-webhook: unknown button', buttonId);
-        await sendText(env, phone, fallback);
+        await say(env, kv, phone, fallback, 'fallback', about);
         return;
     }
   }
 
   if (HUMAN_RE.test(body)) {
-    await escalate(env, kv, { phone, lang, name, history });
+    await escalate(env, kv, { phone, lang, name, history, about });
     return;
   }
 
@@ -487,13 +546,13 @@ async function handleInbound(env, m, value) {
     if (firstToday) return;   /* the menu they just got is answer enough */
     const told = botKey.seen(phone) + ':media';
     if (!await kv.get(told)) {
-      await sendText(env, phone, fallback);
+      await say(env, kv, phone, fallback, 'fallback', about);
       await kv.put(told, '1', ttl(DAY_SECONDS));
     }
     return;
   }
 
-  await answerQuestion(env, kv, { phone, lang, body });
+  await answerQuestion(env, kv, { phone, lang, body, about });
 }
 
 /* ---------------------------------------------------------------- handler */

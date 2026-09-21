@@ -460,6 +460,8 @@ export const sendText = (env, phone, body) => sendToMeta(env, textMessage(phone,
 
 export const botKey = {
   lang: phone => `bot:lang:${phone}`,
+  log: phone => `bot:log:${phone}`,
+  welcome: phone => `bot:welcome:${phone}`,
   count: (phone, day) => `bot:count:${phone}:${day}`,
   seen: phone => `bot:seen:${phone}`,
   optout: phone => `bot:optout:${phone}`,
@@ -472,6 +474,59 @@ export const botKey = {
 
 export const DAY_SECONDS = 24 * 60 * 60;
 export const KEEP_SECONDS = 90 * DAY_SECONDS;
+export const LOG_SECONDS = 30 * DAY_SECONDS;
+export const LOG_MESSAGES = 40;
+
+/**
+ * One conversation, as the dashboard reads it.
+ *
+ * Stored per phone rather than per message so the dashboard can list every
+ * conversation without a Brevo call each: the name, whether they bought and
+ * what language they are using ride along with the messages. `messages` is
+ * the last forty, oldest first, which is enough to see how a conversation got
+ * where it is and short enough to keep one KV value small.
+ *
+ * Read-then-write, so two messages in the same instant could lose one line of
+ * a transcript. That is a cosmetic loss in a log, not a lost reply.
+ */
+export async function logMessage(kv, phone, entry, about = {}) {
+  if (!kv || !phone) return;
+  const key = botKey.log(phone);
+  let record = null;
+  try { record = await kv.get(key, 'json'); } catch { /* first message */ }
+
+  const messages = Array.isArray(record && record.messages) ? record.messages : [];
+  messages.push({
+    ts: new Date().toISOString(),
+    dir: entry.dir,
+    kind: entry.kind,
+    text: String(entry.text || '').slice(0, 700),
+  });
+
+  const next = {
+    phone,
+    name: about.name || (record && record.name) || '',
+    buyer: about.buyer === undefined ? Boolean(record && record.buyer) : Boolean(about.buyer),
+    lang: about.lang || (record && record.lang) || '',
+    updatedAt: new Date().toISOString(),
+    messages: messages.slice(-LOG_MESSAGES),
+  };
+
+  try { await kv.put(key, JSON.stringify(next), { expirationTtl: LOG_SECONDS }); }
+  catch (e) { console.error('bot: log write failed', phone, String(e)); }
+}
+
+/** Every key under a prefix, following the cursor to the end. */
+export async function listAll(kv, prefix, cap = 1000) {
+  const keys = [];
+  let cursor;
+  do {
+    const page = await kv.list({ prefix, cursor, limit: 1000 });
+    for (const k of page.keys) keys.push(k.name);
+    cursor = page.list_complete || keys.length >= cap ? null : page.cursor;
+  } while (cursor);
+  return keys.slice(0, cap);
+}
 
 /** The UTC day the daily limit is counted against. */
 export const utcDay = (now = new Date()) => now.toISOString().slice(0, 10);

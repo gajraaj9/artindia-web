@@ -51,6 +51,7 @@ import {
   json, pick, truthy, isEmail, normalisePhone, referralCode, CODE_RE,
   getContact, ensureAttributes, upsertContact, codeKey, orderKey, refcountKey,
 } from './_shared.js';
+import { botKey, logMessage, LOG_SECONDS } from './_bot.js';
 
 /* ------------------------------------------------------------------ crypto */
 
@@ -544,9 +545,27 @@ async function sendWelcome(env, kv, { orderId, phone, firstName, code }) {
     };
   }
 
+  const sentAt = new Date().toISOString();
   await kv.put(orderKey(orderId), JSON.stringify({
-    sentAt: new Date().toISOString(), waMessageId: res.messageId, template: used,
+    sentAt, waMessageId: res.messageId, template: used,
   }));
+
+  /* The dashboard's welcome tab. Keyed by phone so a delivery report, which
+     only carries the number, can find it again; the message id is kept so a
+     report for some later message cannot overwrite this one's status. */
+  try {
+    await kv.put(botKey.welcome(phone), JSON.stringify({
+      phone, ts: sentAt, name: firstName, template: used,
+      waMessageId: res.messageId, orderId,
+      status: 'sent', last_status_ts: sentAt,
+    }), { expirationTtl: LOG_SECONDS });
+    await logMessage(kv, phone,
+      { dir: 'out', kind: 'template', text: `${used} (welcome)` },
+      { name: firstName, buyer: true });
+  } catch (e) {
+    console.error('tt-order: welcome log failed', String(e));
+  }
+
   console.log('wa sent', orderId, used, res.messageId, fellBack ? '(fallback)' : '');
   return { sent: true, to: phone, messageId: res.messageId, template: used, fellBack };
 }

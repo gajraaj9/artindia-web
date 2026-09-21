@@ -32,3 +32,17 @@ Add a page /admin/reply.html: fields phone and message, a Send button, admin tok
 
 ## 6. Tests
 Update the tests for the new button ids, greeting handling and language rule. Report the live commit and the exact texts of the three buyer buttons in each language as deployed.
+
+## 7. Admin dashboard: /admin/wa.html
+One page, unlocked with the admin token (same localStorage as the reply page), reading a new endpoint GET /api/wa-admin (X-Admin-Token) that returns JSON. Mobile-friendly, plain HTML, no framework.
+
+Data to keep, so the page has something to show:
+- Every inbound and outbound message per phone in KV `bot:log:<phone>` (array of {ts, dir, kind, text}, capped at the last 40, 30-day TTL). Outbound includes template sends, menus, model answers, fallbacks and admin replies.
+- Welcome template sends in KV `bot:welcome:<phone>` = {ts, name, template, status, last_status_ts}, updated from the status callbacks (sent / delivered / read / failed with the error code).
+
+The page shows three tabs:
+1. Conversations: one row per phone, newest activity first: name (from Brevo if known), phone, buyer/prospect, language, last message preview, time, and whether the last message was from the person (needs a look) or from us. Tap a row to expand the full log. A "Reply" link opens /admin/reply.html?to=<phone>.
+2. Welcome messages: one row per buyer: name, phone, when sent, status (sent / delivered / read / failed + error). Counts at the top: sent, delivered, read, failed. Failed rows show the Meta error text.
+3. Unanswered: the existing bot:unanswered and bot:escalation entries, newest first, so the FAQ can be extended from real questions.
+
+A "Bot: ON / OFF" indicator at the top reads WA_BOT_ENABLED.
