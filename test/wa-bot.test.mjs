@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   stripFaq, FAQ, detectLang, pickLang, STOP_RE, HUMAN_RE, MENU_RE,
-  buildMenu, utcDay, botKey, FALLBACK, isGreeting, DIYA, systemBlocks,
+  buildMenu, utcDay, botKey, FALLBACK, isGreeting, DIYA, systemBlocks, tidyAnswer,
 } from '../functions/api/_bot.js';
 import { FAQ_RAW } from '../functions/api/_faq.js';
 import { onRequestPost as waWebhook } from '../functions/api/wa-webhook.js';
@@ -603,4 +603,46 @@ test('a greeting never reaches the daily counter', async () => {
 
   assert.equal(sent.length, 1, 'the menu goes out even past the limit');
   assert.equal(sent[0].type, 'interactive');
+});
+
+/* ----------------------------------------------------------- tidying up */
+
+test('the em dash the model was asked not to use is taken out anyway', () => {
+  /* Verbatim from the first live answer. The prompt says no em dashes and
+     Haiku used one regardless, so the rule is enforced in code. */
+  assert.equal(
+    tidyAnswer("It's on the esplanade of Boulevard du Centenaire, next to the Atomium—we can't wait to see you there."),
+    "It's on the esplanade of Boulevard du Centenaire, next to the Atomium, we can't wait to see you there.");
+  assert.equal(tidyAnswer('Tickets are 10 EUR – buy early.'), 'Tickets are 10 EUR, buy early.');
+});
+
+test('a dash between numbers is a range, not a clause break', () => {
+  assert.equal(tidyAnswer('Open 12:00—22:30 each day.'), 'Open 12:00-22:30 each day.');
+  assert.equal(tidyAnswer('24—25 October'), '24-25 October');
+});
+
+test('markdown WhatsApp would not render is removed', () => {
+  assert.equal(tidyAnswer('**Tickets** are `10 EUR`.'), 'Tickets are 10 EUR.');
+  assert.equal(tidyAnswer('## Dates\nSaturday 24.'), 'Dates\nSaturday 24.');
+});
+
+test('tidying never leaves a doubled comma or stray spacing', () => {
+  assert.equal(tidyAnswer('Come early, — the gates open at 12:00.'),
+    'Come early, the gates open at 12:00.');
+  assert.equal(tidyAnswer('  spaced   out  '), 'spaced out');
+});
+
+test('an answer with nothing to fix is returned untouched', () => {
+  const clean = "The fireworks are around 21:00, subject to the weather. 🪔";
+  assert.equal(tidyAnswer(clean), clean);
+});
+
+test('the tidying is applied to what actually goes out', async () => {
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const { sent } = world({
+    contact: BUYER,
+    answer: "We're next to the Atomium—come early.",
+  });
+  await inbound(ENV(kv), msg({ id: 'wamid.T1', text: { body: 'where is it?' } }));
+  assert.equal(texts(sent)[0], "We're next to the Atomium, come early.");
 });

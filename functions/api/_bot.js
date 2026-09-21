@@ -256,6 +256,30 @@ export const systemBlocks = lang => ([
 ]);
 
 /**
+ * What the model wrote, made fit for WhatsApp.
+ *
+ * The system prompt asks for no em dashes and no markdown, and Haiku ignored
+ * the dash on the very first live answer ("next to the Atomium—we can't wait").
+ * A formatting rule that can be enforced in code should not be left to the
+ * model to remember: an em dash reads as a typo on a phone, and WhatsApp
+ * renders none of the markdown it might reach for.
+ *
+ * A dash between digits is a range and keeps a hyphen; anywhere else it is
+ * joining two clauses and becomes a comma.
+ */
+export function tidyAnswer(text) {
+  return String(text || '')
+    .replace(/(\d)\s*[—–]\s*(\d)/g, '$1-$2')
+    .replace(/\s*[—–]\s*/g, ', ')
+    .replace(/,\s*,/g, ',')
+    .replace(/\*\*/g, '')
+    .replace(/`/g, '')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+/**
  * Ask the FAQ.
  *
  * Returns the answer, or '' for anything the caller should treat as "send the
@@ -278,8 +302,8 @@ export async function askFaq(env, { text, lang }) {
       messages: [{ role: 'user', content: String(text).slice(0, 2000) }],
     });
 
-    const answer = (res.content || [])
-      .filter(b => b.type === 'text').map(b => b.text).join(' ').trim();
+    const answer = tidyAnswer((res.content || [])
+      .filter(b => b.type === 'text').map(b => b.text).join(' '));
 
     console.log('bot answered', JSON.stringify({
       lang, in: res.usage && res.usage.input_tokens,

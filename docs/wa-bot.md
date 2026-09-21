@@ -36,6 +36,18 @@ Flip it in Cloudflare → diwali-2026 → Settings → Variables, then redeploy
 (`gh workflow run deploy-diwali.yml --ref main`). Variables only take effect on
 a new deployment.
 
+## What the model writes, and what goes out
+
+The system prompt asks for no markdown and no em dashes. Haiku ignored the
+dash on the first live answer, so both are enforced in code after the fact: an
+em dash between clauses becomes a comma, one between numbers becomes a hyphen
+(so a time range survives), and `**bold**`, backticks and `#` headings are
+stripped. WhatsApp renders none of that markup, and an em dash reads as a typo
+on a phone.
+
+If an answer ever comes out mangled, `tidyAnswer` in `functions/api/_bot.js` is
+the only thing between the model and the message.
+
 ## Editing the FAQ
 
 1. Edit `docs/faq.md`. One Q&A per block, plain facts, no promise that is not
