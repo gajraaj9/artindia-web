@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Reply on WhatsApp — Art India</title>
+<!--
+  Answers an escalation from the phone in your hand.
+
+  It holds nothing secret itself: the admin token is typed once and kept in
+  this browser's localStorage, and every send is checked by /api/wa-send on
+  the server. The page being public costs nothing; the token is the lock.
+
+  Linked from the escalation email as ?to=<phone>, which fills the number in.
+-->
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #faf7f2; --card: #fff; --ink: #1b1714; --muted: #6b625a;
+    --line: #e4ddd3; --accent: #b4381f; --ok: #1d6b45; --bad: #9c2323;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17140f; --card: #211c16; --ink: #f2ece4; --muted: #a2988c;
+      --line: #342c23; --accent: #e2673f; --ok: #5fc191; --bad: #f08a7c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 1.25rem; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 34rem; margin: 0 auto; }
+  h1 { font-size: 1.25rem; margin: 0 0 .25rem; }
+  p.sub { margin: 0 0 1.5rem; color: var(--muted); font-size: .9rem; }
+  form, .panel {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: .75rem; padding: 1rem; margin-bottom: 1rem;
+  }
+  label { display: block; font-weight: 600; font-size: .85rem; margin-bottom: .35rem; }
+  input, textarea {
+    width: 100%; padding: .7rem; font: inherit; color: inherit;
+    background: var(--bg); border: 1px solid var(--line); border-radius: .5rem;
+  }
+  input:focus-visible, textarea:focus-visible, button:focus-visible {
+    outline: 3px solid var(--accent); outline-offset: 2px;
+  }
+  textarea { min-height: 7rem; resize: vertical; }
+  .field { margin-bottom: 1rem; }
+  .count { color: var(--muted); font-size: .8rem; text-align: right; margin-top: .25rem; }
+  button {
+    width: 100%; padding: .85rem; font: inherit; font-weight: 600;
+    color: #fff; background: var(--accent); border: 0; border-radius: .5rem;
+    cursor: pointer;
+  }
+  button[disabled] { opacity: .55; cursor: not-allowed; }
+  .msg { padding: .85rem 1rem; border-radius: .5rem; margin-bottom: 1rem; font-size: .92rem; }
+  .msg.ok  { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+  .msg.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); }
+  .msg strong { display: block; margin-bottom: .2rem; }
+  .token-row { display: flex; gap: .5rem; align-items: flex-end; }
+  .token-row .field { flex: 1; margin-bottom: 0; }
+  .link { background: none; color: var(--accent); width: auto; padding: 0;
+          font-weight: 600; font-size: .85rem; text-decoration: underline; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Reply on WhatsApp</h1>
+  <p class="sub">Sends one message as the festival. Only works within 24 hours of their last message.</p>
+
+  <div class="panel" id="token-panel">
+    <div class="token-row">
+      <div class="field">
+        <label for="token">Admin token</label>
+        <input id="token" type="password" autocomplete="off" spellcheck="false"
+               placeholder="paste once, this browser remembers it">
+      </div>
+      <button class="link" type="button" id="save-token">Save</button>
+    </div>
+  </div>
+
+  <div class="panel" id="token-saved" hidden>
+    <button class="link" type="button" id="forget-token">Forget the admin token on this device</button>
+  </div>
+
+  <div id="result" role="status" aria-live="polite"></div>
+
+  <form id="form">
+    <div class="field">
+      <label for="to">Their number</label>
+      <input id="to" name="to" type="tel" required placeholder="+32474919900"
+             autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="text">Message</label>
+      <textarea id="text" name="text" required maxlength="4096"
+                placeholder="Hello, the fireworks are at 21:00."></textarea>
+      <div class="count"><span id="count">0</span> / 4096</div>
+    </div>
+    <button type="submit" id="send">Send</button>
+  </form>
+</main>
+
+<script>
+(function () {
+  var KEY = 'artindia.wa.adminToken';
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* localStorage throws outright in some privacy modes, so every touch of it
+     is guarded and the page still works without it — you just retype the
+     token each visit. */
+  function readToken() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
+  function writeToken(v) { try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch (e) {} }
+
+  function paintToken() {
+    var has = Boolean(readToken());
+    $('token-panel').hidden = has;
+    $('token-saved').hidden = !has;
+    if (!has) $('token').value = '';
+  }
+
+  $('save-token').addEventListener('click', function () {
+    var v = $('token').value.trim();
+    if (!v) return;
+    writeToken(v);
+    paintToken();
+    say('ok', 'Token saved', 'It stays in this browser until you forget it.');
+  });
+
+  $('forget-token').addEventListener('click', function () {
+    writeToken('');
+    paintToken();
+    say('ok', 'Token forgotten', 'Paste it again to send.');
+  });
+
+  function say(kind, title, detail) {
+    $('result').innerHTML = '';
+    var box = document.createElement('div');
+    box.className = 'msg ' + kind;
+    var strong = document.createElement('strong');
+    strong.textContent = title;
+    box.appendChild(strong);
+    box.appendChild(document.createTextNode(detail || ''));
+    $('result').appendChild(box);
+  }
+
+  /* ?to=+32... from the escalation email. */
+  try {
+    var to = new URLSearchParams(location.search).get('to');
+    if (to) $('to').value = to;
+  } catch (e) {}
+
+  $('text').addEventListener('input', function () {
+    $('count').textContent = String($('text').value.length);
+  });
+
+  $('form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var token = readToken();
+    if (!token) { say('bad', 'No admin token', 'Paste it above first.'); return; }
+
+    var btn = $('send');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    fetch('/api/wa-send', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'X-Admin-Token': token },
+      body: JSON.stringify({ to: $('to').value.trim(), text: $('text').value })
+    })
+      .then(function (res) { return res.json().then(function (b) { return { status: res.status, body: b }; }); })
+      .then(function (r) {
+        if (r.status === 200) {
+          say('ok', 'Sent', 'Delivered to ' + r.body.to + '.');
+          $('text').value = '';
+          $('count').textContent = '0';
+          return;
+        }
+        if (r.status === 409) {
+          say('bad', 'Too late to reply here',
+            'WhatsApp only allows a free reply within 24 hours of their last message. '
+            + 'They need to write in again first. For anything urgent, email them instead.');
+          return;
+        }
+        if (r.status === 401) {
+          say('bad', 'The admin token was refused', 'Forget it below and paste the current one.');
+          return;
+        }
+        if (r.status === 400) {
+          say('bad', 'That could not be sent',
+            r.body.error === 'bad_number'
+              ? 'The number needs to be in international form, like +32474919900.'
+              : 'Check the number and the message.');
+          return;
+        }
+        say('bad', 'WhatsApp refused it', 'Status ' + r.status + '. Try again, then tell Ravi.');
+      })
+      .catch(function () {
+        say('bad', 'Could not reach the server', 'Check your connection and try again.');
+      })
+      .then(function () {
+        btn.disabled = false;
+        btn.textContent = 'Send';
+      });
+  });
+
+  paintToken();
+})();
+</script>
+</body>
+</html>

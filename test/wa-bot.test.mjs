@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs';
 import {
   stripFaq, FAQ, detectLang, pickLang, STOP_RE, HUMAN_RE, MENU_RE,
   buildMenu, utcDay, botKey, FALLBACK, isGreeting, DIYA, systemBlocks, tidyAnswer,
+  menuTitles, myTicketsReply, GETTING_THERE_ANSWER,
 } from '../functions/api/_bot.js';
 import { FAQ_RAW } from '../functions/api/_faq.js';
 import { onRequestPost as waWebhook } from '../functions/api/wa-webhook.js';
@@ -124,9 +125,26 @@ test('the menu fits inside what WhatsApp accepts', () => {
 test('a buyer and a stranger get different buttons', () => {
   const ids = (lang, buyer) =>
     buildMenu('+32474919900', lang, buyer).interactive.action.buttons.map(b => b.reply.id);
-  assert.deepEqual(ids('en', true), ['MY_LINK', 'MY_CHANCES', 'TALK_HUMAN']);
-  assert.deepEqual(ids('en', false), ['TICKETS', 'INFO', 'TALK_HUMAN']);
-  assert.deepEqual(ids('fr', true), ['MY_LINK', 'MY_CHANCES', 'TALK_HUMAN'], 'ids never translate');
+  assert.deepEqual(ids('en', true), ['MY_TICKETS', 'MY_LINK', 'MY_CHANCES']);
+  assert.deepEqual(ids('en', false), ['BUY_TICKETS', 'FESTIVAL_INFO', 'GETTING_THERE']);
+  assert.deepEqual(ids('fr', true), ['MY_TICKETS', 'MY_LINK', 'MY_CHANCES'], 'ids never translate');
+  for (const lang of ['en', 'fr', 'nl']) {
+    for (const buyer of [true, false]) {
+      assert.ok(!ids(lang, buyer).includes('TALK_HUMAN'),
+        'Talk to the team is not a button any more; typing HUMAN still works');
+    }
+  }
+});
+
+test('the button titles, exactly as deployed', () => {
+  assert.deepEqual(menuTitles('en', true).map(([, t]) => t),
+    ['My tickets', 'My lucky draw link', 'My winning chances']);
+  assert.deepEqual(menuTitles('fr', true).map(([, t]) => t),
+    ['Mes billets', 'Mon lien tombola', 'Mes chances']);
+  assert.deepEqual(menuTitles('nl', true).map(([, t]) => t),
+    ['Mijn tickets', 'Mijn tombolalink', 'Mijn winkansen']);
+  assert.deepEqual(menuTitles('en', false).map(([, t]) => t),
+    ['Buy tickets', 'Festival info', 'Getting there']);
 });
 
 /* --------------------------------------------------------------- the day */
@@ -225,7 +243,7 @@ test('the first message of the day gets the menu, then an answer', async () => {
 
   assert.equal(sent[0].type, 'interactive', 'menu leads');
   assert.deepEqual(sent[0].interactive.action.buttons.map(b => b.reply.id),
-    ['MY_LINK', 'MY_CHANCES', 'TALK_HUMAN'], 'a buyer gets the buyer menu');
+    ['MY_TICKETS', 'MY_LINK', 'MY_CHANCES'], 'a buyer gets the buyer menu');
   assert.equal(texts(sent)[0], 'The fireworks are around 21:00.');
   assert.equal(prompts[0].max_tokens, 300);
   assert.ok(prompts[0].system[0].text.includes('Saturday 24 and Sunday 25 October'),
@@ -367,7 +385,13 @@ test('one entry is singular', async () => {
 });
 
 test('the guest buttons answer from the FAQ without the model', async () => {
-  for (const [id, expect] of [['TICKETS', /Presale 10 EUR/], ['INFO', /Saturday 24 and Sunday 25/]]) {
+  for (const [id, expect] of [
+    ['BUY_TICKETS', /Presale 10 EUR/],
+    ['FESTIVAL_INFO', /Saturday 24 and Sunday 25/],
+    ['GETTING_THERE', /Metro line 6 to Heysel/],
+    ['TICKETS', /Presale 10 EUR/],          /* the old ids still work */
+    ['INFO', /Saturday 24 and Sunday 25/],
+  ]) {
     const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
     const { sent, prompts } = world({ contact: null });
     await inbound(ENV(kv), button(id));
@@ -402,7 +426,9 @@ test('asking for a person replies, records it and emails the team', async () => 
   assert.equal(emails[0].to[0].email, 'diwali@artindia.be');
   assert.equal(emails[0].subject, 'WhatsApp: +32474919900 needs a reply');
   assert.match(emails[0].textContent, /where do I park/);
-  assert.match(emails[0].textContent, /api\/wa-send/, 'the email says how to answer');
+  assert.ok(!emails[0].textContent.includes('curl'), 'no terminal command in the email');
+  assert.match(emails[0].textContent,
+    /admin\/reply\.html\?to=%2B32474919900/, 'a link with the number already in it');
 });
 
 test('the TALK_HUMAN button escalates the same way', async () => {
@@ -455,8 +481,8 @@ test('a French buyer is answered in French throughout', async () => {
   await inbound(ENV(kv), msg({ text: { body: 'À quelle heure est le feu ?' } }));
 
   assert.equal(prompts[0].system[1].text, 'Reply in French.');
-  assert.equal(sent[0].interactive.body.text,
-    "Namaste, je suis Diya, l'hôtesse digitale du festival 🪔 Comment puis-je vous aider ?");
+  assert.match(sent[0].interactive.body.text, /^Namaste, je suis Diya/);
+  assert.match(sent[0].interactive.body.text, /tapez votre question/);
   assert.equal(texts(sent)[0], 'Le feu d\'artifice est vers 21h00.');
 });
 
@@ -491,15 +517,24 @@ test('the language instruction stays outside the cached prefix', () => {
 });
 
 test('she introduces herself once per window, then stops', () => {
-  const first = buildMenu('+32474919900', 'en', true, true);
-  const later = buildMenu('+32474919900', 'en', true, false);
-  assert.equal(first.interactive.body.text,
-    "Namaste, I'm Diya, the festival's digital host 🪔 How can I help?");
-  assert.equal(later.interactive.body.text, 'How can I help?');
-  assert.equal(buildMenu('+32474919900', 'nl', false, true).interactive.body.text,
-    'Namaste, ik ben Diya, de digitale gastvrouw van het festival 🪔 Waarmee kan ik helpen?');
-  assert.equal(buildMenu('+32474919900', 'nl', false, false).interactive.body.text,
-    'Waarmee kan ik helpen?');
+  const body = (lang, first) => buildMenu('+32474919900', lang, true, first).interactive.body.text;
+  assert.equal(body('en', true),
+    "Namaste, I'm Diya, the festival's digital host 🪔\n\nTap a button, or type your question below.");
+  assert.equal(body('en', false), 'How can I help?\n\nTap a button, or type your question below.');
+  assert.equal(body('fr', true),
+    "Namaste, je suis Diya, l'hôtesse digitale du festival 🪔\n\nAppuyez sur un bouton ou tapez votre question ci-dessous.");
+  assert.equal(body('nl', true),
+    'Namaste, ik ben Diya, de digitale gastvrouw van het festival 🪔\n\nTik op een knop of typ uw vraag hieronder.');
+  assert.equal(body('nl', false), 'Waarmee kan ik helpen?\n\nTik op een knop of typ uw vraag hieronder.');
+});
+
+test('every menu says you can just type instead', () => {
+  for (const lang of ['en', 'fr', 'nl']) {
+    for (const first of [true, false]) {
+      const t = buildMenu('+32474919900', lang, true, first).interactive.body.text;
+      assert.ok(/type|tapez|typ /i.test(t), `${lang} ${first}: ${t}`);
+    }
+  }
 });
 
 test('the greeting fits what WhatsApp accepts in an interactive body', () => {
@@ -537,8 +572,7 @@ test('saying hello gets the menu and nothing underneath it', async () => {
 
   assert.equal(sent.length, 1, 'the menu, and no apology under it');
   assert.equal(sent[0].type, 'interactive');
-  assert.equal(sent[0].interactive.body.text,
-    "Namaste, I'm Diya, the festival's digital host 🪔 How can I help?");
+  assert.match(sent[0].interactive.body.text, /^Namaste, I'm Diya/);
   assert.equal(prompts.length, 0, 'a greeting is not a question for the model');
   assert.ok(!texts(sent).includes(FALLBACK.en));
 });
@@ -551,15 +585,14 @@ test('saying hello later in the window still gets the introduction', async () =>
   await inbound(ENV(kv), msg({ id: 'wamid.G2', text: { body: 'hi' } }));
 
   assert.equal(sent.length, 1);
-  assert.equal(sent[0].interactive.body.text,
-    "Namaste, I'm Diya, the festival's digital host 🪔 How can I help?");
+  assert.match(sent[0].interactive.body.text, /^Namaste, I'm Diya/);
 });
 
 test('the plain menu is for MENU and for an answered question, not a hello', async () => {
   const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
   const { sent } = world({ contact: BUYER });
   await inbound(ENV(kv), msg({ id: 'wamid.M9', text: { body: 'menu' } }));
-  assert.equal(sent[0].interactive.body.text, 'How can I help?');
+  assert.match(sent[0].interactive.body.text, /^How can I help\?/);
 });
 
 test('Bonjour is answered in French even when Brevo says en', async () => {
@@ -570,8 +603,8 @@ test('Bonjour is answered in French even when Brevo says en', async () => {
   await inbound(ENV(kv), msg({ id: 'wamid.B9', text: { body: 'Bonjour !' } }));
 
   assert.equal(sent.length, 1);
-  assert.equal(sent[0].interactive.body.text,
-    "Namaste, je suis Diya, l'hôtesse digitale du festival 🪔 Comment puis-je vous aider ?");
+  assert.match(sent[0].interactive.body.text, /^Namaste, je suis Diya/);
+  assert.match(sent[0].interactive.body.text, /tapez votre question/);
   assert.equal(kv.store.get(botKey.lang('+32474919900')), 'fr',
     'and French is remembered for the button taps that follow');
 });
@@ -581,10 +614,10 @@ test('bonjour is answered in French, even from a number we do not know', async (
   const { sent } = world({ contact: null });
   await inbound(ENV(kv), msg({ id: 'wamid.G3', text: { body: 'Bonjour' } }));
 
-  assert.equal(sent[0].interactive.body.text,
-    "Namaste, je suis Diya, l'hôtesse digitale du festival 🪔 Comment puis-je vous aider ?");
+  assert.match(sent[0].interactive.body.text, /^Namaste, je suis Diya/);
+  assert.match(sent[0].interactive.body.text, /tapez votre question/);
   assert.deepEqual(sent[0].interactive.action.buttons.map(b => b.reply.id),
-    ['TICKETS', 'INFO', 'TALK_HUMAN'], 'a stranger still gets the stranger menu');
+    ['BUY_TICKETS', 'FESTIVAL_INFO', 'GETTING_THERE'], 'a stranger still gets the stranger menu');
 });
 
 test('with the bot off, a greeting still gets the menu and still no fallback', async () => {
@@ -645,4 +678,84 @@ test('the tidying is applied to what actually goes out', async () => {
   });
   await inbound(ENV(kv), msg({ id: 'wamid.T1', text: { body: 'where is it?' } }));
   assert.equal(texts(sent)[0], "We're next to the Atomium, come early.");
+});
+
+/* ------------------------------------------------------- pass 2c: tickets */
+
+test('My tickets counts adults off the total and names the difference', () => {
+  assert.equal(myTicketsReply('en', 2, 1),
+    "You have 2 adult and 1 child ticket, valid on both days. Show the QR code from your "
+    + "Ticket Tailor email at the entrance. Didn't receive it? Write to diwali@artindia.be.");
+  assert.match(myTicketsReply('en', 1, 0), /^You have 1 adult ticket, valid on both days\./);
+  assert.match(myTicketsReply('en', 3, 2), /^You have 3 adult and 2 child tickets,/);
+  assert.match(myTicketsReply('fr', 2, 1), /^Vous avez 2 billets adultes et 1 billet enfant,/);
+  assert.match(myTicketsReply('nl', 2, 1), /^U heeft 2 volwassenentickets en 1 kinderticket,/);
+  for (const lang of ['en', 'fr', 'nl']) {
+    assert.match(myTicketsReply(lang, 2, 1), /diwali@artindia\.be/, lang);
+  }
+});
+
+test('My tickets, end to end, with the numbers off the contact', async () => {
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const { sent } = world({ contact: BUYER });   /* TICKET_COUNT 4, CHILD_COUNT 2 */
+  await inbound(ENV(kv), button('MY_TICKETS'));
+  assert.match(texts(sent)[0], /^You have 2 adult and 2 child tickets, valid on both days\./);
+});
+
+test('a stranger tapping a buyer button is told there is no ticket', async () => {
+  for (const id of ['MY_TICKETS', 'MY_LINK', 'MY_CHANCES']) {
+    const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+    const { sent } = world({ contact: null });
+    await inbound(ENV(kv), button(id, { id: `wamid.NB_${id}` }));
+    assert.match(texts(sent)[0], /can't find a ticket on this number/, id);
+  }
+});
+
+test('Getting there answers from the FAQ, in all three languages', () => {
+  assert.match(GETTING_THERE_ANSWER.en, /Metro line 6 to Heysel/);
+  assert.match(GETTING_THERE_ANSWER.fr, /Métro ligne 6 jusqu'à Heysel/);
+  assert.match(GETTING_THERE_ANSWER.nl, /Metro lijn 6 tot Heizel/);
+  for (const lang of ['en', 'fr', 'nl']) {
+    assert.match(GETTING_THERE_ANSWER[lang], /Kinepolis/, lang);
+  }
+});
+
+test('the fallback tells them how to reach a person, since the button is gone', () => {
+  assert.match(FALLBACK.en, /Type HUMAN to reach the team\.$/);
+  assert.match(FALLBACK.fr, /Tapez HUMAIN pour joindre l'équipe\.$/);
+  assert.match(FALLBACK.nl, /Typ MENS om het team te bereiken\.$/);
+});
+
+test('typing human still escalates now the button is gone', async () => {
+  for (const word of ['human', 'HUMAIN', 'mens']) {
+    const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+    const { emails } = world({ contact: BUYER });
+    await inbound(ENV(kv), msg({ id: `wamid.H_${word}`, text: { body: word } }));
+    assert.equal(emails.length, 1, word);
+  }
+});
+
+test('the system prompt forbids the flourishes the model likes to add', () => {
+  assert.match(systemBlocks('en')[0].text,
+    /Do not add facts, adjectives or reassurances not in the FAQ\./);
+});
+
+test('a free-text answer never follows Brevo, only the words and the cache', async () => {
+  /* BUYER is stored LANG=en. A Dutch question gets a Dutch answer. */
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const { prompts } = world({ contact: BUYER, answer: 'Rond 21:00.' });
+  await inbound(ENV(kv), msg({ id: 'wamid.NL1', text: { body: 'Wanneer is het vuurwerk?' } }));
+
+  assert.equal(prompts[0].system[1].text, 'Reply in Dutch.');
+  assert.equal(kv.store.get(botKey.lang('+32474919900')), 'nl');
+});
+
+test('a button after a Dutch question stays Dutch, not Brevo English', async () => {
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  world({ contact: BUYER, answer: 'Rond 21:00.' });
+  await inbound(ENV(kv), msg({ id: 'wamid.NL2', text: { body: 'Wanneer is het vuurwerk?' } }));
+
+  const { sent } = world({ contact: BUYER });
+  await inbound(ENV(kv), button('MY_TICKETS', { id: 'wamid.NL3' }));
+  assert.match(texts(sent)[0], /^U heeft /, 'the button inherited Dutch from the question');
 });

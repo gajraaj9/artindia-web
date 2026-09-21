@@ -72,21 +72,25 @@ export function detectLang(text) {
 /**
  * Which language to answer in.
  *
- * The message they just sent comes first, then what they last used, then what
- * Brevo has, then English.
- *
- * The brief puts Brevo's LANG first, and that would be right if LANG meant
- * anything. It does not: Ticket Tailor's order payload carries no language
- * field at all, so every buyer is stored as 'en' whatever they speak. Trusting
- * it first is why "Bonjour !" came back with an English menu. A message in
- * front of us is evidence; a field that was defaulted is not.
- *
- * Reverse this the day Ticket Tailor exposes the checkout locale and LANG
- * starts carrying a real choice.
+ * Text decides for itself; a button inherits whatever the last text settled
+ * on. Reverse the Brevo rule the day Ticket Tailor exposes the checkout
+ * locale and LANG starts carrying a real choice rather than a default.
  */
 export function pickLang({ brevoLang, cachedLang, messageText } = {}) {
   const ok = v => (LANGS.includes(String(v || '').toLowerCase()) ? String(v).toLowerCase() : '');
-  return ok(detectLang(messageText)) || ok(cachedLang) || ok(brevoLang) || 'en';
+
+  /* When there are words in front of us they decide it, falling back to what
+     this number last used. Brevo is deliberately not consulted: Ticket
+     Tailor's payload carries no language field, so every buyer is stored as
+     'en' whatever they speak, and letting that win is what answered
+     "Bonjour !" with an English menu. */
+  if (String(messageText || '').trim()) {
+    return ok(detectLang(messageText)) || ok(cachedLang) || 'en';
+  }
+
+  /* No words: a button tap, or a photo. What they last used, and only then
+     Brevo — which at first contact is the only thing there is. */
+  return ok(cachedLang) || ok(brevoLang) || 'en';
 }
 
 /* ------------------------------------------------------------- what it says */
@@ -114,9 +118,9 @@ export function isGreeting(text) {
 }
 
 export const FALLBACK = {
-  en: "Thanks for your message. I can't answer that here. Write to diwali@artindia.be or see diwali.artindia.be. Reply MENU for quick options.",
-  fr: 'Merci pour votre message. Je ne peux pas répondre à cela ici. Écrivez à diwali@artindia.be ou consultez diwali.artindia.be. Répondez MENU pour les options rapides.',
-  nl: 'Bedankt voor uw bericht. Daar kan ik hier niet op antwoorden. Mail naar diwali@artindia.be of kijk op diwali.artindia.be. Antwoord MENU voor snelle opties.',
+  en: "Thanks for your message. I can't answer that here. Write to diwali@artindia.be or see diwali.artindia.be. Reply MENU for quick options. Type HUMAN to reach the team.",
+  fr: "Merci pour votre message. Je ne peux pas répondre à cela ici. Écrivez à diwali@artindia.be ou consultez diwali.artindia.be. Répondez MENU pour les options rapides. Tapez HUMAIN pour joindre l'équipe.",
+  nl: 'Bedankt voor uw bericht. Daar kan ik hier niet op antwoorden. Mail naar diwali@artindia.be of kijk op diwali.artindia.be. Antwoord MENU voor snelle opties. Typ MENS om het team te bereiken.',
 };
 
 export const OPTOUT_CONFIRM = {
@@ -155,28 +159,60 @@ export const myChancesReply = (lang, n) => ({
 /* ------------------------------------------------------------------ menu */
 
 /* WhatsApp allows three reply buttons and twenty characters of title. Both
-   limits are hard: Meta rejects the whole message rather than truncating. */
+   limits are hard: Meta rejects the whole message rather than truncating, so
+   every title below is checked by a test.
+
+   Talk to the team is deliberately not a button. It was taking a third of the
+   menu on every conversation to serve the rare one, and typing HUMAN still
+   reaches a person — the fallback says so. */
 const MENU_COPY = {
   en: {
     header: 'Brussels Diwali Festival',
-    greeting: "Namaste, I'm Diya, the festival's digital host 🪔 How can I help?",
+    greeting: "Namaste, I'm Diya, the festival's digital host 🪔",
     body: 'How can I help?',
-    buyer: [['MY_LINK', 'My link'], ['MY_CHANCES', 'My chances'], ['TALK_HUMAN', 'Talk to the team']],
-    guest: [['TICKETS', 'Tickets'], ['INFO', 'Festival info'], ['TALK_HUMAN', 'Talk to the team']],
+    tap: 'Tap a button, or type your question below.',
+    buyer: [
+      ['MY_TICKETS', 'My tickets'],
+      ['MY_LINK', 'My lucky draw link'],
+      ['MY_CHANCES', 'My winning chances'],
+    ],
+    guest: [
+      ['BUY_TICKETS', 'Buy tickets'],
+      ['FESTIVAL_INFO', 'Festival info'],
+      ['GETTING_THERE', 'Getting there'],
+    ],
   },
   fr: {
     header: 'Brussels Diwali Festival',
-    greeting: "Namaste, je suis Diya, l'hôtesse digitale du festival 🪔 Comment puis-je vous aider ?",
+    greeting: "Namaste, je suis Diya, l'hôtesse digitale du festival 🪔",
     body: 'Comment puis-je vous aider ?',
-    buyer: [['MY_LINK', 'Mon lien'], ['MY_CHANCES', 'Mes chances'], ['TALK_HUMAN', "Parler à l'équipe"]],
-    guest: [['TICKETS', 'Billets'], ['INFO', 'Infos festival'], ['TALK_HUMAN', "Parler à l'équipe"]],
+    tap: 'Appuyez sur un bouton ou tapez votre question ci-dessous.',
+    buyer: [
+      ['MY_TICKETS', 'Mes billets'],
+      ['MY_LINK', 'Mon lien tombola'],
+      ['MY_CHANCES', 'Mes chances'],
+    ],
+    guest: [
+      ['BUY_TICKETS', 'Acheter un billet'],
+      ['FESTIVAL_INFO', 'Infos festival'],
+      ['GETTING_THERE', 'Comment venir'],
+    ],
   },
   nl: {
     header: 'Brussels Diwali Festival',
-    greeting: 'Namaste, ik ben Diya, de digitale gastvrouw van het festival 🪔 Waarmee kan ik helpen?',
+    greeting: 'Namaste, ik ben Diya, de digitale gastvrouw van het festival 🪔',
     body: 'Waarmee kan ik helpen?',
-    buyer: [['MY_LINK', 'Mijn link'], ['MY_CHANCES', 'Mijn kansen'], ['TALK_HUMAN', 'Spreek het team']],
-    guest: [['TICKETS', 'Tickets'], ['INFO', 'Festivalinfo'], ['TALK_HUMAN', 'Spreek het team']],
+    tap: 'Tik op een knop of typ uw vraag hieronder.',
+    buyer: [
+      ['MY_TICKETS', 'Mijn tickets'],
+      ['MY_LINK', 'Mijn tombolalink'],
+      ['MY_CHANCES', 'Mijn winkansen'],
+    ],
+    guest: [
+      ['BUY_TICKETS', 'Tickets kopen'],
+      ['FESTIVAL_INFO', 'Festivalinfo'],
+      ['GETTING_THERE', 'Bereikbaarheid'],
+    ],
   },
 };
 
@@ -185,8 +221,10 @@ const MENU_COPY = {
  *
  * `firstContact` is the first time this number has written in a 24h window,
  * and is the only time Diya introduces herself. Every later menu in the same
- * window is just the question — being told who she is four times in an hour
- * reads like a bot, which is the one thing the persona is there to avoid.
+ * window opens with the question instead — being told who she is four times
+ * in an hour reads like a bot, which is the one thing the persona is there to
+ * avoid. The line under it is always there, because a menu with no visible
+ * way to ask something else reads like a dead end.
  */
 export function buildMenu(phone, lang, isBuyer, firstContact = false) {
   const copy = MENU_COPY[lang] || MENU_COPY.en;
@@ -198,7 +236,7 @@ export function buildMenu(phone, lang, isBuyer, firstContact = false) {
     interactive: {
       type: 'button',
       header: { type: 'text', text: copy.header },
-      body: { text: firstContact ? copy.greeting : copy.body },
+      body: { text: `${firstContact ? copy.greeting : copy.body}\n\n${copy.tap}` },
       action: {
         buttons: buttons.map(([id, title]) => ({
           type: 'reply',
@@ -209,8 +247,45 @@ export function buildMenu(phone, lang, isBuyer, firstContact = false) {
   };
 }
 
-/* The two canned answers behind the guest menu buttons, lifted straight out of
-   the FAQ so there is one source for them. */
+/** Every button title, for the tests and for the deploy report. */
+export const menuTitles = (lang, isBuyer) =>
+  (MENU_COPY[lang] || MENU_COPY.en)[isBuyer ? 'buyer' : 'guest'].map(([id, t]) => [id, t]);
+
+/* ---------------------------------------------------------- canned answers */
+
+/**
+ * What they bought, counted off the Brevo contact.
+ *
+ * TICKET_COUNT is everyone on the order and CHILD_COUNT the under-12s, so the
+ * adults are the difference. The noun agrees with whichever number comes last,
+ * which is how the sentence reads out loud.
+ */
+export function myTicketsReply(lang, adults, children) {
+  const a = Math.max(0, adults);
+  const c = Math.max(0, children);
+  const s = n => (n === 1 ? '' : 's');
+
+  const counted = {
+    en: c > 0
+      ? `You have ${a} adult and ${c} child ticket${s(c)}`
+      : `You have ${a} adult ticket${s(a)}`,
+    fr: c > 0
+      ? `Vous avez ${a} billet${s(a)} adulte${s(a)} et ${c} billet${s(c)} enfant${s(c)}`
+      : `Vous avez ${a} billet${s(a)} adulte${s(a)}`,
+    nl: c > 0
+      ? `U heeft ${a} volwassenenticket${s(a)} en ${c} kinderticket${s(c)}`
+      : `U heeft ${a} volwassenenticket${s(a)}`,
+  }[lang] || '';
+
+  return {
+    en: `${counted}, valid on both days. Show the QR code from your Ticket Tailor email at the entrance. Didn't receive it? Write to diwali@artindia.be.`,
+    fr: `${counted}, valables les deux jours. Présentez le QR code de votre e-mail Ticket Tailor à l'entrée. Vous ne l'avez pas reçu ? Écrivez à diwali@artindia.be.`,
+    nl: `${counted}, geldig op beide dagen. Toon de QR-code uit uw Ticket Tailor e-mail aan de ingang. Niet ontvangen? Mail naar diwali@artindia.be.`,
+  }[lang] || '';
+}
+
+/* The three prospect answers, lifted from the FAQ so there is one source for
+   them and no model call to serve a button. */
 export const TICKETS_ANSWER = {
   en: 'Presale 10 EUR until 30 September, 15 EUR at the gate, children under 12 free. Buy at https://tickets.artindia.be',
   fr: "Prévente 10 EUR jusqu'au 30 septembre, 15 EUR à l'entrée, gratuit pour les moins de 12 ans. Achetez sur https://tickets.artindia.be",
@@ -218,9 +293,15 @@ export const TICKETS_ANSWER = {
 };
 
 export const INFO_ANSWER = {
-  en: 'Saturday 24 and Sunday 25 October 2026, 12:00 to 22:30, on the esplanade next to the Atomium. Fireworks around 21:00. More: https://diwali.artindia.be',
-  fr: "Samedi 24 et dimanche 25 octobre 2026, de 12h00 à 22h30, sur l'esplanade à côté de l'Atomium. Feu d'artifice vers 21h00. Plus : https://diwali.artindia.be",
-  nl: 'Zaterdag 24 en zondag 25 oktober 2026, van 12:00 tot 22:30, op de esplanade naast het Atomium. Vuurwerk rond 21:00. Meer: https://diwali.artindia.be',
+  en: 'Saturday 24 and Sunday 25 October 2026, 12:00 to 22:30, on the esplanade of Boulevard du Centenaire next to the Atomium. Fireworks around 21:00, weather permitting. More: https://diwali.artindia.be',
+  fr: "Samedi 24 et dimanche 25 octobre 2026, de 12h00 à 22h30, sur l'esplanade du Boulevard du Centenaire à côté de l'Atomium. Feu d'artifice vers 21h00, selon la météo. Plus : https://diwali.artindia.be",
+  nl: 'Zaterdag 24 en zondag 25 oktober 2026, van 12:00 tot 22:30, op de esplanade van de Eeuwfeestlaan naast het Atomium. Vuurwerk rond 21:00, afhankelijk van het weer. Meer: https://diwali.artindia.be',
+};
+
+export const GETTING_THERE_ANSWER = {
+  en: 'Metro line 6 to Heysel, then 5 minutes on foot. Trams 3, 7 and 9 also stop at Heysel. There is paid public parking at Kinepolis, but we strongly recommend public transport.',
+  fr: "Métro ligne 6 jusqu'à Heysel, puis 5 minutes à pied. Les trams 3, 7 et 9 s'arrêtent aussi à Heysel. Parking public payant au Kinepolis, mais nous recommandons vivement les transports en commun.",
+  nl: 'Metro lijn 6 tot Heizel, dan 5 minuten te voet. Trams 3, 7 en 9 stoppen ook aan Heizel. Er is betalende openbare parking aan Kinepolis, maar we raden het openbaar vervoer sterk aan.',
 };
 
 /* ----------------------------------------------------------------- model */
@@ -248,6 +329,7 @@ const INSTRUCTIONS =
   DIYA + '\n\n'
   + 'Use ONLY the FAQ below. Maximum 3 short sentences, no markdown, no em dashes. '
   + 'Never invent prices, times, or promises. '
+  + 'Do not add facts, adjectives or reassurances not in the FAQ. '
   + `If the FAQ does not cover the question, reply exactly: ${NOT_COVERED}\n\n`;
 
 export const systemBlocks = lang => ([

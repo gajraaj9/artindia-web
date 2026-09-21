@@ -27,7 +27,8 @@ import {
 } from './_shared.js';
 import {
   STOP_RE, HUMAN_RE, MENU_RE, FALLBACK, OPTOUT_CONFIRM, ESCALATION_REPLY,
-  NOT_A_BUYER, TICKETS_ANSWER, INFO_ANSWER, myLinkReply, myChancesReply,
+  NOT_A_BUYER, TICKETS_ANSWER, INFO_ANSWER, GETTING_THERE_ANSWER,
+  myLinkReply, myChancesReply, myTicketsReply,
   buildMenu, pickLang, askFaq, sendText, sendToMeta, botKey, isGreeting,
   DAY_SECONDS, KEEP_SECONDS, utcDay, stamp,
 } from './_bot.js';
@@ -266,6 +267,10 @@ async function escalate(env, kv, { phone, lang, name, history }) {
   }
 
   const lines = history.map(h => `  ${h.at}  ${h.text}`).join('\n') || '  (no text messages)';
+  /* A link, not a curl. Whoever picks this up is holding a phone, and an
+     escalation you cannot act on until you are back at a terminal waits until
+     Monday. The page carries the number already filled in. */
+  const replyUrl = `https://diwali.artindia.be/admin/reply.html?to=${encodeURIComponent(phone)}`;
   const body = [
     `${name || 'A visitor'} (${phone}) asked to speak to the team.`,
     `Language: ${lang}`,
@@ -273,12 +278,10 @@ async function escalate(env, kv, { phone, lang, name, history }) {
     'Last messages:',
     lines,
     '',
-    'Reply from a terminal (inside the 24h window):',
+    'Reply here:',
+    `  ${replyUrl}`,
     '',
-    `  curl -X POST https://diwali.artindia.be/api/wa-send \\`,
-    `    -H "X-Admin-Token: $WA_ADMIN_TOKEN" \\`,
-    `    -H 'content-type: application/json' \\`,
-    `    -d '{"to":"${phone}","text":"your reply here"}'`,
+    'WhatsApp only allows a free reply within 24 hours of their last message.',
   ].join('\n');
 
   try {
@@ -425,23 +428,38 @@ async function handleInbound(env, m, value) {
   }
 
   if (buttonId) {
+    const notABuyer = NOT_A_BUYER[lang] || NOT_A_BUYER.en;
     switch (buttonId) {
+      case 'MY_TICKETS': {
+        if (!buyer) { await sendText(env, phone, notABuyer); return; }
+        const a = (contact && contact.attributes) || {};
+        const n = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
+        const children = n(a.CHILD_COUNT);
+        await sendText(env, phone,
+          myTicketsReply(lang, Math.max(0, n(a.TICKET_COUNT) - children), children));
+        return;
+      }
       case 'MY_LINK':
-        await sendText(env, phone, code
-          ? myLinkReply(lang, code)
-          : (NOT_A_BUYER[lang] || NOT_A_BUYER.en));
+        await sendText(env, phone, code ? myLinkReply(lang, code) : notABuyer);
         return;
       case 'MY_CHANCES': {
-        if (!buyer) { await sendText(env, phone, NOT_A_BUYER[lang] || NOT_A_BUYER.en); return; }
+        if (!buyer) { await sendText(env, phone, notABuyer); return; }
         const n = entriesFor(contact, await refCount(kv, code));
         await sendText(env, phone, myChancesReply(lang, n));
         return;
       }
+      /* TICKETS and INFO are the ids the first menu shipped with. Kept, because
+         a menu already sitting in somebody's chat history is still tappable. */
+      case 'BUY_TICKETS':
       case 'TICKETS':
         await sendText(env, phone, TICKETS_ANSWER[lang] || TICKETS_ANSWER.en);
         return;
+      case 'FESTIVAL_INFO':
       case 'INFO':
         await sendText(env, phone, INFO_ANSWER[lang] || INFO_ANSWER.en);
+        return;
+      case 'GETTING_THERE':
+        await sendText(env, phone, GETTING_THERE_ANSWER[lang] || GETTING_THERE_ANSWER.en);
         return;
       case 'TALK_HUMAN':
         await escalate(env, kv, { phone, lang, name, history });

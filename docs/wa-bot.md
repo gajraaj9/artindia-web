@@ -92,12 +92,14 @@ Already set and reused: `WA_TOKEN`, `WA_PHONE_ID`, `WA_APP_SECRET`,
    opted out. A sentence *about* stopping is not an opt-out — the match is exact.
 3. **Writing in again after opting out** re-opens the conversation. `WA_OPTIN`
    stays false; that is a marketing consent and only a purchase sets it back.
-4. **Language**: the message in front of us, else what they last used, else
-   what Brevo has, else English. Brevo's `LANG` is deliberately *last*: Ticket
-   Tailor's payload has no language field, so every buyer is stored as `en`
-   whatever they speak, and trusting it first answered "Bonjour !" with an
-   English menu. Put it back in front the day Ticket Tailor exposes the
-   checkout locale.
+4. **Language**: when there are words, they decide — the message, else what
+   this number last used, else English. Brevo's `LANG` is not consulted for
+   text at all: Ticket Tailor's payload has no language field, so every buyer
+   is stored as `en` whatever they speak, and trusting it answered "Bonjour !"
+   with an English menu. It is used only when there are no words to read — a
+   button tap or a photo at first contact. Whatever is settled on is cached in
+   `bot:lang:<phone>`, so the buttons after a Dutch question stay Dutch. Put
+   Brevo back in front the day Ticket Tailor exposes the checkout locale.
 5. **A bare greeting** — hi, hello, hey, bonjour, salut, hallo, hoi, namaste,
    with or without punctuation and an emoji — gets the menu and nothing else.
    It is an opening, not a question: putting "I can't answer that here" under
@@ -112,8 +114,25 @@ Already set and reused: `WA_TOKEN`, `WA_PHONE_ID`, `WA_APP_SECRET`,
 
 ## Answering someone
 
-An escalation emails `ESCALATION_EMAIL` with the last five things that number
-said and the exact command to answer:
+There is no "Talk to the team" button any more — it took a third of the menu
+on every conversation to serve the rare one. Typing **HUMAN**, **HUMAIN** or
+**MENS** still escalates, and the fallback message says so.
+
+An escalation emails `ESCALATION_EMAIL` with the visitor's name, number,
+language and last five messages, plus a link:
+
+```
+https://diwali.artindia.be/admin/reply.html?to=+32474919900
+```
+
+That page has the number already filled in. Paste the admin token once and the
+browser keeps it; everything is checked server side by `/api/wa-send`, so the
+page itself holds nothing secret and being public costs nothing.
+
+If the reply comes back **"Too late to reply here"**, WhatsApp's 24 hour
+customer service window has expired for that number: a free-form message
+cannot be delivered until they write in again. That is Meta's rule, not ours.
+`/api/wa-send` still works from a terminal if you prefer:
 
 ```sh
 curl -X POST https://diwali.artindia.be/api/wa-send \
@@ -121,10 +140,6 @@ curl -X POST https://diwali.artindia.be/api/wa-send \
   -H 'content-type: application/json' \
   -d '{"to":"+32474919900","text":"Hello, the fireworks are at 21:00."}'
 ```
-
-`409 window_closed` means WhatsApp's 24 hour customer service window has
-expired for that number: a free-form message cannot be delivered until they
-write in again. That is Meta's rule, not ours.
 
 ## Growing the FAQ
 

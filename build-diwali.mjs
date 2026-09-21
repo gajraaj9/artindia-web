@@ -885,6 +885,14 @@ for (const f of ['diwali-hero.mp4', 'diwali-hero.webm']) {
     cpSync(p, join(out, 'static/media', f));
   }
 }
+/* The page a person answers an escalation from. Shipped at /admin/reply.html
+   because the escalation email links straight to it with the number filled
+   in. It holds nothing secret: the admin token is typed once into the
+   browser, and /api/wa-send checks it server side on every send. */
+if (existsSync(join(HERE, 'diwali-admin'))) {
+  cpSync(join(HERE, 'diwali-admin'), join(out, 'admin'), { recursive: true });
+}
+
 /* The bot's knowledge base, compiled into the function.
    docs/faq.md is the editable source; this writes it into a module the
    Functions bundler can import, because a Worker cannot read the filesystem
