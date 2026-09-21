@@ -28,7 +28,7 @@ import {
 import {
   STOP_RE, HUMAN_RE, MENU_RE, FALLBACK, OPTOUT_CONFIRM, ESCALATION_REPLY,
   NOT_A_BUYER, TICKETS_ANSWER, INFO_ANSWER, myLinkReply, myChancesReply,
-  buildMenu, pickLang, askFaq, sendText, sendToMeta, botKey,
+  buildMenu, pickLang, askFaq, sendText, sendToMeta, botKey, isGreeting,
   DAY_SECONDS, KEEP_SECONDS, utcDay, stamp,
 } from './_bot.js';
 
@@ -405,12 +405,18 @@ async function handleInbound(env, m, value) {
 
   /* The menu leads, on the first message in a day and whenever it is asked
      for. The brief describes it both ways round; this is the order its own
-     manual test expects. */
+     manual test expects.
+
+     A bare "hello" counts as asking for it. It is an opening, not a question,
+     so it gets the menu and stops there — putting "I can't answer that here"
+     underneath a greeting is the rudest thing the bot can do. */
   const firstToday = !await kv.get(botKey.seen(phone));
   if (firstToday) await kv.put(botKey.seen(phone), '1', ttl(DAY_SECONDS));
-  if (firstToday || MENU_RE.test(body)) {
-    await sendToMeta(env, buildMenu(phone, lang, buyer));
-    if (MENU_RE.test(body)) return;
+  const wantsMenu = MENU_RE.test(body) || isGreeting(body);
+  if (firstToday || wantsMenu) {
+    /* Diya introduces herself once per window, on the menu that opens it. */
+    await sendToMeta(env, buildMenu(phone, lang, buyer, firstToday));
+    if (wantsMenu) return;
   }
 
   if (buttonId) {
@@ -436,7 +442,7 @@ async function handleInbound(env, m, value) {
         await escalate(env, kv, { phone, lang, name, history });
         return;
       case 'MENU':
-        await sendToMeta(env, buildMenu(phone, lang, buyer));
+        await sendToMeta(env, buildMenu(phone, lang, buyer, firstToday));
         return;
       default:
         console.warn('wa-webhook: unknown button', buttonId);

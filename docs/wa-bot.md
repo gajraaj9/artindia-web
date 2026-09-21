@@ -3,6 +3,21 @@
 What it is: a FAQ answering machine on the festival's WhatsApp number, plus a
 menu, a referral link lookup, and a way to hand a conversation to a person.
 
+## Diya
+
+The bot answers as Diya, the festival's digital host. The persona is the first
+thing in the system prompt, above the rules and the FAQ: warm, brief, at most
+one 🪔 a message, an AI assistant who says so if asked and never claims to be a
+person, a life or a feeling.
+
+She introduces herself once per 24h window, on the menu that opens it:
+
+> Namaste, I'm Diya, the festival's digital host 🪔 How can I help?
+
+Every later menu in the same window is just "How can I help?" in their
+language. Being told who she is four times in an hour reads like a bot, which
+is the one thing the persona exists to avoid. She never signs off.
+
 Its entire knowledge is [`faq.md`](faq.md). It is told to answer from that and
 nothing else, and to say `NOT_COVERED` when the answer is not in there — which
 becomes the fallback message and a line in `/api/wa-unanswered`. It cannot
@@ -65,11 +80,16 @@ Already set and reused: `WA_TOKEN`, `WA_PHONE_ID`, `WA_APP_SECRET`,
    stays false; that is a marketing consent and only a purchase sets it back.
 4. **Language**: what they told us when they bought, else what they last used,
    else what this message looks like, else English.
-5. **First message of the day** gets the menu, then the answer.
-6. **Buttons** are answered without the model: `MY_LINK`, `MY_CHANCES`,
+5. **A bare greeting** — hi, hello, hey, bonjour, salut, hallo, hoi, namaste,
+   with or without punctuation and an emoji — gets the menu and nothing else.
+   It is an opening, not a question: putting "I can't answer that here" under
+   someone's hello is the rudest thing the bot can do. A greeting with a
+   question attached ("hi what time are the fireworks") is a question.
+6. **First message of the day** gets the menu, then the answer.
+7. **Buttons** are answered without the model: `MY_LINK`, `MY_CHANCES`,
    `TICKETS`, `INFO`, `TALK_HUMAN`, `MENU`.
-7. **Free text** goes to the FAQ, under the daily ceiling.
-8. **A photo, a voice note, a dropped pin**: one apology per day, not one per
+8. **Free text** goes to the FAQ, under the daily ceiling.
+9. **A photo, a voice note, a dropped pin**: one apology per day, not one per
    photo.
 
 ## Answering someone

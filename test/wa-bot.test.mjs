@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   stripFaq, FAQ, detectLang, pickLang, STOP_RE, HUMAN_RE, MENU_RE,
-  buildMenu, utcDay, botKey, FALLBACK,
+  buildMenu, utcDay, botKey, FALLBACK, isGreeting, DIYA, systemBlocks,
 } from '../functions/api/_bot.js';
 import { FAQ_RAW } from '../functions/api/_faq.js';
 import { onRequestPost as waWebhook } from '../functions/api/wa-webhook.js';
@@ -448,7 +448,8 @@ test('a French buyer is answered in French throughout', async () => {
   await inbound(ENV(kv), msg({ text: { body: 'À quelle heure est le feu ?' } }));
 
   assert.equal(prompts[0].system[1].text, 'Reply in French.');
-  assert.equal(sent[0].interactive.body.text, 'Comment puis-je vous aider ?');
+  assert.equal(sent[0].interactive.body.text,
+    "Namaste, je suis Diya, l'hôtesse digitale du festival 🪔 Comment puis-je vous aider ?");
   assert.equal(texts(sent)[0], 'Le feu d\'artifice est vers 21h00.');
 });
 
@@ -457,4 +458,118 @@ test('without the KV binding nothing is answered and nothing throws', async () =
   await inbound({ ...ENV(undefined), REFERRALS: undefined },
     msg({ text: { body: 'hello' } }));
   assert.equal(sent.length, 0);
+});
+
+/* ------------------------------------------------------------------ Diya */
+
+test('the persona leads the system prompt, above the rules and the FAQ', () => {
+  const [stable] = systemBlocks('en');
+  assert.ok(stable.text.startsWith('You are Diya, the digital host'), 'persona first');
+  assert.ok(stable.text.includes('never claim to be a person'));
+  assert.ok(stable.text.includes('At most one 🪔 per message, no other emojis'));
+  assert.ok(stable.text.indexOf(DIYA) < stable.text.indexOf('Use ONLY the FAQ below'),
+    'persona, then the rules');
+  assert.ok(stable.text.indexOf('Use ONLY the FAQ below') < stable.text.indexOf('===== EN ====='),
+    'then the knowledge');
+  assert.equal(stable.cache_control.type, 'ephemeral',
+    'the persona is stable, so it belongs inside the cached prefix');
+});
+
+test('the language instruction stays outside the cached prefix', () => {
+  const en = systemBlocks('en');
+  const fr = systemBlocks('fr');
+  assert.equal(en[0].text, fr[0].text, 'one cached prefix shared by all three languages');
+  assert.equal(fr[1].text, 'Reply in French.');
+  assert.equal(fr[1].cache_control, undefined);
+});
+
+test('she introduces herself once per window, then stops', () => {
+  const first = buildMenu('+32474919900', 'en', true, true);
+  const later = buildMenu('+32474919900', 'en', true, false);
+  assert.equal(first.interactive.body.text,
+    "Namaste, I'm Diya, the festival's digital host 🪔 How can I help?");
+  assert.equal(later.interactive.body.text, 'How can I help?');
+  assert.equal(buildMenu('+32474919900', 'nl', false, true).interactive.body.text,
+    'Namaste, ik ben Diya, de digitale gastvrouw van het festival 🪔 Waarmee kan ik helpen?');
+  assert.equal(buildMenu('+32474919900', 'nl', false, false).interactive.body.text,
+    'Waarmee kan ik helpen?');
+});
+
+test('the greeting fits what WhatsApp accepts in an interactive body', () => {
+  for (const lang of ['en', 'fr', 'nl']) {
+    const body = buildMenu('+32474919900', lang, true, true).interactive.body.text;
+    assert.ok(body.length <= 1024, `${lang}: ${body.length}`);
+    assert.equal((body.match(/🪔/g) || []).length, 1, `${lang}: exactly one lamp`);
+  }
+});
+
+/* ------------------------------------------------------------- greetings */
+
+test('a bare hello in any of the three languages is a greeting', () => {
+  for (const yes of [
+    'hi', 'Hello', 'HEY', ' hello ', 'bonjour', 'Salut', 'hallo', 'hoi', 'namaste',
+    'hi!', 'Hello!!', 'Hey 👋', 'Namaste 🙏', 'hallo hoi',
+  ]) {
+    assert.ok(isGreeting(yes), JSON.stringify(yes));
+  }
+});
+
+test('a greeting with a question attached is a question', () => {
+  for (const no of [
+    'hi what time are the fireworks', 'hello can I bring my dog', 'bonjour le prix ?',
+    'heyo', 'hit', '', '   ', '🙏', 'menu', 'stop',
+  ]) {
+    assert.ok(!isGreeting(no), JSON.stringify(no));
+  }
+});
+
+test('saying hello gets the menu and nothing underneath it', async () => {
+  const kv = memoryKv();
+  const { sent, prompts } = world({ contact: BUYER });
+  await inbound(ENV(kv), msg({ text: { body: 'hello' } }));
+
+  assert.equal(sent.length, 1, 'the menu, and no apology under it');
+  assert.equal(sent[0].type, 'interactive');
+  assert.equal(sent[0].interactive.body.text,
+    "Namaste, I'm Diya, the festival's digital host 🪔 How can I help?");
+  assert.equal(prompts.length, 0, 'a greeting is not a question for the model');
+  assert.ok(!texts(sent).includes(FALLBACK.en));
+});
+
+test('hello later in the same window gets the menu without the introduction', async () => {
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const { sent } = world({ contact: BUYER });
+  await inbound(ENV(kv), msg({ id: 'wamid.G2', text: { body: 'hi' } }));
+
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].interactive.body.text, 'How can I help?');
+});
+
+test('bonjour is answered in French, even from a number we do not know', async () => {
+  const kv = memoryKv();
+  const { sent } = world({ contact: null });
+  await inbound(ENV(kv), msg({ id: 'wamid.G3', text: { body: 'Bonjour' } }));
+
+  assert.equal(sent[0].interactive.body.text,
+    "Namaste, je suis Diya, l'hôtesse digitale du festival 🪔 Comment puis-je vous aider ?");
+  assert.deepEqual(sent[0].interactive.action.buttons.map(b => b.reply.id),
+    ['TICKETS', 'INFO', 'TALK_HUMAN'], 'a stranger still gets the stranger menu');
+});
+
+test('with the bot off, a greeting still gets the menu and still no fallback', async () => {
+  const kv = memoryKv();
+  const { sent } = world({ contact: BUYER });
+  await inbound({ ...ENV(kv), WA_BOT_ENABLED: 'false' }, msg({ text: { body: 'hey' } }));
+
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].type, 'interactive');
+});
+
+test('a greeting never reaches the daily counter', async () => {
+  const kv = memoryKv({ [botKey.count('+32474919900', utcDay())]: '20' });
+  const { sent } = world({ contact: BUYER });
+  await inbound(ENV(kv), msg({ text: { body: 'hello' } }));
+
+  assert.equal(sent.length, 1, 'the menu goes out even past the limit');
+  assert.equal(sent[0].type, 'interactive');
 });

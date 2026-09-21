@@ -85,6 +85,24 @@ export const STOP_RE = /^\s*(stop|arret|arrêt|unsubscribe)\s*$/i;
 export const HUMAN_RE = /^\s*(human|humain|mens)\s*$/i;
 export const MENU_RE = /^\s*(menu)\s*$/i;
 
+const GREETINGS = new Set(['hi', 'hello', 'hey', 'bonjour', 'salut', 'hallo', 'hoi', 'namaste']);
+
+/**
+ * "Hello" on its own, in any of the three languages.
+ *
+ * A greeting is an opening, not a question, so it gets the menu and nothing
+ * else — sending "I can't answer that here" to someone who said hi is the
+ * rudest thing the bot could do, and it is what happened before. Punctuation
+ * and emoji are dropped first, so "Hey 👋" and "Namaste 🙏" count; anything
+ * with a real word in it does not, and goes to the FAQ.
+ */
+export function isGreeting(text) {
+  const cleaned = String(text || '').toLowerCase().replace(/[^\p{L}\s]/gu, '').trim();
+  if (!cleaned) return false;
+  const words = cleaned.split(/\s+/);
+  return words.length <= 3 && words.every(w => GREETINGS.has(w));
+}
+
 export const FALLBACK = {
   en: "Thanks for your message. I can't answer that here. Write to diwali@artindia.be or see diwali.artindia.be. Reply MENU for quick options.",
   fr: 'Merci pour votre message. Je ne peux pas répondre à cela ici. Écrivez à diwali@artindia.be ou consultez diwali.artindia.be. Répondez MENU pour les options rapides.',
@@ -131,25 +149,36 @@ export const myChancesReply = (lang, n) => ({
 const MENU_COPY = {
   en: {
     header: 'Brussels Diwali Festival',
+    greeting: "Namaste, I'm Diya, the festival's digital host 🪔 How can I help?",
     body: 'How can I help?',
     buyer: [['MY_LINK', 'My link'], ['MY_CHANCES', 'My chances'], ['TALK_HUMAN', 'Talk to the team']],
     guest: [['TICKETS', 'Tickets'], ['INFO', 'Festival info'], ['TALK_HUMAN', 'Talk to the team']],
   },
   fr: {
     header: 'Brussels Diwali Festival',
+    greeting: "Namaste, je suis Diya, l'hôtesse digitale du festival 🪔 Comment puis-je vous aider ?",
     body: 'Comment puis-je vous aider ?',
     buyer: [['MY_LINK', 'Mon lien'], ['MY_CHANCES', 'Mes chances'], ['TALK_HUMAN', "Parler à l'équipe"]],
     guest: [['TICKETS', 'Billets'], ['INFO', 'Infos festival'], ['TALK_HUMAN', "Parler à l'équipe"]],
   },
   nl: {
     header: 'Brussels Diwali Festival',
-    body: 'Hoe kan ik u helpen?',
+    greeting: 'Namaste, ik ben Diya, de digitale gastvrouw van het festival 🪔 Waarmee kan ik helpen?',
+    body: 'Waarmee kan ik helpen?',
     buyer: [['MY_LINK', 'Mijn link'], ['MY_CHANCES', 'Mijn kansen'], ['TALK_HUMAN', 'Spreek het team']],
     guest: [['TICKETS', 'Tickets'], ['INFO', 'Festivalinfo'], ['TALK_HUMAN', 'Spreek het team']],
   },
 };
 
-export function buildMenu(phone, lang, isBuyer) {
+/**
+ * The menu.
+ *
+ * `firstContact` is the first time this number has written in a 24h window,
+ * and is the only time Diya introduces herself. Every later menu in the same
+ * window is just the question — being told who she is four times in an hour
+ * reads like a bot, which is the one thing the persona is there to avoid.
+ */
+export function buildMenu(phone, lang, isBuyer, firstContact = false) {
   const copy = MENU_COPY[lang] || MENU_COPY.en;
   const buttons = (isBuyer ? copy.buyer : copy.guest).slice(0, 3);
   return {
@@ -159,7 +188,7 @@ export function buildMenu(phone, lang, isBuyer) {
     interactive: {
       type: 'button',
       header: { type: 'text', text: copy.header },
-      body: { text: copy.body },
+      body: { text: firstContact ? copy.greeting : copy.body },
       action: {
         buttons: buttons.map(([id, title]) => ({
           type: 'reply',
@@ -197,8 +226,16 @@ export const NOT_COVERED = 'NOT_COVERED';
 /* Stable first, volatile last: the FAQ is the same on every call and is the
    only part big enough to be worth caching, so the per-language instruction
    goes in a second block after it rather than inside the cached prefix. */
+export const DIYA = [
+  'You are Diya, the digital host of the Brussels Diwali Festival, run by Art India.',
+  'You are an AI assistant; say so if asked, and never claim to be a person.',
+  'Tone: warm, welcoming, brief, like a festival host greeting a guest. At most one 🪔 per message, no other emojis.',
+  'Never talk about yourself beyond one line; never claim feelings, a location or a life. Redirect to the festival.',
+  'Answer only from the FAQ below, in the visitor\'s language, and follow all FAQ rules.',
+].join('\n');
+
 const INSTRUCTIONS =
-  'You answer questions about the Brussels Diwali Festival 2026 for Art India. '
+  DIYA + '\n\n'
   + 'Use ONLY the FAQ below. Maximum 3 short sentences, no markdown, no em dashes. '
   + 'Never invent prices, times, or promises. '
   + `If the FAQ does not cover the question, reply exactly: ${NOT_COVERED}\n\n`;

@@ -2,6 +2,26 @@
 
 Repo `~/artindia`, Cloudflare Pages project `diwali-2026`. Extend the existing `/api/wa-webhook` (Phase 1, commit fcb6b9b). Do not touch the outbound welcome flow or `/api/tt-order` except where stated. Read `docs/faq.md` first; it is the bot's only knowledge.
 
+## 0. Persona: Diya
+
+The bot speaks as Diya, the festival's digital host. Put this block at the top of the system prompt used in step 5, and use her greeting in the menu (step 6):
+
+```
+You are Diya, the digital host of the Brussels Diwali Festival, run by Art India.
+You are an AI assistant; say so if asked, and never claim to be a person.
+Tone: warm, welcoming, brief, like a festival host greeting a guest. At most one 🪔 per message, no other emojis.
+Never talk about yourself beyond one line; never claim feelings, a location or a life. Redirect to the festival.
+Answer only from the FAQ below, in the visitor's language, and follow all FAQ rules.
+```
+
+Greeting, per language (used as the menu body the first time a phone writes in a 24h window):
+- EN: "Namaste, I'm Diya, the festival's digital host 🪔 How can I help?"
+- FR: "Namaste, je suis Diya, l'hôtesse digitale du festival 🪔 Comment puis-je vous aider ?"
+- NL: "Namaste, ik ben Diya, de digitale gastvrouw van het festival 🪔 Waarmee kan ik helpen?"
+On later menus in the same window, body is just "How can I help?" in the language.
+
+Sign-off in the escalation reply and the fallback: none; Diya does not sign messages.
+
 ## 1. Files
 
 - `docs/faq.md` : the knowledge base (already in `docs/`). Loaded at build time into the function (import as raw text or copy into `functions/_faq.md` at build); never fetched at runtime.
@@ -35,7 +55,7 @@ Signature verification and the `statuses[]` logic from Phase 1 stay as they are.
    - `MENU` : send the menu (step 6).
 5. **Free text** when `WA_BOT_ENABLED=true`:
    - Check `bot:count:<phone>:<day>` < `WA_BOT_DAILY_LIMIT`, else reply the fallback message once and stop.
-   - Call the Anthropic Messages API, model `WA_BOT_MODEL`, max_tokens 300. System prompt: "You answer questions about the Brussels Diwali Festival 2026 for Art India. Use ONLY the FAQ below. Reply in <LANG>. Maximum 3 short sentences, no markdown, no em dashes. Never invent prices, times, or promises. If the FAQ does not cover the question, reply exactly: NOT_COVERED." Then the full `faq.md` with `[CONFIRM]` markers and HTML comments stripped.
+   - Call the Anthropic Messages API, model `WA_BOT_MODEL`, max_tokens 300. System prompt: the Diya persona block from section 0, followed by: "Use ONLY the FAQ below. Reply in <LANG>. Maximum 3 short sentences, no markdown, no em dashes. Never invent prices, times, or promises. If the FAQ does not cover the question, reply exactly: NOT_COVERED." Then the full `faq.md` with `[CONFIRM]` markers and HTML comments stripped.
    - If the reply is `NOT_COVERED` (or empty/error): send the fallback (below), write `bot:unanswered:<ts>` = `{phone, lang, text}`.
    - Otherwise send the reply as plain text, then increment the daily counter.
    - Free text when `WA_BOT_ENABLED=false`: send the fallback only.
@@ -45,9 +65,9 @@ Signature verification and the `statuses[]` logic from Phase 1 stay as they are.
    - FR: "Merci pour votre message. Je ne peux pas répondre à cela ici. Écrivez à diwali@artindia.be ou consultez diwali.artindia.be. Répondez MENU pour les options rapides."
    - NL: "Bedankt voor uw bericht. Daar kan ik hier niet op antwoorden. Mail naar diwali@artindia.be of kijk op diwali.artindia.be. Antwoord MENU voor snelle opties."
 
-6. **Menu**: sent on the first inbound message from a phone in a 24h window (KV `bot:seen:<phone>`, 24h TTL) and on the text `menu`, before or instead of an answer. Interactive message, type `button`, header "Brussels Diwali Festival", body in the contact's language "How can I help?", buttons (max 3): known buyer → `MY_LINK` "My link", `MY_CHANCES` "My chances", `TALK_HUMAN` "Talk to the team"; unknown → `TICKETS` "Tickets" (replies with the tickets FAQ answer + link), `INFO` "Festival info" (replies with dates/place/fireworks answer), `TALK_HUMAN`. If the first message is itself a question, answer it first, then send the menu.
+6. **Menu**: sent on the first inbound message from a phone in a 24h window (KV `bot:seen:<phone>`, 24h TTL) and on the text `menu`, before or instead of an answer. Interactive message, type `button`, header "Brussels Diwali Festival", body = the Diya greeting from section 0 (first contact in the window) or "How can I help?", buttons (max 3): known buyer → `MY_LINK` "My link", `MY_CHANCES` "My chances", `TALK_HUMAN` "Talk to the team"; unknown → `TICKETS` "Tickets" (replies with the tickets FAQ answer + link), `INFO` "Festival info" (replies with dates/place/fireworks answer), `TALK_HUMAN`. If the first message is itself a question, answer it first, then send the menu.
 
-7. **Escalation** (`TALK_HUMAN`, or the text `human` / `humain` / `mens`): reply "A team member will reply here during office hours. For urgent matters: diwello@artindia.be" (fix typo: diwali@artindia.be); write `bot:escalation:<ts>` = `{phone, name, lang, last_message}`; send an email via Brevo transactional API to `ESCALATION_EMAIL`, subject "WhatsApp: <phone> needs a reply", body with the last 5 messages from that phone (keep a rolling `bot:history:<phone>` of the last 5 inbound texts, 24h TTL) and the curl to answer via `/api/wa-send`.
+7. **Escalation** (`TALK_HUMAN`, or the text `human` / `humain` / `mens`): reply "A team member will reply here during office hours. For urgent matters: diwali@artindia.be"; write `bot:escalation:<ts>` = `{phone, name, lang, last_message}`; send an email via Brevo transactional API to `ESCALATION_EMAIL`, subject "WhatsApp: <phone> needs a reply", body with the last 5 messages from that phone (keep a rolling `bot:history:<phone>` of the last 5 inbound texts, 24h TTL) and the curl to answer via `/api/wa-send`.
 
 8. **Everything else** (images, audio, stickers, location): send the fallback once per 24h window.
 
