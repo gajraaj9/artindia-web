@@ -30,7 +30,7 @@ import {
   NOT_A_BUYER, TICKETS_ANSWER, INFO_ANSWER, GETTING_THERE_ANSWER,
   myLinkReply, myChancesReply, myTicketsReply,
   buildMenu, pickLang, askFaq, sendText, sendToMeta, botKey, isGreeting,
-  DAY_SECONDS, KEEP_SECONDS, LOG_SECONDS, utcDay, stamp, logMessage,
+  DAY_SECONDS, KEEP_SECONDS, LOG_SECONDS, SEEN_SECONDS, utcDay, stamp, logMessage,
 } from './_bot.js';
 
 const text = (status, body) =>
@@ -352,12 +352,12 @@ async function escalate(env, kv, { phone, lang, name, history, about }) {
 }
 
 /** The FAQ path, with the per-number daily ceiling in front of it. */
-async function answerQuestion(env, kv, { phone, lang, body, about }) {
+async function answerQuestion(env, kv, { phone, lang, body, about, firstContact }) {
   const fallback = FALLBACK[lang] || FALLBACK.en;
 
   if (!truthy(env.WA_BOT_ENABLED)) {
     await say(env, kv, phone, fallback, 'fallback', about);
-    return;
+    return '';
   }
 
   const day = utcDay();
@@ -374,10 +374,17 @@ async function answerQuestion(env, kv, { phone, lang, body, about }) {
       await kv.put(told, '1', ttl(2 * DAY_SECONDS));
       console.warn('wa-webhook: daily limit reached for', phone, used, '>=', limit);
     }
-    return;
+    return '';
   }
 
-  const { answer, reason } = await askFaq(env, { text: body, lang });
+  const { answer, action, reason } = await askFaq(env, { text: body, lang, firstContact });
+
+  /* The model recognised a question about the person rather than the festival
+     and handed it back. It still cost a call, so it still counts. */
+  if (action) {
+    await kv.put(botKey.count(phone, day), String(used + 1), ttl(2 * DAY_SECONDS));
+    return action;
+  }
 
   if (!answer) {
     await say(env, kv, phone, fallback, 'fallback', about);
@@ -385,11 +392,68 @@ async function answerQuestion(env, kv, { phone, lang, body, about }) {
       phone, lang, text: String(body).slice(0, 500), reason, at: new Date().toISOString(),
     }), ttl(KEEP_SECONDS));
     console.log('wa-webhook: unanswered', reason, JSON.stringify(String(body).slice(0, 120)));
-    return;
+    return '';
   }
 
   await say(env, kv, phone, answer, 'answer', about);
   await kv.put(botKey.count(phone, day), String(used + 1), ttl(2 * DAY_SECONDS));
+  return '';
+}
+
+/**
+ * Everything a button does, in one place.
+ *
+ * Called both when somebody taps a button and when the model routes a typed
+ * question to one — "how many tickets did I buy" and tapping My tickets are
+ * the same question, and they must not be able to drift apart.
+ */
+async function runButton(env, kv, buttonId, ctx) {
+  const { phone, lang, buyer, code, contact, name, history, about, firstToday, fallback } = ctx;
+  const notABuyer = NOT_A_BUYER[lang] || NOT_A_BUYER.en;
+  switch (buttonId) {
+    case 'MY_TICKETS': {
+        if (!buyer) { await say(env, kv, phone, notABuyer, 'canned', about); return; }
+        const a = (contact && contact.attributes) || {};
+        const n = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
+        const children = n(a.CHILD_COUNT);
+        await say(env, kv, phone,
+          myTicketsReply(lang, Math.max(0, n(a.TICKET_COUNT) - children), children),
+          'canned', about);
+        return;
+      }
+      case 'MY_LINK':
+        await say(env, kv, phone, code ? myLinkReply(lang, code) : notABuyer, 'canned', about);
+        return;
+      case 'MY_CHANCES': {
+        if (!buyer) { await say(env, kv, phone, notABuyer, 'canned', about); return; }
+        const n = entriesFor(contact, await refCount(kv, code));
+        await say(env, kv, phone, myChancesReply(lang, n), 'canned', about);
+        return;
+      }
+      /* TICKETS and INFO are the ids the first menu shipped with. Kept, because
+         a menu already sitting in somebody's chat history is still tappable. */
+      case 'BUY_TICKETS':
+      case 'TICKETS':
+        await say(env, kv, phone, TICKETS_ANSWER[lang] || TICKETS_ANSWER.en, 'canned', about);
+        return;
+      case 'FESTIVAL_INFO':
+      case 'INFO':
+        await say(env, kv, phone, INFO_ANSWER[lang] || INFO_ANSWER.en, 'canned', about);
+        return;
+      case 'GETTING_THERE':
+        await say(env, kv, phone, GETTING_THERE_ANSWER[lang] || GETTING_THERE_ANSWER.en, 'canned', about);
+        return;
+      case 'TALK_HUMAN':
+        await escalate(env, kv, { phone, lang, name, history, about });
+        return;
+      case 'MENU':
+        await showMenu(env, kv, phone, lang, buyer, firstToday, about);
+        return;
+      default:
+        console.warn('wa-webhook: unknown button', buttonId);
+        await say(env, kv, phone, fallback, 'fallback', about);
+        return;
+  }
 }
 
 /**
@@ -473,8 +537,11 @@ async function handleInbound(env, m, value) {
      A bare "hello" counts as asking for it. It is an opening, not a question,
      so it gets the menu and stops there — putting "I can't answer that here"
      underneath a greeting is the rudest thing the bot can do. */
+  /* Refreshed on every message, so the window runs from the last one: the
+     menu comes back when somebody has been away more than two hours, not
+     twice in the same conversation and not once a day. */
   const firstToday = !await kv.get(botKey.seen(phone));
-  if (firstToday) await kv.put(botKey.seen(phone), '1', ttl(DAY_SECONDS));
+  await kv.put(botKey.seen(phone), new Date().toISOString(), ttl(SEEN_SECONDS));
   const greeted = isGreeting(body);
   const wantsMenu = MENU_RE.test(body) || greeted;
   if (firstToday || wantsMenu) {
@@ -487,52 +554,11 @@ async function handleInbound(env, m, value) {
     if (wantsMenu) return;
   }
 
+  const ctx = { phone, lang, buyer, code, contact, name, history, about, firstToday, fallback };
+
   if (buttonId) {
-    const notABuyer = NOT_A_BUYER[lang] || NOT_A_BUYER.en;
-    switch (buttonId) {
-      case 'MY_TICKETS': {
-        if (!buyer) { await say(env, kv, phone, notABuyer, 'canned', about); return; }
-        const a = (contact && contact.attributes) || {};
-        const n = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
-        const children = n(a.CHILD_COUNT);
-        await say(env, kv, phone,
-          myTicketsReply(lang, Math.max(0, n(a.TICKET_COUNT) - children), children),
-          'canned', about);
-        return;
-      }
-      case 'MY_LINK':
-        await say(env, kv, phone, code ? myLinkReply(lang, code) : notABuyer, 'canned', about);
-        return;
-      case 'MY_CHANCES': {
-        if (!buyer) { await say(env, kv, phone, notABuyer, 'canned', about); return; }
-        const n = entriesFor(contact, await refCount(kv, code));
-        await say(env, kv, phone, myChancesReply(lang, n), 'canned', about);
-        return;
-      }
-      /* TICKETS and INFO are the ids the first menu shipped with. Kept, because
-         a menu already sitting in somebody's chat history is still tappable. */
-      case 'BUY_TICKETS':
-      case 'TICKETS':
-        await say(env, kv, phone, TICKETS_ANSWER[lang] || TICKETS_ANSWER.en, 'canned', about);
-        return;
-      case 'FESTIVAL_INFO':
-      case 'INFO':
-        await say(env, kv, phone, INFO_ANSWER[lang] || INFO_ANSWER.en, 'canned', about);
-        return;
-      case 'GETTING_THERE':
-        await say(env, kv, phone, GETTING_THERE_ANSWER[lang] || GETTING_THERE_ANSWER.en, 'canned', about);
-        return;
-      case 'TALK_HUMAN':
-        await escalate(env, kv, { phone, lang, name, history, about });
-        return;
-      case 'MENU':
-        await showMenu(env, kv, phone, lang, buyer, firstToday, about);
-        return;
-      default:
-        console.warn('wa-webhook: unknown button', buttonId);
-        await say(env, kv, phone, fallback, 'fallback', about);
-        return;
-    }
+    await runButton(env, kv, buttonId, ctx);
+    return;
   }
 
   if (HUMAN_RE.test(body)) {
@@ -552,7 +578,12 @@ async function handleInbound(env, m, value) {
     return;
   }
 
-  await answerQuestion(env, kv, { phone, lang, body, about });
+  /* A typed "how many tickets did I buy" is the same question as tapping My
+     tickets, so it runs the same handler. The model only names the button; it
+     never sees the buyer's data. */
+  const action = await answerQuestion(env, kv,
+    { phone, lang, body, about, firstContact: firstToday });
+  if (action) await runButton(env, kv, action, ctx);
 }
 
 /* ---------------------------------------------------------------- handler */

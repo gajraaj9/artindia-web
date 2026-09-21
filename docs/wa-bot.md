@@ -45,6 +45,9 @@ em dash between clauses becomes a comma, one between numbers becomes a hyphen
 stripped. WhatsApp renders none of that markup, and an em dash reads as a typo
 on a phone.
 
+The 🪔 goes the same way. It belongs to the greeting; the prompt says so and
+the model reaches for it anyway, so it is stripped from answers.
+
 If an answer ever comes out mangled, `tidyAnswer` in `functions/api/_bot.js` is
 the only thing between the model and the message.
 
@@ -105,12 +108,39 @@ Already set and reused: `WA_TOKEN`, `WA_PHONE_ID`, `WA_APP_SECRET`,
    It is an opening, not a question: putting "I can't answer that here" under
    someone's hello is the rudest thing the bot can do. A greeting with a
    question attached ("hi what time are the fireworks") is a question.
-6. **First message of the day** gets the menu, then the answer.
+6. **First message after a two hour gap** gets the menu, then the answer. The
+   window is refreshed on every message, so it runs from the last one: no
+   second menu mid-conversation, and somebody who comes back after lunch is
+   met rather than dropped mid-thought.
 7. **Buttons** are answered without the model: `MY_LINK`, `MY_CHANCES`,
    `TICKETS`, `INFO`, `TALK_HUMAN`, `MENU`.
-8. **Free text** goes to the FAQ, under the daily ceiling.
+8. **Free text** goes to the FAQ, under the daily ceiling — *unless* it is a
+   question about them rather than the festival, in which case the model hands
+   it back and the same code the buttons run answers it. See below.
 9. **A photo, a voice note, a dropped pin**: one apology per day, not one per
    photo.
+
+## Questions about them, not the festival
+
+Four questions have answers the FAQ cannot hold, because they are facts about
+one buyer: how many tickets they bought, their own referral link, their own
+draw entries, and "show me the buttons again". The model is told to recognise
+those and reply with a token instead of an answer —
+
+```
+ACTION:MY_TICKETS   ACTION:MY_LINK   ACTION:MY_CHANCES   ACTION:MENU
+```
+
+— and the webhook runs the same handler the button runs. So "how many tickets
+did I buy" and tapping **My tickets** give the same reply and cannot drift
+apart. The model never sees anybody's ticket count or code; it only names the
+button.
+
+A token only counts when it is the whole reply. One mentioned in passing is
+treated as prose, so the model cannot be talked into routing by a visitor
+typing it. A prospect who asks gets the "no ticket on this number" reply with
+the ticket link, same as tapping the button. A routed question still counts
+against `WA_BOT_DAILY_LIMIT`: it cost a model call.
 
 ## Answering someone
 
@@ -185,7 +215,7 @@ All in the `REFERRALS` namespace.
 |---|---|---|
 | `bot:msg:<message_id>` | dedupe marker | 24h |
 | `bot:lang:<phone>` | last language used | 90d |
-| `bot:seen:<phone>` | already greeted today | 24h |
+| `bot:seen:<phone>` | conversation in progress, refreshed per message | 2h |
 | `bot:seen:<phone>:media` | already apologised for a photo today | 24h |
 | `bot:optout:<phone>` | said STOP | 90d |
 | `bot:history:<phone>` | last 5 inbound texts | 24h |

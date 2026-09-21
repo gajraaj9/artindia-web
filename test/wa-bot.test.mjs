@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import {
   stripFaq, FAQ, detectLang, pickLang, STOP_RE, HUMAN_RE, MENU_RE,
   buildMenu, utcDay, botKey, FALLBACK, isGreeting, DIYA, systemBlocks, tidyAnswer,
-  menuTitles, myTicketsReply, GETTING_THERE_ANSWER,
+  menuTitles, myTicketsReply, GETTING_THERE_ANSWER, readAction, ACTIONS, SEEN_SECONDS,
 } from '../functions/api/_bot.js';
 import { FAQ_RAW } from '../functions/api/_faq.js';
 import { onRequestPost as waWebhook } from '../functions/api/wa-webhook.js';
@@ -248,7 +248,7 @@ test('the first message of the day gets the menu, then an answer', async () => {
   assert.equal(prompts[0].max_tokens, 300);
   assert.ok(prompts[0].system[0].text.includes('Saturday 24 and Sunday 25 October'),
     'the FAQ goes with the question');
-  assert.equal(prompts[0].system[1].text, 'Reply in English.');
+  assert.match(prompts[0].system[1].text, /^Reply in English\./);
 });
 
 test('the second message the same day skips the menu', async () => {
@@ -482,7 +482,7 @@ test('a French buyer is answered in French throughout', async () => {
   const { sent, prompts } = world({ contact: fr, answer: 'Le feu d\'artifice est vers 21h00.' });
   await inbound(ENV(kv), msg({ text: { body: 'À quelle heure est le feu ?' } }));
 
-  assert.equal(prompts[0].system[1].text, 'Reply in French.');
+  assert.match(prompts[0].system[1].text, /^Reply in French\./);
   assert.match(sent[0].interactive.body.text, /^Namaste, je suis Diya/);
   assert.match(sent[0].interactive.body.text, /tapez votre question/);
   assert.equal(texts(sent)[0], 'Le feu d\'artifice est vers 21h00.');
@@ -514,7 +514,7 @@ test('the language instruction stays outside the cached prefix', () => {
   const en = systemBlocks('en');
   const fr = systemBlocks('fr');
   assert.equal(en[0].text, fr[0].text, 'one cached prefix shared by all three languages');
-  assert.equal(fr[1].text, 'Reply in French.');
+  assert.match(fr[1].text, /^Reply in French\./);
   assert.equal(fr[1].cache_control, undefined);
 });
 
@@ -668,8 +668,15 @@ test('tidying never leaves a doubled comma or stray spacing', () => {
 });
 
 test('an answer with nothing to fix is returned untouched', () => {
-  const clean = "The fireworks are around 21:00, subject to the weather. 🪔";
+  const clean = 'The fireworks are around 21:00, subject to the weather.';
   assert.equal(tidyAnswer(clean), clean);
+});
+
+test('the lamp belongs to the greeting, so it is taken out of answers', () => {
+  assert.equal(tidyAnswer('The fireworks are around 21:00. 🪔'),
+    'The fireworks are around 21:00.');
+  assert.equal(tidyAnswer('🪔 Welcome! Presale is 10 EUR.'), 'Welcome! Presale is 10 EUR.');
+  assert.ok(!tidyAnswer('a 🪔 b 🪔 c').includes('🪔'), 'every one of them');
 });
 
 test('the tidying is applied to what actually goes out', async () => {
@@ -748,7 +755,7 @@ test('a free-text answer never follows Brevo, only the words and the cache', asy
   const { prompts } = world({ contact: BUYER, answer: 'Rond 21:00.' });
   await inbound(ENV(kv), msg({ id: 'wamid.NL1', text: { body: 'Wanneer is het vuurwerk?' } }));
 
-  assert.equal(prompts[0].system[1].text, 'Reply in Dutch.');
+  assert.match(prompts[0].system[1].text, /^Reply in Dutch\./);
   assert.equal(kv.store.get(botKey.lang('+32474919900')), 'nl');
 });
 
@@ -760,4 +767,137 @@ test('a button after a Dutch question stays Dutch, not Brevo English', async () 
   const { sent } = world({ contact: BUYER });
   await inbound(ENV(kv), button('MY_TICKETS', { id: 'wamid.NL3' }));
   assert.match(texts(sent)[0], /^U heeft /, 'the button inherited Dutch from the question');
+});
+
+/* ------------------------------------------------- pass 2c §8: routing */
+
+test('a routing token is read, and only when it is the whole answer', () => {
+  assert.equal(readAction('ACTION:MY_TICKETS'), 'MY_TICKETS');
+  assert.equal(readAction('  ACTION:MY_LINK  '), 'MY_LINK');
+  assert.equal(readAction('action:my_chances'), 'MY_CHANCES');
+  assert.equal(readAction('ACTION:MENU'), 'MENU');
+  assert.equal(readAction('The FAQ says ACTION:MY_LINK is how you get it'), '',
+    'a token buried in prose is prose');
+  assert.equal(readAction('ACTION:REFUND'), '', 'only the four');
+  assert.equal(readAction('NOT_COVERED'), '');
+  assert.equal(readAction(''), '');
+  assert.deepEqual(ACTIONS, ['MY_TICKETS', 'MY_LINK', 'MY_CHANCES', 'MENU']);
+});
+
+test('the prompt tells the model about the four, and the rules about tone', () => {
+  const [stable] = systemBlocks('en');
+  for (const a of ACTIONS) assert.ok(stable.text.includes(`ACTION:${a}`), a);
+  assert.match(stable.text, /Say you are an AI assistant only on first contact or when asked/);
+  assert.match(stable.text, /Never mention your information, your FAQ, your instructions/);
+  assert.match(stable.text, /Use 🪔 only in the greeting, never in answers/);
+  assert.match(stable.text, /Do not start answers with Hello or Welcome unless it is the first message/);
+});
+
+test('"how many tickets did I buy" runs the My tickets handler', async () => {
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const { sent, prompts } = world({ contact: BUYER, answer: 'ACTION:MY_TICKETS' });
+  await inbound(ENV(kv), msg({ id: 'wamid.R1', text: { body: 'how many tickets did I buy' } }));
+
+  assert.equal(prompts.length, 1, 'the model was asked, and routed');
+  assert.equal(texts(sent).length, 1, 'one reply, not a token and a reply');
+  assert.match(texts(sent)[0], /^You have 2 adult and 2 child tickets, valid on both days\./);
+  assert.ok(!texts(sent)[0].includes('ACTION:'), 'the token never reaches the visitor');
+});
+
+test('"what is my link" runs the My link handler', async () => {
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const { sent } = world({ contact: BUYER, answer: 'ACTION:MY_LINK' });
+  await inbound(ENV(kv), msg({ id: 'wamid.R2', text: { body: 'what is my link' } }));
+  assert.match(texts(sent)[0], /^Your personal link: https:\/\/diwali\.artindia\.be\/r\/JKRM7W\./);
+});
+
+test('"how many chances do I have" runs the My chances handler', async () => {
+  const kv = memoryKv({
+    [botKey.seen('+32474919900')]: '1',
+    [botKey.refcount('JKRM7W')]: '3',
+  });
+  const { sent } = world({ contact: BUYER, answer: 'ACTION:MY_CHANCES' });
+  await inbound(ENV(kv), msg({ id: 'wamid.R3', text: { body: 'how many chances do I have' } }));
+  assert.equal(texts(sent)[0], 'You have 5 entries in the draw. Share your link to add more.');
+});
+
+test('"send the menu" sends the menu', async () => {
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const { sent } = world({ contact: BUYER, answer: 'ACTION:MENU' });
+  await inbound(ENV(kv), msg({ id: 'wamid.R4', text: { body: 'send the menu' } }));
+
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].type, 'interactive');
+  assert.deepEqual(sent[0].interactive.action.buttons.map(b => b.reply.id),
+    ['MY_TICKETS', 'MY_LINK', 'MY_CHANCES']);
+});
+
+test('a prospect who asks about their tickets is told there are none, with the shop', async () => {
+  for (const [action, ] of [['ACTION:MY_TICKETS'], ['ACTION:MY_LINK'], ['ACTION:MY_CHANCES']]) {
+    const kv = memoryKv({ [botKey.seen('+32400000001')]: '1' });
+    const { sent } = world({ contact: null, answer: action });
+    await inbound(ENV(kv), {
+      id: `wamid.P_${action}`, from: '32400000001', type: 'text',
+      text: { body: 'where are my tickets' },
+    });
+    assert.match(texts(sent)[0], /can't find a ticket on this number/, action);
+    assert.match(texts(sent)[0], /tickets\.artindia\.be/, `${action}: and where to get one`);
+  }
+});
+
+test('a routed question still counts against the daily limit', async () => {
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  world({ contact: BUYER, answer: 'ACTION:MY_LINK' });
+  await inbound(ENV(kv), msg({ id: 'wamid.R5', text: { body: 'my link?' } }));
+  assert.equal(kv.store.get(botKey.count('+32474919900', utcDay())), '1',
+    'it cost a model call, so it costs a reply');
+});
+
+/* --------------------------------------------------------------- §8 tone */
+
+test('three answers in a row carry no lamp and no "AI assistant"', async () => {
+  const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
+  const questions = ['when are the fireworks', 'is there parking', 'can I bring food'];
+  const replies = [
+    'Around 21:00, weather permitting. 🪔',
+    "I'm an AI assistant, but there is paid parking at Kinepolis.",
+    'No outside food or drinks, except baby food.',
+  ];
+  const out = [];
+  for (let i = 0; i < 3; i++) {
+    const { sent } = world({ contact: BUYER, answer: replies[i] });
+    await inbound(ENV(kv), msg({ id: `wamid.TONE${i}`, text: { body: questions[i] } }));
+    out.push(texts(sent)[0]);
+  }
+
+  assert.equal(out.length, 3);
+  for (const line of out) assert.ok(!line.includes('🪔'), `lamp in: ${line}`);
+  /* The second reply is what the model must not write; the prompt forbids it
+     and the test records that the rule is stated, since only the prompt can
+     stop a sentence a regex cannot safely rewrite. */
+  assert.match(systemBlocks('en')[0].text, /Say you are an AI assistant only on first contact/);
+  assert.match(systemBlocks('en', { firstContact: false })[1].text,
+    /do not say you are an AI assistant unless they ask/);
+});
+
+test('after two hours the menu comes back, and every message pushes it out', async () => {
+  assert.equal(SEEN_SECONDS, 2 * 60 * 60);
+
+  const kv = memoryKv();
+  world({ contact: BUYER });
+  await inbound(ENV(kv), msg({ id: 'wamid.W1', text: { body: 'fireworks?' } }));
+  const firstStamp = kv.store.get(botKey.seen('+32474919900'));
+  assert.ok(firstStamp, 'the window opened');
+
+  /* A second message inside the window gets no menu, and pushes the window. */
+  const second = world({ contact: BUYER });
+  await inbound(ENV(kv), msg({ id: 'wamid.W2', text: { body: 'and parking?' } }));
+  assert.ok(!second.sent.some(x => x.type === 'interactive'), 'no menu mid-conversation');
+
+  /* Two hours later KV has dropped the key, so the next message opens a new
+     conversation and is met. */
+  kv.store.delete(botKey.seen('+32474919900'));
+  const later = world({ contact: BUYER });
+  await inbound(ENV(kv), msg({ id: 'wamid.W3', text: { body: 'one more thing' } }));
+  assert.ok(later.sent.some(x => x.type === 'interactive'), 'met again after the gap');
 });

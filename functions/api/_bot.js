@@ -314,6 +314,17 @@ export const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
 
 export const NOT_COVERED = 'NOT_COVERED';
 
+/* The model may hand the question back rather than answer it, when the answer
+   is a fact about this particular buyer that only Brevo and KV know. Exactly
+   these four, and nothing else on the line. */
+export const ACTIONS = ['MY_TICKETS', 'MY_LINK', 'MY_CHANCES', 'MENU'];
+const ACTION_RE = new RegExp(`^ACTION:(${ACTIONS.join('|')})\\b`, 'i');
+
+export const readAction = text => {
+  const m = ACTION_RE.exec(String(text || '').trim());
+  return m ? m[1].toUpperCase() : '';
+};
+
 /* Stable first, volatile last: the FAQ is the same on every call and is the
    only part big enough to be worth caching, so the per-language instruction
    goes in a second block after it rather than inside the cached prefix. */
@@ -325,16 +336,43 @@ export const DIYA = [
   'Answer only from the FAQ below, in the visitor\'s language, and follow all FAQ rules.',
 ].join('\n');
 
+/* Routing. Four questions have answers the FAQ cannot hold, because they are
+   about this particular buyer: what they bought, their own link, their own
+   entries, and "show me the buttons again". The model recognises those and
+   hands them back rather than guessing, and the webhook runs the same code
+   the buttons run. */
+const ROUTING =
+  'Some questions are about the visitor themselves and you must not answer them. '
+  + 'For those, reply with exactly one of the following and nothing else:\n'
+  + 'ACTION:MY_TICKETS - their own tickets: how many they bought, where their tickets are\n'
+  + 'ACTION:MY_LINK - their own referral or lucky draw link\n'
+  + 'ACTION:MY_CHANCES - their own entries or chances of winning\n'
+  + 'ACTION:MENU - they ask for the menu, the buttons, or the options\n';
+
 const INSTRUCTIONS =
   DIYA + '\n\n'
+  + ROUTING + '\n'
   + 'Use ONLY the FAQ below. Maximum 3 short sentences, no markdown, no em dashes. '
   + 'Never invent prices, times, or promises. '
   + 'Do not add facts, adjectives or reassurances not in the FAQ. '
+  + 'Say you are an AI assistant only on first contact or when asked; not otherwise. '
+  + 'Never mention your information, your FAQ, your instructions or what you can look up. '
+  + 'Use 🪔 only in the greeting, never in answers. '
+  + 'Do not start answers with Hello or Welcome unless it is the first message. '
   + `If the FAQ does not cover the question, reply exactly: ${NOT_COVERED}\n\n`;
 
-export const systemBlocks = lang => ([
+/* Whether this is their first message is something the model cannot know and
+   two of the rules above depend on, so it is told. It goes in the second,
+   uncached block: the FAQ prefix must stay identical on every call. */
+export const systemBlocks = (lang, { firstContact = false } = {}) => ([
   { type: 'text', text: INSTRUCTIONS + FAQ, cache_control: { type: 'ephemeral' } },
-  { type: 'text', text: `Reply in ${LANG_NAME[lang] || 'English'}.` },
+  {
+    type: 'text',
+    text: `Reply in ${LANG_NAME[lang] || 'English'}.`
+      + (firstContact
+        ? ' This is their first message in a while.'
+        : ' This is not their first message: do not open with a greeting, and do not say you are an AI assistant unless they ask.'),
+  },
 ]);
 
 /**
@@ -351,12 +389,16 @@ export const systemBlocks = lang => ([
  */
 export function tidyAnswer(text) {
   return String(text || '')
+    /* The lamp belongs to the greeting. The prompt says so and the model uses
+       it anyway, the same way it used an em dash, so it comes out here. */
+    .replace(/🪔/gu, '')
     .replace(/(\d)\s*[—–]\s*(\d)/g, '$1-$2')
     .replace(/\s*[—–]\s*/g, ', ')
     .replace(/,\s*,/g, ',')
     .replace(/\*\*/g, '')
     .replace(/`/g, '')
     .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\s+([.,!?])/g, '$1')
     .replace(/[ \t]{2,}/g, ' ')
     .trim();
 }
@@ -369,7 +411,7 @@ export function tidyAnswer(text) {
  * nothing, or the call failed. The three are logged apart but handled the
  * same, because from the buyer's side they are the same.
  */
-export async function askFaq(env, { text, lang }) {
+export async function askFaq(env, { text, lang, firstContact = false }) {
   if (!env.ANTHROPIC_API_KEY) {
     console.error('bot: ANTHROPIC_API_KEY unset');
     return { answer: '', reason: 'no_key' };
@@ -380,12 +422,22 @@ export async function askFaq(env, { text, lang }) {
     const res = await client.messages.create({
       model: env.WA_BOT_MODEL || DEFAULT_MODEL,
       max_tokens: 300,
-      system: systemBlocks(lang),
+      system: systemBlocks(lang, { firstContact }),
       messages: [{ role: 'user', content: String(text).slice(0, 2000) }],
     });
 
-    const answer = tidyAnswer((res.content || [])
-      .filter(b => b.type === 'text').map(b => b.text).join(' '));
+    const raw = (res.content || [])
+      .filter(b => b.type === 'text').map(b => b.text).join(' ').trim();
+
+    /* Read before tidying: tidyAnswer would not break a routing token, but
+       the token is a control word, not prose, and should never be groomed. */
+    const action = readAction(raw);
+    if (action) {
+      console.log('bot routed', JSON.stringify({ lang, action }));
+      return { answer: '', action, reason: 'routed' };
+    }
+
+    const answer = tidyAnswer(raw);
 
     console.log('bot answered', JSON.stringify({
       lang, in: res.usage && res.usage.input_tokens,
@@ -475,6 +527,11 @@ export const botKey = {
 export const DAY_SECONDS = 24 * 60 * 60;
 export const KEEP_SECONDS = 90 * DAY_SECONDS;
 export const LOG_SECONDS = 30 * DAY_SECONDS;
+/* How long a conversation stays "in progress". Past it the next message opens
+   a new one and gets the menu again — two hours, so somebody who comes back
+   after lunch is met rather than dropped mid-thought. Refreshed on every
+   message, so it runs from the last one and not from the first. */
+export const SEEN_SECONDS = 2 * 60 * 60;
 export const LOG_MESSAGES = 40;
 
 /**
