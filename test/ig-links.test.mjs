@@ -71,3 +71,11 @@ test('the box office can be moved without a deploy', () => {
   assert.equal(u.origin + u.pathname, 'https://example.com/box');
   assert.equal(u.searchParams.get('ref'), 'ig-7');
 });
+
+test('HEAD answers exactly as GET, so a link checker sees the redirect', async () => {
+  const { onRequestHead } = await import('../functions/i/[n].js');
+  const head = onRequestHead({ params: { n: '1' }, env: {} });
+  const get = go('1');
+  assert.equal(head.status, get.status);
+  assert.equal(head.headers.get('location'), get.headers.get('location'));
+});

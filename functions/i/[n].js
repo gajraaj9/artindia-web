@@ -51,3 +51,9 @@ export function onRequestGet({ params, env }) {
 
   return redirect(url.toString());
 }
+
+/* HEAD must answer exactly as GET does. Pages routes the two separately, and
+   without this a HEAD falls through to the static site and comes back 200
+   with the homepage — which is what a link checker, a scanner, or anyone
+   verifying the redirect with `curl -sI` would see. */
+export const onRequestHead = onRequestGet;

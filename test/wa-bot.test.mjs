@@ -964,3 +964,12 @@ test('after two hours the menu comes back, and every message pushes it out', asy
   await inbound(ENV(kv), msg({ id: 'wamid.W3', text: { body: 'one more thing' } }));
   assert.ok(later.sent.some(x => x.type === 'interactive'), 'met again after the gap');
 });
+
+test('the referral link answers HEAD too', async () => {
+  const { onRequestGet, onRequestHead } = await import('../functions/r/[code].js');
+  const env = { REFERRALS: { async get() { return null; } } };
+  const head = await onRequestHead({ params: { code: 'ABC234' }, env });
+  const get = await onRequestGet({ params: { code: 'ABC234' }, env });
+  assert.equal(head.status, 302);
+  assert.equal(head.headers.get('location'), get.headers.get('location'));
+});
