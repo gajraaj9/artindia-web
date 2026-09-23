@@ -14,10 +14,7 @@
 /go/qr      /?utm_source=qr&utm_medium=print          302
 /go/vb      https://diwali.artindia.be/?utm_source=visitbrussels&utm_medium=listing&utm_campaign=diwali2026    302
 
-# Per-post Instagram links. /i/7 on a story or in the bio goes straight to the
-# box office tagged as that post, so a campaign can be read per post rather
-# than as one lump of "instagram". :n is whatever follows, and lands in the
-# ref Ticket Tailor carries onto the order as well as in the utm_* trio the
-# analytics read. ig- marks it a channel tag rather than somebody's referral
-# code; /api/tt-order tells them apart on that prefix.
-/i/:n  https://tickets.artindia.be/events/artindia/2392534?ref=ig-:n&utm_source=instagram&utm_medium=social&utm_campaign=ig-:n  302
+# Per-post Instagram links live in functions/i/[n].js, not here. Pages does
+# not substitute a :placeholder inside the destination's query string — it
+# arrives at the box office as the literal ig-%3An — and the tag is the whole
+# point of the link.
