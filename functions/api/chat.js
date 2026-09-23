@@ -28,7 +28,7 @@ import {
   askFaq, readAction, confidentLang, tidyAnswer, botKey, webKey, listAll,
   WEB_GREETING, WEB_MENU, LINK_IS_ELSEWHERE, WEB_MY_TICKETS, NO_TICKET_FOR_EMAIL,
   TICKETS_ANSWER, GETTING_THERE_ANSWER, FOOD_ANSWER, PROGRAMME_ANSWER, DRAW_ANSWER,
-  ASK_PROMPT, FALLBACK_BASE, LEAD_PROMPT, LEAD_THANKS, WELCOME_BACK,
+  ASK_PROMPT, WEB_FALLBACK, LEAD_PROMPT, LEAD_THANKS, WELCOME_BACK,
   DAY_SECONDS, LOG_SECONDS, utcDay, stamp,
 } from './_bot.js';
 
@@ -182,10 +182,16 @@ const whatsappChip = lang => ({
   href: WHATSAPP_URL,
 });
 
-const helpButtons = lang => [
-  { id: 'CONTACT', label: (WEB_MENU[lang] || WEB_MENU.en).contact, href: 'mailto:diwali@artindia.be' },
-  whatsappChip(lang),
-];
+/* The two ways to reach a person, offered together whenever Diya cannot
+   help. The WhatsApp label differs from the greeting's: there it is an
+   invitation to carry on, here it is a hand-over. */
+const helpButtons = lang => {
+  const copy = WEB_MENU[lang] || WEB_MENU.en;
+  return [
+    { id: 'CONTACT', label: copy.contact, href: 'mailto:diwali@artindia.be' },
+    { id: 'WHATSAPP', label: copy.whatsappHelp, href: WHATSAPP_URL },
+  ];
+};
 
 /** One canned answer, or '' when the id is not one of ours. */
 function cannedAnswer(id, lang) {
@@ -348,7 +354,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     const canned = cannedAnswer(id, lang);
-    if (!canned) return out(FALLBACK_BASE[lang] || FALLBACK_BASE.en, helpButtons(lang));
+    if (!canned) return out(WEB_FALLBACK[lang] || WEB_FALLBACK.en, helpButtons(lang));
 
     const buttons = menuButtons(lang, buyer);
     if (id === 'TICKETS' && !buyer) {
@@ -369,7 +375,7 @@ export async function onRequestPost({ request, env }) {
   if (!message) return out(ASK_PROMPT[lang] || ASK_PROMPT.en, menuButtons(lang, buyer));
   await logTurn(kv, session.id, { dir: 'in', text: message }, { lang, state: session.st });
 
-  const fallback = FALLBACK_BASE[lang] || FALLBACK_BASE.en;
+  const fallback = WEB_FALLBACK[lang] || WEB_FALLBACK.en;
   const noteUnanswered = async (reason) => {
     if (!kv) return;
     await kv.put(botKey.unanswered(stamp()), JSON.stringify({

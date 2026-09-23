@@ -10,7 +10,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { onRequestPost, onRequestGet, onRequestOptions } from '../functions/api/chat.js';
-import { webKey, botKey, stripFaq, LINK_IS_ELSEWHERE, FALLBACK, FALLBACK_BASE } from '../functions/api/_bot.js';
+import { webKey, botKey, stripFaq, LINK_IS_ELSEWHERE, FALLBACK, WEB_FALLBACK } from '../functions/api/_bot.js';
 import { FAQ_RAW } from '../functions/api/_faq.js';
 
 const ORIGIN = 'https://diwali.artindia.be';
@@ -150,7 +150,7 @@ test('past the daily limit it answers without calling the model', async () => {
 
   const over = await chat(env, { session, message: 'one more' });
   assert.equal(prompts.length, 2, 'the third question is not sent anywhere');
-  assert.equal(over.body.reply, FALLBACK_BASE.en);
+  assert.equal(over.body.reply, WEB_FALLBACK.en);
   assert.ok(over.body.buttons.some(b => b.id === 'WHATSAPP'));
 });
 
@@ -158,7 +158,7 @@ test('with the kill switch off nothing reaches the model', async () => {
   const { prompts } = world();
   const r = await chat({ ...ENV(memoryKv()), WEB_BOT_ENABLED: 'false' }, { message: 'how much are tickets' });
   assert.equal(prompts.length, 0);
-  assert.equal(r.body.reply, FALLBACK_BASE.en);
+  assert.equal(r.body.reply, WEB_FALLBACK.en);
 });
 
 /* ------------------------------------------------------------ the answers */
@@ -214,12 +214,12 @@ test('an unanswered question is logged against the web channel', async () => {
   const kv = memoryKv();
   world({ answer: 'NOT_COVERED' });
   const r = await chat(ENV(kv), { message: 'can I bring a drone' });
-  assert.equal(r.body.reply, FALLBACK_BASE.en);
+  assert.equal(r.body.reply, WEB_FALLBACK.en);
+  assert.equal(r.body.reply, WEB_FALLBACK.en);
   assert.ok(!r.body.reply.includes('Type HUMAN'), 'the WhatsApp-only line is dropped');
   assert.ok(!/Reply MENU/i.test(r.body.reply),
     'and so is "Reply MENU": there is nothing to reply to in a widget with buttons');
-  assert.equal(r.body.reply, FALLBACK_BASE.en);
-  assert.notEqual(r.body.reply, FALLBACK.en, 'the web fallback is the shorter one');
+  assert.notEqual(r.body.reply, FALLBACK.en, 'the two channels say different things');
   assert.deepEqual(r.body.buttons.map(b => b.id), ['CONTACT', 'WHATSAPP']);
 
   const key = [...kv.store.keys()].find(k => k.startsWith('bot:unanswered:'));
@@ -396,8 +396,8 @@ const EXPECTED = {
     greeting: "Namaste, I'm Diya, the festival's digital host 🪔 Ask me anything about the Brussels Diwali Festival.",
     buttons: ['Tickets', 'Getting there', 'Food & drink', 'Ask me anything'],
     lead: 'Want me to keep you posted on the festival? Leave your name and email.',
-    fallback: "Thanks for your message. I can't answer that here. Write to diwali@artindia.be or see diwali.artindia.be.",
-    help: ['Email the team', 'Continue on WhatsApp'],
+    fallback: "Thanks for your message. I can't answer that here, but the team can.",
+    help: ['Email the team', 'Chat on WhatsApp'],
     whatsapp: 'Continue on WhatsApp',
     noTicket: /can't find a ticket for this email/,
   },
@@ -405,8 +405,8 @@ const EXPECTED = {
     greeting: "Namaste, je suis Diya, l'hôtesse digitale du festival 🪔 Posez-moi vos questions sur le Brussels Diwali Festival.",
     buttons: ['Billets', 'Comment venir', 'Boire et manger', 'Poser une question'],
     lead: 'Vous voulez que je vous tienne au courant du festival ? Laissez votre nom et votre e-mail.',
-    fallback: 'Merci pour votre message. Je ne peux pas répondre à cela ici. Écrivez à diwali@artindia.be ou consultez diwali.artindia.be.',
-    help: ["Écrire à l'équipe", 'Continuer sur WhatsApp'],
+    fallback: "Merci pour votre message. Je ne peux pas répondre à cela ici, mais l'équipe le peut.",
+    help: ["Écrire à l'équipe", 'Discuter sur WhatsApp'],
     whatsapp: 'Continuer sur WhatsApp',
     noTicket: /ne trouve pas de billet/,
   },
@@ -414,8 +414,8 @@ const EXPECTED = {
     greeting: 'Namaste, ik ben Diya, de digitale gastvrouw van het festival 🪔 Stel me uw vragen over het Brussels Diwali Festival.',
     buttons: ['Tickets', 'Bereikbaarheid', 'Eten en drinken', 'Stel een vraag'],
     lead: 'Wilt u op de hoogte blijven van het festival? Laat uw naam en e-mailadres achter.',
-    fallback: 'Bedankt voor uw bericht. Daar kan ik hier niet op antwoorden. Mail naar diwali@artindia.be of kijk op diwali.artindia.be.',
-    help: ['Mail het team', 'Verder op WhatsApp'],
+    fallback: 'Bedankt voor uw bericht. Daar kan ik hier niet op antwoorden, maar het team wel.',
+    help: ['Mail het team', 'Chat via WhatsApp'],
     whatsapp: 'Verder op WhatsApp',
     noTicket: /vind geen ticket/,
   },
@@ -541,5 +541,49 @@ test('the WhatsApp chip opens the same bot on their phone', async () => {
   const open = await chat(ENV(memoryKv()), {});
   const wa = open.body.buttons.find(b => b.id === 'WHATSAPP');
   assert.equal(wa.href, 'https://wa.me/32490616661?text=Hi');
-  assert.equal(wa.label, 'Continue on WhatsApp');
+  assert.equal(wa.label, 'Continue on WhatsApp',
+    'the greeting invites them to carry on; the fallback hands over');
+});
+
+test('the web fallback is its own copy; WhatsApp is untouched', async () => {
+  /* The two channels drifted apart deliberately. WhatsApp tells people to
+     type HUMAN, which means nothing in a widget with buttons; the web points
+     at the team because the chips under it do the pointing. */
+  assert.equal(WEB_FALLBACK.en, "Thanks for your message. I can't answer that here, but the team can.");
+  assert.equal(WEB_FALLBACK.fr, "Merci pour votre message. Je ne peux pas répondre à cela ici, mais l'équipe le peut.");
+  assert.equal(WEB_FALLBACK.nl, 'Bedankt voor uw bericht. Daar kan ik hier niet op antwoorden, maar het team wel.');
+
+  assert.match(FALLBACK.en, /Type HUMAN to reach the team\.$/, 'WhatsApp still says its own thing');
+  assert.match(FALLBACK.fr, /Tapez HUMAIN pour joindre l'équipe\.$/);
+  assert.match(FALLBACK.nl, /Typ MENS om het team te bereiken\.$/);
+  for (const lang of ['en', 'fr', 'nl']) {
+    assert.notEqual(WEB_FALLBACK[lang], FALLBACK[lang], lang);
+  }
+});
+
+test('every route to the fallback carries the same copy and the same two chips', async () => {
+  const want = { reply: WEB_FALLBACK.en, chips: ['Email the team', 'Chat on WhatsApp'] };
+  const check = (r, where) => {
+    assert.equal(r.body.reply, want.reply, where);
+    assert.deepEqual(r.body.buttons.map(b => b.label), want.chips, where);
+    const wa = r.body.buttons[1];
+    assert.equal(wa.href, 'https://wa.me/32490616661?text=Hi', where);
+    assert.equal(r.body.buttons[0].href, 'mailto:diwali@artindia.be', where);
+  };
+
+  world({ answer: 'NOT_COVERED' });
+  check(await chat(ENV(memoryKv()), { message: 'can I bring a drone' }), 'not covered');
+
+  world();
+  check(await chat({ ...ENV(memoryKv()), WEB_BOT_ENABLED: 'false' }, { message: 'anything' }),
+    'kill switch');
+
+  world();
+  check(await chat(ENV(memoryKv()), { action: 'NOT_A_BUTTON' }), 'unknown button');
+
+  const kv = memoryKv();
+  const env = { ...ENV(kv), WEB_BOT_DAILY_LIMIT: '1' };
+  world();
+  const first = await chat(env, { message: 'one' });
+  check(await chat(env, { session: first.body.session, message: 'two' }), 'over the limit');
 });

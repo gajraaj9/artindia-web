@@ -303,6 +303,20 @@ export const WEB_GREETING = {
 };
 
 /**
+ * The website's own fallback.
+ *
+ * Separate from the WhatsApp one on purpose: WhatsApp tells people to type
+ * HUMAN, which is meaningless in a widget with buttons, and the web can point
+ * at the team directly because the two chips under it do the pointing.
+ * Changing this must not change what WhatsApp says.
+ */
+export const WEB_FALLBACK = {
+  en: "Thanks for your message. I can't answer that here, but the team can.",
+  fr: "Merci pour votre message. Je ne peux pas répondre à cela ici, mais l'équipe le peut.",
+  nl: 'Bedankt voor uw bericht. Daar kan ik hier niet op antwoorden, maar het team wel.',
+};
+
+/**
  * What the web says instead of somebody's referral code.
  *
  * The widget is on a public page with no proof of who is reading it: a shared
@@ -362,6 +376,7 @@ export const WEB_MENU = {
     buyer: [['GETTING_THERE', 'Getting there'], ['PROGRAMME', 'Programme'], ['DRAW', 'Lucky draw'], ['ASK', 'Ask me anything']],
     contact: 'Email the team',
     whatsapp: 'Continue on WhatsApp',
+    whatsappHelp: 'Chat on WhatsApp',
     buy: 'Buy tickets',
   },
   fr: {
@@ -369,6 +384,7 @@ export const WEB_MENU = {
     buyer: [['GETTING_THERE', 'Comment venir'], ['PROGRAMME', 'Programme'], ['DRAW', 'Tombola'], ['ASK', 'Poser une question']],
     contact: "Écrire à l'équipe",
     whatsapp: 'Continuer sur WhatsApp',
+    whatsappHelp: 'Discuter sur WhatsApp',
     buy: 'Acheter un billet',
   },
   nl: {
@@ -376,6 +392,7 @@ export const WEB_MENU = {
     buyer: [['GETTING_THERE', 'Bereikbaarheid'], ['PROGRAMME', 'Programma'], ['DRAW', 'Tombola'], ['ASK', 'Stel een vraag']],
     contact: 'Mail het team',
     whatsapp: 'Verder op WhatsApp',
+    whatsappHelp: 'Chat via WhatsApp',
     buy: 'Tickets kopen',
   },
 };

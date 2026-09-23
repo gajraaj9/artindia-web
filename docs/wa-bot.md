@@ -290,6 +290,18 @@ chip **inside** the panel, under the greeting and again whenever Diya cannot
 answer, linking to `wa.me/32490616661?text=Hi` in a new tab. Two moments where
 it helps, rather than a second permanent button competing with the launcher.
 
+The wording differs between the two: under the greeting it invites them to
+carry on (*Continue on WhatsApp*), in the fallback it hands over
+(*Chat on WhatsApp*, alongside *Email the team*).
+
+The web fallback is its own copy, not WhatsApp's:
+
+> Thanks for your message. I can't answer that here, but the team can.
+
+WhatsApp keeps telling people to type HUMAN, which means nothing in a widget
+with buttons. `WEB_FALLBACK` and `FALLBACK` are separate constants and a test
+asserts they stay different, so editing one never quietly changes the other.
+
 The launcher watches the site's own mobile ticket bar (`#stickybar`, fixed to
 the bottom below 720px once the hero scrolls away) and lifts above it while it
 is showing, dropping back to 16px when it is not. There is no cookie bar to
