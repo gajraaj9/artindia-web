@@ -216,6 +216,10 @@ test('an unanswered question is logged against the web channel', async () => {
   const r = await chat(ENV(kv), { message: 'can I bring a drone' });
   assert.equal(r.body.reply, FALLBACK_BASE.en);
   assert.ok(!r.body.reply.includes('Type HUMAN'), 'the WhatsApp-only line is dropped');
+  assert.ok(!/Reply MENU/i.test(r.body.reply),
+    'and so is "Reply MENU": there is nothing to reply to in a widget with buttons');
+  assert.equal(r.body.reply, FALLBACK_BASE.en);
+  assert.notEqual(r.body.reply, FALLBACK.en, 'the web fallback is the shorter one');
   assert.deepEqual(r.body.buttons.map(b => b.id), ['CONTACT', 'WHATSAPP']);
 
   const key = [...kv.store.keys()].find(k => k.startsWith('bot:unanswered:'));
