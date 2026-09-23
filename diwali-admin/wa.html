@@ -105,6 +105,7 @@
   <header>
     <h1>WhatsApp</h1>
     <span class="pill muted" id="bot-pill">Bot: …</span>
+    <span class="pill muted" id="web-pill">Web: …</span>
     <button type="button" id="refresh">Refresh</button>
   </header>
 
@@ -122,10 +123,12 @@
       <button type="button" role="tab" data-tab="chats" aria-selected="true">Conversations</button>
       <button type="button" role="tab" data-tab="welcome" aria-selected="false">Welcome</button>
       <button type="button" role="tab" data-tab="questions" aria-selected="false">Unanswered</button>
+      <button type="button" role="tab" data-tab="web" aria-selected="false">Web</button>
     </nav>
     <section id="tab-chats"></section>
     <section id="tab-welcome" hidden></section>
     <section id="tab-questions" hidden></section>
+    <section id="tab-web" hidden></section>
   </div>
 </main>
 
@@ -269,17 +272,66 @@
     });
   }
 
+  function renderWeb(root) {
+    root.innerHTML = '';
+    var w = data.web || {};
+    var wrap = el('div', 'counts');
+    [['sessions_today', 'Today'], ['sessions_7d', '7 days'], ['leads', 'Leads'],
+     ['buyers', 'Buyers'], ['unanswered', 'Unanswered']].forEach(function (pair) {
+      var b = el('div', 'count-box');
+      b.appendChild(el('b', null, w[pair[0]] || 0));
+      b.appendChild(el('span', null, pair[1]));
+      wrap.appendChild(b);
+    });
+    root.appendChild(wrap);
+
+    var rows = w.sessions || [];
+    if (!rows.length) { root.appendChild(empty('No website chats yet.')); return; }
+
+    rows.forEach(function (sn) {
+      var box = el('div', 'row' + (sn.lead ? ' flag' : ''));
+      var det = el('details');
+      var sum = el('summary');
+      var head = el('div', 'head');
+      head.appendChild(el('span', 'who', sn.state));
+      if (sn.lang) head.appendChild(el('span', 'tag', sn.lang));
+      if (sn.buyer) head.appendChild(el('span', 'tag buyer', 'buyer'));
+      if (sn.lead) head.appendChild(el('span', 'tag needs', 'lead'));
+      head.appendChild(el('span', 'meta', sn.count + ' lines'));
+      head.appendChild(el('span', 'meta', ago(sn.updatedAt)));
+      sum.appendChild(head);
+      var last = (sn.messages || [])[sn.messages.length - 1];
+      if (last) sum.appendChild(el('div', 'preview', (last.dir === 'in' ? '← ' : '→ ') + last.text));
+      det.appendChild(sum);
+
+      var logBox = el('div', 'log');
+      (sn.messages || []).forEach(function (m) {
+        var line = el('div', 'line ' + (m.dir === 'in' ? 'in' : 'out'));
+        line.appendChild(el('span', 'bubble', m.text));
+        line.appendChild(el('span', 'when', (m.dir === 'in' ? 'them' : 'Diya') + ' · ' + ago(m.ts)));
+        logBox.appendChild(line);
+      });
+      det.appendChild(logBox);
+      box.appendChild(det);
+      root.appendChild(box);
+    });
+  }
+
   function paint() {
     var pill = $('bot-pill');
     pill.className = 'pill ' + (data.bot_enabled ? 'on' : 'off');
     pill.textContent = 'Bot: ' + (data.bot_enabled ? 'ON' : 'OFF');
+    var wp = $('web-pill');
+    wp.className = 'pill ' + (data.web_bot_enabled ? 'on' : 'off');
+    wp.textContent = 'Web: ' + (data.web_bot_enabled ? 'ON' : 'OFF');
     renderChats($('tab-chats'));
     renderWelcome($('tab-welcome'));
     renderQuestions($('tab-questions'));
+    renderWeb($('tab-web'));
   }
 
   function show(name) {
-    ['chats', 'welcome', 'questions'].forEach(function (n) {
+    ['chats', 'welcome', 'questions', 'web'].forEach(function (n) {
       $('tab-' + n).hidden = n !== name;
     });
     Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (b) {

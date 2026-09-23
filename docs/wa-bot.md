@@ -263,3 +263,81 @@ cacheable and the per-language instruction sits after it — one cached prefix
 shared across all three languages. `WA_BOT_DAILY_LIMIT` is the backstop: twenty
 replies per number per UTC day, then one apology and silence until midnight
 UTC. The bot logs its token counts, cache hits included, on every answer.
+
+---
+
+# Diya on the website
+
+The same host, the same FAQ, the same persona and the same routing tokens as
+WhatsApp — imported from `functions/api/_bot.js`, not copied, so the two
+cannot drift apart. What differs is what a web page is allowed to know.
+
+## The script tag
+
+Already on all three language pages, emitted by `build-diwali.mjs`:
+
+```html
+<script src="/diya.js" defer></script>
+```
+
+The widget injects its own stylesheet, a launcher and a WhatsApp button, and
+keeps itself off `/admin`, `/r` and `/i`. Nothing else to add.
+
+## Environment
+
+| Name | Value |
+|---|---|
+| `WEB_BOT_ENABLED` | `true` / `false`. Separate from `WA_BOT_ENABLED` |
+| `WEB_BOT_DAILY_LIMIT` | `30` — model calls per session per UTC day |
+| `CHAT_SESSION_SECRET` | secret, `openssl rand -hex 32`. Signs the session token |
+| `BREVO_PROSPECTS_LIST_ID` | `9` — where a consented webchat lead lands |
+
+Reused: `ANTHROPIC_API_KEY`, `WA_BOT_MODEL`, `BREVO_API_KEY`,
+`BREVO_BUYERS_LIST_ID`, `WA_ADMIN_TOKEN`.
+
+## What the website will not do
+
+- **Never says a referral code or a draw entry count**, not even to somebody
+  who has identified as a buyer. A public page has no proof of who is reading
+  it: a shared screen, a borrowed laptop, a session token pasted to a friend.
+  Both the button and the model's routing token answer with "your personal
+  link and your entries are in the WhatsApp and the email you received after
+  buying". The code never leaves the server.
+- **Never writes to Brevo without a tick.** The consent box is what makes
+  list 9 a marketing list. Without it the submission is treated as an
+  identify: looked up, never stored.
+- **Never creates a contact from identify.** Typing an address into a public
+  chat box is not consent.
+- **Never asks for a phone number.**
+- **Answers only our own pages.** Origin must be `diwali.artindia.be`,
+  `artindia.be` or localhost; anything else is a 403, so the endpoint cannot
+  be dropped onto somebody else's site and billed to our Anthropic key.
+
+## Sessions and limits
+
+The session is an HMAC-signed token, 24 hours, carrying the id, the state and
+a counter. The browser keeps it in `sessionStorage`. Editing it to claim
+`buyer` breaks the signature and the server starts a clean anonymous session.
+The email behind a buyer stays in KV: a token travels, an address should not.
+
+Two ceilings, both in KV: `WEB_BOT_DAILY_LIMIT` model calls per session per
+day, and 200 per hashed IP per day. Over either, the fallback goes out and
+nothing reaches the model.
+
+## KV keys
+
+| Key | Holds | Expires |
+|---|---|---|
+| `web:sess:<id>` | `{email, name, lang}` for an identified buyer | 24h |
+| `web:log:<id>` | `{ts, lang, state, lead, buyer, messages[40]}` | 30d |
+| `web:count:<id>:<day>` | model calls used | 48h |
+| `web:ip:<hash>:<day>` | calls from one address | 48h |
+
+Unanswered web questions go to the same `bot:unanswered:<ts>` as WhatsApp,
+tagged `channel: "web"`.
+
+## The dashboard
+
+A fourth tab, **Web**, in `/admin/wa`: sessions today and over 7 days, leads
+captured, buyers identified, unanswered web questions, and the transcripts. A
+**Web: ON / OFF** badge reads `WEB_BOT_ENABLED`.

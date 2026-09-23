@@ -20,6 +20,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { Images } from './images.mjs';
+import sharp from 'sharp';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SITE = 'https://diwali.artindia.be';
@@ -827,6 +828,9 @@ form.addEventListener('submit', async ev => {
   }
 });
 </script>
+<!-- Diya, the festival's chat host. One tag; the widget injects its own CSS
+     and keeps itself off /admin, /r and /i. -->
+<script src="/diya.js" defer></script>
 </body>
 </html>
 `;
@@ -885,6 +889,24 @@ for (const f of ['diwali-hero.mp4', 'diwali-hero.webm']) {
     cpSync(p, join(out, 'static/media', f));
   }
 }
+/* The chat widget, served from the site root so one script tag reaches it,
+   and Diya's avatar at twice the 56px launcher so it stays sharp. The source
+   is 256x256 and 134KB, which is a lot of bytes for a button. */
+if (existsSync(join(HERE, 'diwali-web'))) {
+  for (const f of readdirSync(join(HERE, 'diwali-web'))) {
+    cpSync(join(HERE, 'diwali-web', f), join(out, f));
+  }
+}
+{
+  const src = join(HERE, 'assets/diya.png');
+  if (existsSync(src)) {
+    await sharp(src).resize(112, 112).png({ quality: 82, compressionLevel: 9 })
+      .toFile(join(out, 'diya.png'));
+  } else {
+    console.warn('  ! assets/diya.png missing — the chat launcher will have no avatar');
+  }
+}
+
 /* The page a person answers an escalation from. Shipped at /admin/reply.html
    because the escalation email links straight to it with the number filled
    in. It holds nothing secret: the admin token is typed once into the

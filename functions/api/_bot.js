@@ -216,10 +216,24 @@ export function isGreeting(text) {
   return words.length <= 3 && words.every(w => GREETINGS.has(w));
 }
 
+/* The part both channels say. WhatsApp adds the HUMAN line to it; the web
+   widget has buttons instead, so it uses the base on its own. */
+export const FALLBACK_BASE = {
+  en: "Thanks for your message. I can't answer that here. Write to diwali@artindia.be or see diwali.artindia.be.",
+  fr: 'Merci pour votre message. Je ne peux pas répondre à cela ici. Écrivez à diwali@artindia.be ou consultez diwali.artindia.be.',
+  nl: 'Bedankt voor uw bericht. Daar kan ik hier niet op antwoorden. Mail naar diwali@artindia.be of kijk op diwali.artindia.be.',
+};
+
+const REACH_A_PERSON = {
+  en: ' Reply MENU for quick options. Type HUMAN to reach the team.',
+  fr: " Répondez MENU pour les options rapides. Tapez HUMAIN pour joindre l'équipe.",
+  nl: ' Antwoord MENU voor snelle opties. Typ MENS om het team te bereiken.',
+};
+
 export const FALLBACK = {
-  en: "Thanks for your message. I can't answer that here. Write to diwali@artindia.be or see diwali.artindia.be. Reply MENU for quick options. Type HUMAN to reach the team.",
-  fr: "Merci pour votre message. Je ne peux pas répondre à cela ici. Écrivez à diwali@artindia.be ou consultez diwali.artindia.be. Répondez MENU pour les options rapides. Tapez HUMAIN pour joindre l'équipe.",
-  nl: 'Bedankt voor uw bericht. Daar kan ik hier niet op antwoorden. Mail naar diwali@artindia.be of kijk op diwali.artindia.be. Antwoord MENU voor snelle opties. Typ MENS om het team te bereiken.',
+  en: FALLBACK_BASE.en + REACH_A_PERSON.en,
+  fr: FALLBACK_BASE.fr + REACH_A_PERSON.fr,
+  nl: FALLBACK_BASE.nl + REACH_A_PERSON.nl,
 };
 
 export const OPTOUT_CONFIRM = {
@@ -254,6 +268,120 @@ export const myChancesReply = (lang, n) => ({
   fr: `Vous avez ${n} participation${n === 1 ? '' : 's'} au tirage. Partagez votre lien pour en ajouter.`,
   nl: `U heeft ${n} deelname${n === 1 ? '' : 's'} aan de trekking. Deel uw link om er meer te krijgen.`,
 }[lang] || '');
+
+/* ----------------------------------------------------------------- web */
+
+/* The greeting the widget opens with: the same introduction WhatsApp uses,
+   with an invitation instead of a menu prompt. */
+export const WEB_GREETING = {
+  en: "Namaste, I'm Diya, the festival's digital host 🪔 Ask me anything about the Brussels Diwali Festival.",
+  fr: "Namaste, je suis Diya, l'hôtesse digitale du festival 🪔 Posez-moi toutes vos questions sur le Brussels Diwali Festival.",
+  nl: 'Namaste, ik ben Diya, de digitale gastvrouw van het festival 🪔 Vraag me alles over het Brussels Diwali Festival.',
+};
+
+/**
+ * What the web says instead of somebody's referral code.
+ *
+ * The widget is on a public page with no proof of who is reading it: a shared
+ * screen, a borrowed laptop, a session token pasted to a friend. A referral
+ * code is worth money in the draw, so the website never says one out loud —
+ * not even to a visitor who has identified as a buyer. It is in their
+ * WhatsApp and in their email, both of which needed their phone or their
+ * inbox to reach.
+ */
+export const LINK_IS_ELSEWHERE = {
+  en: 'Your personal link and your entries are in the WhatsApp and the email you received after buying.',
+  fr: "Votre lien personnel et vos participations se trouvent dans le WhatsApp et l'e-mail reçus après votre achat.",
+  nl: 'Uw persoonlijke link en uw deelnames staan in de WhatsApp en de e-mail die u na uw aankoop ontving.',
+};
+
+export const WEB_MY_TICKETS = (lang, adults, children) => ({
+  en: `You have ${adults} adult and ${children} child ticket${children === 1 ? '' : 's'}, valid on both days. The QR code is in your Ticket Tailor email.`,
+  fr: `Vous avez ${adults} billet${adults === 1 ? '' : 's'} adulte${adults === 1 ? '' : 's'} et ${children} billet${children === 1 ? '' : 's'} enfant${children === 1 ? '' : 's'}, valables les deux jours. Le QR code est dans votre e-mail Ticket Tailor.`,
+  nl: `U heeft ${adults} volwassenenticket${adults === 1 ? '' : 's'} en ${children} kinderticket${children === 1 ? '' : 's'}, geldig op beide dagen. De QR-code staat in uw Ticket Tailor e-mail.`,
+}[lang] || '');
+
+export const NO_TICKET_FOR_EMAIL = {
+  en: "I can't find a ticket for this email. Tickets: https://tickets.artindia.be",
+  fr: "Je ne trouve pas de billet pour cette adresse e-mail. Billets : https://tickets.artindia.be",
+  nl: 'Ik vind geen ticket voor dit e-mailadres. Tickets: https://tickets.artindia.be',
+};
+
+/* The three FAQ answers the web menu offers that WhatsApp does not. */
+export const FOOD_ANSWER = {
+  en: 'Indian food stalls on site, with vegetarian, non-vegetarian and vegan options, and bars serving beer, wine, cocktails and soft drinks. Cards are accepted everywhere. No outside food or drinks, except baby food.',
+  fr: "Des stands de cuisine indienne sur place, avec options végétariennes, non végétariennes et véganes, et des bars servant bière, vin, cocktails et boissons sans alcool. La carte est acceptée partout. Pas de nourriture ni de boisson extérieure, sauf pour les bébés.",
+  nl: 'Indiase eetstanden op het terrein, met vegetarische, niet-vegetarische en veganistische opties, en bars met bier, wijn, cocktails en frisdrank. Kaart wordt overal aanvaard. Geen eten of drinken van buitenaf, behalve babyvoeding.',
+};
+
+export const PROGRAMME_ANSWER = {
+  en: 'Indian music and dance on stage across both days, with fireworks around 21:00, weather permitting. The full programme is at https://diwali.artindia.be',
+  fr: "Musique et danse indiennes sur scène les deux jours, avec un feu d'artifice vers 21h00 selon la météo. Le programme complet est sur https://diwali.artindia.be",
+  nl: 'Indiase muziek en dans op het podium op beide dagen, met vuurwerk rond 21:00, afhankelijk van het weer. Het volledige programma staat op https://diwali.artindia.be',
+};
+
+export const DRAW_ANSWER = {
+  en: 'Every adult ticket is one entry, and every friend who buys with your personal link adds another. The draw is live on stage on Sunday 25 October; the winner is contacted by WhatsApp and email. Rules: https://diwali.artindia.be/draw',
+  fr: "Chaque billet adulte vaut une participation, et chaque ami qui achète avec votre lien personnel en ajoute une. Le tirage a lieu en direct sur scène le dimanche 25 octobre ; le gagnant est contacté par WhatsApp et e-mail. Règlement : https://diwali.artindia.be/draw",
+  nl: 'Elk volwassenenticket is één deelname, en elke vriend die via uw persoonlijke link koopt, geeft er nog een. De trekking is live op het podium op zondag 25 oktober; de winnaar wordt via WhatsApp en e-mail gecontacteerd. Reglement: https://diwali.artindia.be/draw',
+};
+
+export const ASK_PROMPT = {
+  en: 'Go ahead, ask me anything about the festival.',
+  fr: 'Allez-y, posez-moi votre question sur le festival.',
+  nl: 'Ga uw gang, stel me uw vraag over het festival.',
+};
+
+/* Button labels for the widget. Ids never translate. */
+export const WEB_MENU = {
+  en: {
+    guest: [['TICKETS', 'Tickets'], ['GETTING_THERE', 'Getting there'], ['FOOD', 'Food & drink'], ['ASK', 'Ask me anything']],
+    buyer: [['GETTING_THERE', 'Getting there'], ['PROGRAMME', 'Programme'], ['DRAW', 'Lucky draw'], ['ASK', 'Ask me anything']],
+    contact: 'Email the team',
+    whatsapp: 'Chat on WhatsApp',
+    buy: 'Buy tickets',
+  },
+  fr: {
+    guest: [['TICKETS', 'Billets'], ['GETTING_THERE', 'Comment venir'], ['FOOD', 'Boire et manger'], ['ASK', 'Poser une question']],
+    buyer: [['GETTING_THERE', 'Comment venir'], ['PROGRAMME', 'Programme'], ['DRAW', 'Tombola'], ['ASK', 'Poser une question']],
+    contact: "Écrire à l'équipe",
+    whatsapp: 'Discuter sur WhatsApp',
+    buy: 'Acheter un billet',
+  },
+  nl: {
+    guest: [['TICKETS', 'Tickets'], ['GETTING_THERE', 'Bereikbaarheid'], ['FOOD', 'Eten en drinken'], ['ASK', 'Stel een vraag']],
+    buyer: [['GETTING_THERE', 'Bereikbaarheid'], ['PROGRAMME', 'Programma'], ['DRAW', 'Tombola'], ['ASK', 'Stel een vraag']],
+    contact: 'Mail het team',
+    whatsapp: 'Chat op WhatsApp',
+    buy: 'Tickets kopen',
+  },
+};
+
+/* The lead form, and the two answers to it. */
+export const LEAD_PROMPT = {
+  en: 'Want me to keep you posted on the festival? Leave your name and email.',
+  fr: 'Vous voulez que je vous tienne au courant du festival ? Laissez votre nom et votre e-mail.',
+  nl: 'Wilt u op de hoogte blijven van het festival? Laat uw naam en e-mailadres achter.',
+};
+
+export const LEAD_THANKS = (lang, name) => ({
+  en: `Thanks ${name}, you're on the list.`,
+  fr: `Merci ${name}, vous êtes sur la liste.`,
+  nl: `Bedankt ${name}, u staat op de lijst.`,
+}[lang] || '');
+
+export const WELCOME_BACK = (lang, name) => ({
+  en: `Welcome back, ${name}, you have a ticket 🪔`,
+  fr: `Content de vous revoir, ${name}, vous avez un billet 🪔`,
+  nl: `Welkom terug, ${name}, u heeft een ticket 🪔`,
+}[lang] || '');
+
+export const webKey = {
+  session: id => `web:sess:${id}`,
+  log: id => `web:log:${id}`,
+  count: (id, day) => `web:count:${id}:${day}`,
+  ip: (hash, day) => `web:ip:${hash}:${day}`,
+};
 
 /* ------------------------------------------------------------------ menu */
 
@@ -463,14 +591,23 @@ const INSTRUCTIONS =
 /* Whether this is their first message is something the model cannot know and
    two of the rules above depend on, so it is told. It goes in the second,
    uncached block: the FAQ prefix must stay identical on every call. */
-export const systemBlocks = (lang, { firstContact = false, now } = {}) => ([
+/* Web-only rules. They live in the second, uncached block on purpose: put in
+   the first they would fork the cached FAQ prefix in two, one per channel,
+   for the sake of two sentences. */
+const WEB_RULES =
+  ' You are on the festival website.'
+  + ' Never reveal a referral link, referral code, or draw entries; on those questions say:'
+  + ` ${LINK_IS_ELSEWHERE.en}`;
+
+export const systemBlocks = (lang, { firstContact = false, now, web = false } = {}) => ([
   { type: 'text', text: INSTRUCTIONS + faqFor(now), cache_control: { type: 'ephemeral' } },
   {
     type: 'text',
     text: `Reply in ${LANG_NAME[lang] || 'English'}.`
       + (firstContact
         ? ' This is their first message in a while.'
-        : ' This is not their first message: do not open with a greeting, and do not say you are an AI assistant unless they ask.'),
+        : ' This is not their first message: do not open with a greeting, and do not say you are an AI assistant unless they ask.')
+      + (web ? WEB_RULES : ''),
   },
 ]);
 
@@ -510,7 +647,7 @@ export function tidyAnswer(text) {
  * nothing, or the call failed. The three are logged apart but handled the
  * same, because from the buyer's side they are the same.
  */
-export async function askFaq(env, { text, lang, firstContact = false }) {
+export async function askFaq(env, { text, lang, firstContact = false, web = false }) {
   if (!env.ANTHROPIC_API_KEY) {
     console.error('bot: ANTHROPIC_API_KEY unset');
     return { answer: '', reason: 'no_key' };
@@ -521,7 +658,7 @@ export async function askFaq(env, { text, lang, firstContact = false }) {
     const res = await client.messages.create({
       model: env.WA_BOT_MODEL || DEFAULT_MODEL,
       max_tokens: 300,
-      system: systemBlocks(lang, { firstContact }),
+      system: systemBlocks(lang, { firstContact, web }),
       messages: [{ role: 'user', content: String(text).slice(0, 2000) }],
     });
 
