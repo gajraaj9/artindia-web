@@ -52,16 +52,30 @@
 
   /* --------------------------------------------------------------- state */
 
-  var state = { session: null, transcript: [], open: false };
+  var state = { session: null, transcript: [], lang: LANG, open: false };
   try {
     var saved = JSON.parse(sessionStorage.getItem(KEY) || 'null');
-    if (saved) state = { session: saved.session, transcript: saved.transcript || [], open: false };
+    if (saved) {
+      /* sessionStorage is per origin, and /, /fr/ and /nl/ share one. A
+         transcript carried from the English page was being replayed on the
+         French one, which is why the greeting and the buttons came back in
+         the wrong language. Crossing languages drops the transcript and asks
+         for a fresh greeting; the session token survives, so a buyer stays a
+         buyer and nobody is asked for their email twice. */
+      var sameLang = (saved.lang || 'en') === LANG;
+      state = {
+        session: saved.session,
+        transcript: sameLang ? (saved.transcript || []) : [],
+        lang: LANG,
+        open: false,
+      };
+    }
   } catch (e) { /* private mode; the widget just starts fresh */ }
 
   function persist() {
     try {
       sessionStorage.setItem(KEY, JSON.stringify({
-        session: state.session, transcript: state.transcript.slice(-MAX_KEPT),
+        session: state.session, lang: LANG, transcript: state.transcript.slice(-MAX_KEPT),
       }));
     } catch (e) { /* nothing to do about a full or blocked store */ }
   }
@@ -329,11 +343,12 @@
     launchers.hidden = true;
     state.open = true;
 
-    /* A returning page keeps its thread; a fresh one opens with the greeting.
+    /* A returning page keeps its thread and asks only for the buttons, which
+       are not part of the transcript; a fresh one opens with the greeting.
        Either way the server is told, so it can mint or refresh the session. */
     if (!log.childElementCount) {
       state.transcript.forEach(function (m) { bubble(m.who, m.text); });
-      if (!state.transcript.length) talk({});
+      talk(state.transcript.length ? { resume: true } : {});
     }
     input.focus();
     fire('diya_open');

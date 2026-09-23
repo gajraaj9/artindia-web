@@ -159,13 +159,36 @@ const MARKERS = {
  * of the question anyway, so a wrong guess here costs a menu in the wrong
  * language, not a wrong answer.
  */
-export function detectLang(text) {
+export function scoreLangs(text) {
   const s = String(text || '');
-  if (!s.trim()) return '';
   const score = l => (s.match(MARKERS[l]) || []).length;
-  const scores = { fr: score('fr'), nl: score('nl'), en: score('en') };
+  return { fr: score('fr'), nl: score('nl'), en: score('en') };
+}
+
+export function detectLang(text) {
+  if (!String(text || '').trim()) return '';
+  const scores = scoreLangs(text);
   const best = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
   return best[1] > 0 ? best[0] : '';
+}
+
+/**
+ * The language of a message, but only when it clearly beats the one we were
+ * already told.
+ *
+ * On WhatsApp any signal is better than none, because there is nothing else
+ * to go on. On the website there is: the page carries <html lang>, chosen by
+ * the visitor when they picked that version of the site. Overriding that
+ * needs more than a single stray marker — "a question" typed on the French
+ * page is not a request to be answered in English, and one weak hit used to
+ * be enough to switch.
+ */
+export function confidentLang(text, pageLang) {
+  const fallback = LANGS.includes(pageLang) ? pageLang : 'en';
+  if (!String(text || '').trim()) return fallback;
+  const scores = scoreLangs(text);
+  const [best, count] = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
+  return count >= 2 && count > (scores[fallback] || 0) ? best : fallback;
 }
 
 /**
@@ -275,8 +298,8 @@ export const myChancesReply = (lang, n) => ({
    with an invitation instead of a menu prompt. */
 export const WEB_GREETING = {
   en: "Namaste, I'm Diya, the festival's digital host 🪔 Ask me anything about the Brussels Diwali Festival.",
-  fr: "Namaste, je suis Diya, l'hôtesse digitale du festival 🪔 Posez-moi toutes vos questions sur le Brussels Diwali Festival.",
-  nl: 'Namaste, ik ben Diya, de digitale gastvrouw van het festival 🪔 Vraag me alles over het Brussels Diwali Festival.',
+  fr: "Namaste, je suis Diya, l'hôtesse digitale du festival 🪔 Posez-moi vos questions sur le Brussels Diwali Festival.",
+  nl: 'Namaste, ik ben Diya, de digitale gastvrouw van het festival 🪔 Stel me uw vragen over het Brussels Diwali Festival.',
 };
 
 /**

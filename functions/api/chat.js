@@ -25,7 +25,7 @@ import {
   json, safeEqual, isEmail, truthy, brevo, getContact, upsertContact,
 } from './_shared.js';
 import {
-  askFaq, readAction, pickLang, tidyAnswer, botKey, webKey, listAll,
+  askFaq, readAction, confidentLang, tidyAnswer, botKey, webKey, listAll,
   WEB_GREETING, WEB_MENU, LINK_IS_ELSEWHERE, WEB_MY_TICKETS, NO_TICKET_FOR_EMAIL,
   TICKETS_ANSWER, GETTING_THERE_ANSWER, FOOD_ANSWER, PROGRAMME_ANSWER, DRAW_ANSWER,
   ASK_PROMPT, FALLBACK_BASE, LEAD_PROMPT, LEAD_THANKS, WELCOME_BACK,
@@ -216,9 +216,10 @@ export async function onRequestPost({ request, env }) {
   const kv = env.REFERRALS || null;
   const session = (await open(env.CHAT_SESSION_SECRET, body.session)) || freshSession();
 
+  /* <html lang> may be a regional tag: nl-BE is Dutch. */
   const pageLang = String(body.lang || '').slice(0, 2).toLowerCase();
   const message = String(body.message || '').trim().slice(0, 1000);
-  const lang = pickLang({ cachedLang: pageLang, messageText: message });
+  const lang = confidentLang(message, pageLang);
 
   /* Server-side state: the email behind a buyer, which never travels. */
   let saved = null;
@@ -227,7 +228,7 @@ export async function onRequestPost({ request, env }) {
 
   const out = async (text, buttons = [], extra = {}) => {
     session.exp = Date.now() + SESSION_HOURS * 3600 * 1000;
-    await logTurn(kv, session.id, { dir: 'out', text }, { lang, state: session.st, buyer });
+    if (text) await logTurn(kv, session.id, { dir: 'out', text }, { lang, state: session.st, buyer });
     return reply(200, {
       reply: text,
       buttons,
@@ -236,6 +237,13 @@ export async function onRequestPost({ request, env }) {
       ...extra,
     }, origin);
   };
+
+  /* --- picking a conversation back up ---
+     The widget already has the transcript; it is asking for the buttons,
+     which are not stored with it. No greeting, because it has one. */
+  if (body.resume) {
+    return out('', menuButtons(lang, buyer));
+  }
 
   /* --- the opening --- */
   if (!body.message && !body.action && !body.lead && !body.identify) {

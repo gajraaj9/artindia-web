@@ -388,3 +388,121 @@ test('no phone number is ever asked for or stored', async () => {
   const blob = JSON.stringify(writes) + [...kv.store.values()].join('');
   assert.ok(!/SMS|WHATSAPP|phone/i.test(blob), 'the web has no business with a phone number');
 });
+
+/* --------------------------------------------------- one test per language */
+
+const EXPECTED = {
+  en: {
+    greeting: "Namaste, I'm Diya, the festival's digital host 🪔 Ask me anything about the Brussels Diwali Festival.",
+    buttons: ['Tickets', 'Getting there', 'Food & drink', 'Ask me anything'],
+    lead: 'Want me to keep you posted on the festival? Leave your name and email.',
+    fallback: "Thanks for your message. I can't answer that here. Write to diwali@artindia.be or see diwali.artindia.be.",
+    help: ['Email the team', 'Chat on WhatsApp'],
+    noTicket: /can't find a ticket for this email/,
+  },
+  fr: {
+    greeting: "Namaste, je suis Diya, l'hôtesse digitale du festival 🪔 Posez-moi vos questions sur le Brussels Diwali Festival.",
+    buttons: ['Billets', 'Comment venir', 'Boire et manger', 'Poser une question'],
+    lead: 'Vous voulez que je vous tienne au courant du festival ? Laissez votre nom et votre e-mail.',
+    fallback: 'Merci pour votre message. Je ne peux pas répondre à cela ici. Écrivez à diwali@artindia.be ou consultez diwali.artindia.be.',
+    help: ["Écrire à l'équipe", 'Discuter sur WhatsApp'],
+    noTicket: /ne trouve pas de billet/,
+  },
+  nl: {
+    greeting: 'Namaste, ik ben Diya, de digitale gastvrouw van het festival 🪔 Stel me uw vragen over het Brussels Diwali Festival.',
+    buttons: ['Tickets', 'Bereikbaarheid', 'Eten en drinken', 'Stel een vraag'],
+    lead: 'Wilt u op de hoogte blijven van het festival? Laat uw naam en e-mailadres achter.',
+    fallback: 'Bedankt voor uw bericht. Daar kan ik hier niet op antwoorden. Mail naar diwali@artindia.be of kijk op diwali.artindia.be.',
+    help: ['Mail het team', 'Chat op WhatsApp'],
+    noTicket: /vind geen ticket/,
+  },
+};
+
+for (const [lang, want] of Object.entries(EXPECTED)) {
+  test(`${lang}: the page language carries the greeting, buttons, lead prompt and fallback`, async () => {
+    const env = ENV(memoryKv());
+    world({ answer: 'NOT_COVERED' });
+
+    const open = await chat(env, { lang });
+    assert.equal(open.body.reply, want.greeting, `${lang} greeting`);
+    assert.deepEqual(open.body.buttons.map(b => b.label), want.buttons, `${lang} menu`);
+
+    const asked = await chat(env, { lang, session: open.body.session, message: 'a question' });
+    assert.equal(asked.body.reply, want.fallback, `${lang} fallback`);
+    assert.deepEqual(asked.body.buttons.map(b => b.label), want.help, `${lang} help buttons`);
+
+    const tickets = await chat(env, { lang, session: asked.body.session, action: 'TICKETS' });
+    assert.equal(tickets.body.askLead, true);
+    assert.equal(tickets.body.leadPrompt, want.lead, `${lang} lead prompt`);
+
+    const stranger = await chat(env, { lang, identify: { email: 'nobody@example.com' } });
+    assert.match(stranger.body.reply, want.noTicket, `${lang} no-ticket line`);
+  });
+}
+
+test('a regional tag still picks the language: nl-BE is Dutch', async () => {
+  world();
+  /* build-diwali.mjs emits <html lang="nl-BE">, and the widget sends whatever
+     it finds there. */
+  const r = await chat(ENV(memoryKv()), { lang: 'nl-BE' });
+  assert.equal(r.body.reply, EXPECTED.nl.greeting);
+});
+
+test('resuming asks for buttons, not another greeting', async () => {
+  const env = ENV(memoryKv());
+  world();
+  const open = await chat(env, { lang: 'fr' });
+  const back = await chat(env, { lang: 'fr', session: open.body.session, resume: true });
+
+  assert.equal(back.body.reply, '', 'the widget already has the transcript');
+  assert.deepEqual(back.body.buttons.map(b => b.label), EXPECTED.fr.buttons,
+    'but not the buttons, which is what it came back for');
+});
+
+test('crossing languages re-greets rather than replaying the other one', async () => {
+  const env = ENV(memoryKv());
+  world();
+  const en = await chat(env, { lang: 'en' });
+  assert.equal(en.body.reply, EXPECTED.en.greeting);
+
+  /* What the widget does when sessionStorage was written on /: same session,
+     no transcript, so a greeting in the language of the page now open. */
+  const fr = await chat(env, { lang: 'fr', session: en.body.session });
+  assert.equal(fr.body.reply, EXPECTED.fr.greeting);
+  assert.deepEqual(fr.body.buttons.map(b => b.label), EXPECTED.fr.buttons);
+});
+
+test('a buyer keeps their state across a language switch', async () => {
+  const kv = memoryKv();
+  world({ contacts: { 'gajraaj@gmail.com': BUYER } });
+  const id = await chat(ENV(kv), { lang: 'en', identify: { email: 'gajraaj@gmail.com' } });
+  assert.equal(id.body.state.known, 'buyer');
+
+  const fr = await chat(ENV(kv), { lang: 'fr', session: id.body.session });
+  assert.equal(fr.body.state.known, 'buyer', 'the session token survives the switch');
+  assert.deepEqual(fr.body.buttons.map(b => b.id),
+    ['GETTING_THERE', 'PROGRAMME', 'DRAW', 'ASK']);
+  assert.match(fr.body.reply, /^Namaste, je suis Diya/);
+});
+
+test('the page language is only overridden by a clear signal', async () => {
+  world({ answer: 'ok' });
+
+  /* Weak: one stray English marker on a French page is not a request to
+     switch, and used to be treated as one. */
+  for (const weak of ['a question', 'ok', 'hi', '?', 'Diya']) {
+    const { prompts } = world({ answer: 'ok' });
+    await chat(ENV(memoryKv()), { lang: 'fr', message: weak });
+    assert.match(prompts[0].system[1].text, /^Reply in French\./, JSON.stringify(weak));
+  }
+
+  /* Clear: a whole sentence in another language does switch. */
+  for (const [text, expect] of [
+    ['Hoeveel kosten de kaartjes?', /^Reply in Dutch\./],
+    ['Quel est le prix des billets ?', /^Reply in French\./],
+  ]) {
+    const { prompts } = world({ answer: 'ok' });
+    await chat(ENV(memoryKv()), { lang: 'en', message: text });
+    assert.match(prompts[0].system[1].text, expect, text);
+  }
+});
