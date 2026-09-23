@@ -16,26 +16,125 @@ import { FAQ_RAW } from './_faq.js';
 
 /* --------------------------------------------------------------- the faq */
 
+/* The day the presale price gives way to the October one, in Brussels. */
+export const PRICE_CUTOVER = '2026-10-01';
+const UNTIL_TAG = '[UNTIL 30 SEP]';
+const FROM_TAG = '[1 OCT]';
+
+/** Today's date in Brussels, as YYYY-MM-DD. Not UTC: the price changes here. */
+export function brusselsDay(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Brussels', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now);
+  const at = t => (parts.find(x => x.type === t) || {}).value || '';
+  return `${at('year')}-${at('month')}-${at('day')}`;
+}
+
+/**
+ * One line, with whichever dated variant is in force today.
+ *
+ * Two shapes appear in the FAQ and both have to work:
+ *
+ *   A [UNTIL 30 SEP] 10 EUR [1 OCT] 12 EUR ticket, with children free.
+ *   A: [UNTIL 30 SEP] Presale 10 EUR until 30 September...
+ *   A: [1 OCT] 12 EUR online...
+ *
+ * A line carrying one tag belongs entirely to that variant: kept without the
+ * tag, or dropped. A line carrying both is a swap inside a sentence, where
+ * the second variant runs for as many words as the first — that is the only
+ * thing that says where it ends, the sentence carrying on afterwards. Any
+ * punctuation clinging to the end of the second variant belongs to the
+ * sentence rather than the price, so it is handed back to it.
+ *
+ * Returns null for a line that today should not exist at all.
+ */
+function resolveDated(line, fromOctober) {
+  const hasUntil = line.includes(UNTIL_TAG);
+  const hasFrom = line.includes(FROM_TAG);
+  if (!hasUntil && !hasFrom) return line;
+
+  const i = line.indexOf(UNTIL_TAG);
+  const j = line.indexOf(FROM_TAG, i >= 0 ? i : 0);
+
+  if (hasUntil && hasFrom && i >= 0 && j > i) {
+    const before = line.slice(0, i);
+    const untilSpan = line.slice(i + UNTIL_TAG.length, j).trim();
+    const after = line.slice(j + FROM_TAG.length).replace(/^\s*/, '');
+
+    /* Split keeping the gaps, so words sit at even indices and the spacing
+       between them survives. */
+    const bits = after.split(/(\s+)/);
+    const wanted = untilSpan.split(/\s+/).filter(Boolean).length;
+    let taken = '';
+    let words = 0;
+    let k = 0;
+    while (k < bits.length && words < wanted) {
+      taken += bits[k];
+      if (k % 2 === 0 && bits[k]) words += 1;
+      k += 1;
+    }
+    let fromSpan = taken.trim();
+    let tail = bits.slice(k).join('');
+
+    const trailing = /[,.;:!?]+$/.exec(fromSpan);
+    if (trailing && !/[,.;:!?]+$/.test(untilSpan)) {
+      fromSpan = fromSpan.slice(0, -trailing[0].length);
+      tail = trailing[0] + tail;
+    }
+
+    return `${before}${fromOctober ? fromSpan : untilSpan}${tail}`.replace(/[ \t]{2,}/g, ' ');
+  }
+
+  /* One tag: the whole line is that variant's. */
+  const inForce = hasFrom ? fromOctober : !fromOctober;
+  if (!inForce) return null;
+  return line
+    .replace(UNTIL_TAG, '')
+    .replace(FROM_TAG, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/^(\s*[A-Z]:)\s+/, '$1 ');
+}
+
 /**
  * The FAQ as the model should see it.
  *
- * Two things come out. HTML comments hide the prices that take effect on
- * 1 October — leaving them in would let the bot quote 12 EUR during the 10 EUR
- * presale, which is the single most expensive thing it could get wrong. Lines
- * marked [CONFIRM] are facts nobody has signed off yet; the bot must not say
- * them out loud.
+ * Three things come out. The editing notes above the first language section,
+ * which are instructions to whoever maintains the file and not knowledge —
+ * and which themselves mention the date tags, so leaving them in would put a
+ * worked example of both prices in front of the model. Lines marked
+ * [CONFIRM], which are facts nobody has signed off yet. And whichever dated
+ * variant is not in force today, so the bot can never quote the October price
+ * during the presale, or the presale price after it has ended.
  */
-export function stripFaq(raw) {
-  return String(raw || '')
-    .replace(/<!--[\s\S]*?-->/g, '')
+export function stripFaq(raw, now = new Date()) {
+  let text = String(raw || '').replace(/<!--[\s\S]*?-->/g, '');
+
+  /* Everything before the first language banner is for editors. */
+  const firstSection = text.indexOf('# =====');
+  if (firstSection > 0) text = text.slice(firstSection);
+
+  const fromOctober = brusselsDay(now) >= PRICE_CUTOVER;
+
+  return text
     .split('\n')
     .filter(line => !line.includes('[CONFIRM]'))
+    .map(line => resolveDated(line, fromOctober))
+    .filter(line => line !== null)
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
-export const FAQ = stripFaq(FAQ_RAW);
+/* Computed per Brussels day rather than once per isolate: a worker can live
+   for hours, and one that started on 30 September must not still be quoting
+   the presale on 1 October. */
+const faqByDay = new Map();
+
+export function faqFor(now = new Date()) {
+  const day = brusselsDay(now);
+  if (!faqByDay.has(day)) faqByDay.set(day, stripFaq(FAQ_RAW, now));
+  return faqByDay.get(day);
+}
 
 /* ------------------------------------------------------------- languages */
 
@@ -364,8 +463,8 @@ const INSTRUCTIONS =
 /* Whether this is their first message is something the model cannot know and
    two of the rules above depend on, so it is told. It goes in the second,
    uncached block: the FAQ prefix must stay identical on every call. */
-export const systemBlocks = (lang, { firstContact = false } = {}) => ([
-  { type: 'text', text: INSTRUCTIONS + FAQ, cache_control: { type: 'ephemeral' } },
+export const systemBlocks = (lang, { firstContact = false, now } = {}) => ([
+  { type: 'text', text: INSTRUCTIONS + faqFor(now), cache_control: { type: 'ephemeral' } },
   {
     type: 'text',
     text: `Reply in ${LANG_NAME[lang] || 'English'}.`

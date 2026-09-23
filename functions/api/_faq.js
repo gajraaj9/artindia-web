@@ -5,7 +5,7 @@ export const FAQ_RAW = `# Brussels Diwali Festival 2026 - Bot FAQ
 
 This file is the bot's ENTIRE knowledge. It answers only from what is written here.
 Rules for editing: plain facts, one Q&A per block, no promises not written here. Keep the three language sections identical in content.
-Lines inside <!-- [1 OCT] --> comments are hidden until 1 October: uncomment them on that day and delete the presale lines.
+Date tags, applied automatically by the bot in Brussels time: text marked [UNTIL 30 SEP] is used until 30 September inclusive; text marked [1 OCT] is used from 1 October. Where both appear in one line, only the tag in force is kept and the tag words are removed.
 
 # ===================== EN =====================
 
@@ -23,11 +23,11 @@ A: The 10th Brussels Diwali Festival, organised by Art India: Indian music and d
 ## Tickets
 
 Q: Why are there tickets this year? It was always free.
-A: We want every visitor to enjoy it in comfort: a counted site so it never gets overcrowded, more space to eat and dance, a full stage programme and fireworks. A 10 EUR ticket, with children under 12 free, makes that possible. Buy early, bring the family, and be part of ten years of Diwali in Brussels.
+A: We want every visitor to enjoy it in comfort: a counted site so it never gets overcrowded, more space to eat and dance, a full stage programme and fireworks. A [UNTIL 30 SEP] 10 EUR [1 OCT] 12 EUR ticket, with children under 12 free, makes that possible. Buy early, bring the family, and be part of ten years of Diwali in Brussels.
 
 Q: How much are tickets?
-A: Presale 10 EUR until 30 September. At the gate: 15 EUR. Children under 12 enter free.
-<!-- [1 OCT] A: 12 EUR online, 15 EUR at the gate. Children under 12 enter free. -->
+A: [UNTIL 30 SEP] Presale 10 EUR until 30 September. At the gate: 15 EUR. Children under 12 enter free.
+A: [1 OCT] 12 EUR online, 15 EUR at the gate. Children under 12 enter free.
 
 Q: Where do I buy tickets?
 A: Online at https://tickets.artindia.be. Payment by Bancontact, card, Apple Pay, Google Pay or Revolut Pay.
@@ -65,7 +65,7 @@ Q: What if I am not there at the time of the draw?
 A: No problem. If your ticket wins and meets the other criteria, the prize is yours. The winner is contacted by WhatsApp and email.
 
 Q: Where is my link?
-A: Tap "My link" in this chat and the bot sends it again.
+A: Tap "My link" in this chat and Diya sends it again.
 
 ## Programme
 
@@ -108,6 +108,12 @@ A: The festival takes place rain or shine; the stage is covered, the public area
 Q: Are dogs allowed?
 A: No, for safety reasons, except assistance dogs. It would also be too loud for them.
 
+Q: Is there somewhere to sit?
+A: Yes. There are tables and chairs, high standing tables, and a couple of covered dining tents where you can sit and eat.
+
+Q: Can I bring a drone?
+A: No. Drones are not allowed on or above the site.
+
 Q: Can I re-enter after leaving?
 A: Yes, keep your wristband on.
 
@@ -116,6 +122,14 @@ A: Ask at the info point on site, or write to diwali@artindia.be after the festi
 
 Q: Can I perform, have a stall, or sponsor?
 A: Write to diwali@artindia.be and the team will get back to you.
+
+## About Diya
+
+Q: Who are you? Are you a real person?
+A: I'm Diya, the festival's digital host, an AI assistant run by Art India. I answer questions about the Brussels Diwali Festival; for anything else, the team is at diwali@artindia.be.
+
+Q: Why the name Diya?
+A: A diya is the small clay lamp lit at Diwali. The festival's host could hardly be called anything else.
 
 ## Contact
 
@@ -138,11 +152,11 @@ R: La 10e édition du Brussels Diwali Festival, organisée par Art India : musiq
 ## Billets
 
 Q: Pourquoi des billets cette année ? C'était toujours gratuit.
-R: Nous voulons que chaque visiteur en profite dans le confort : un site avec comptage du public pour éviter la surpopulation, plus d'espace pour manger et danser, un programme complet sur scène et un feu d'artifice. Un billet à 10 EUR, gratuit pour les moins de 12 ans, rend cela possible. Réservez tôt, venez en famille et faites partie de dix ans de Diwali à Bruxelles.
+R: Nous voulons que chaque visiteur en profite dans le confort : un site avec comptage du public pour éviter la surpopulation, plus d'espace pour manger et danser, un programme complet sur scène et un feu d'artifice. Un billet à [UNTIL 30 SEP] 10 EUR [1 OCT] 12 EUR, gratuit pour les moins de 12 ans, rend cela possible. Réservez tôt, venez en famille et faites partie de dix ans de Diwali à Bruxelles.
 
 Q: Combien coûtent les billets ?
-R: Prévente 10 EUR jusqu'au 30 septembre. À l'entrée : 15 EUR. Gratuit pour les enfants de moins de 12 ans.
-<!-- [1 OCT] R: 12 EUR en ligne, 15 EUR à l'entrée. Gratuit pour les enfants de moins de 12 ans. -->
+R: [UNTIL 30 SEP] Prévente 10 EUR jusqu'au 30 septembre. À l'entrée : 15 EUR. Gratuit pour les enfants de moins de 12 ans.
+R: [1 OCT] 12 EUR en ligne, 15 EUR à l'entrée. Gratuit pour les enfants de moins de 12 ans.
 
 Q: Où acheter les billets ?
 R: En ligne sur https://tickets.artindia.be. Paiement par Bancontact, carte, Apple Pay, Google Pay ou Revolut Pay.
@@ -180,7 +194,7 @@ Q: Et si je ne suis pas là au moment du tirage ?
 R: Pas de souci. Si votre billet gagne et remplit les autres conditions, le prix est à vous. Le gagnant est contacté par WhatsApp et par e-mail.
 
 Q: Où est mon lien ?
-R: Appuyez sur « Mon lien » dans ce chat et le bot vous le renvoie.
+R: Appuyez sur « Mon lien » dans ce chat et Diya vous le renvoie.
 
 ## Programme
 
@@ -223,6 +237,12 @@ R: Le festival a lieu par tous les temps ; la scène est couverte, l'espace publ
 Q: Les chiens sont-ils admis ?
 R: Non, pour des raisons de sécurité, sauf les chiens d'assistance. Ce serait aussi trop bruyant pour eux.
 
+Q: Y a-t-il de quoi s'asseoir ?
+R: Oui. Il y a des tables et des chaises, des mange-debout et quelques tentes-restaurant couvertes pour s'asseoir et manger.
+
+Q: Puis-je apporter un drone ?
+R: Non. Les drones ne sont pas autorisés sur le site ni au-dessus.
+
 Q: Puis-je ressortir et revenir ?
 R: Oui, gardez votre bracelet.
 
@@ -231,6 +251,14 @@ R: Adressez-vous au point info sur place, ou écrivez à diwali@artindia.be apr�
 
 Q: Puis-je me produire sur scène, tenir un stand ou sponsoriser ?
 R: Écrivez à diwali@artindia.be et l'équipe vous répondra.
+
+## À propos de Diya
+
+Q: Qui êtes-vous ? Êtes-vous une vraie personne ?
+R: Je suis Diya, l'hôtesse digitale du festival, une assistante IA gérée par Art India. Je réponds aux questions sur le Brussels Diwali Festival ; pour tout le reste, l'équipe est joignable à diwali@artindia.be.
+
+Q: Pourquoi le nom Diya ?
+R: Une diya est la petite lampe en argile que l'on allume à Diwali. L'hôtesse du festival ne pouvait guère s'appeler autrement.
 
 ## Contact
 
@@ -253,11 +281,11 @@ A: De 10e editie van het Brussels Diwali Festival, georganiseerd door Art India:
 ## Tickets
 
 V: Waarom tickets dit jaar? Het was altijd gratis.
-A: We willen dat elke bezoeker er comfortabel van geniet: een geteld terrein zodat het nooit te druk wordt, meer ruimte om te eten en te dansen, een volledig podiumprogramma en vuurwerk. Een ticket van 10 EUR, gratis voor kinderen onder 12, maakt dat mogelijk. Koop vroeg, breng de familie mee en maak deel uit van tien jaar Diwali in Brussel.
+A: We willen dat elke bezoeker er comfortabel van geniet: een geteld terrein zodat het nooit te druk wordt, meer ruimte om te eten en te dansen, een volledig podiumprogramma en vuurwerk. Een ticket van [UNTIL 30 SEP] 10 EUR [1 OCT] 12 EUR, gratis voor kinderen onder 12, maakt dat mogelijk. Koop vroeg, breng de familie mee en maak deel uit van tien jaar Diwali in Brussel.
 
 V: Hoeveel kosten de tickets?
-A: Voorverkoop 10 EUR tot 30 september. Aan de ingang: 15 EUR. Kinderen onder 12 jaar gratis.
-<!-- [1 OCT] A: 12 EUR online, 15 EUR aan de ingang. Kinderen onder 12 jaar gratis. -->
+A: [UNTIL 30 SEP] Voorverkoop 10 EUR tot 30 september. Aan de ingang: 15 EUR. Kinderen onder 12 jaar gratis.
+A: [1 OCT] 12 EUR online, 15 EUR aan de ingang. Kinderen onder 12 jaar gratis.
 
 V: Waar koop ik tickets?
 A: Online op https://tickets.artindia.be. Betalen met Bancontact, kaart, Apple Pay, Google Pay of Revolut Pay.
@@ -295,7 +323,7 @@ V: Wat als ik er niet ben tijdens de trekking?
 A: Geen probleem. Als uw ticket wint en aan de andere voorwaarden voldoet, is de prijs voor u. De winnaar wordt via WhatsApp en e-mail gecontacteerd.
 
 V: Waar is mijn link?
-A: Tik op "Mijn link" in deze chat en de bot stuurt hem opnieuw.
+A: Tik op "Mijn link" in deze chat en Diya stuurt hem opnieuw.
 
 ## Programma
 
@@ -338,6 +366,12 @@ A: Het festival gaat door bij elk weer; het podium is overdekt, het publieksgede
 V: Zijn honden toegelaten?
 A: Nee, om veiligheidsredenen, behalve assistentiehonden. Het zou ook te luid zijn voor hen.
 
+V: Is er ergens plaats om te zitten?
+A: Ja. Er zijn tafels en stoelen, statafels en enkele overdekte eettenten om te zitten en te eten.
+
+V: Mag ik een drone meebrengen?
+A: Nee. Drones zijn niet toegelaten op of boven het terrein.
+
 V: Mag ik het terrein verlaten en terugkomen?
 A: Ja, houd uw polsbandje om.
 
@@ -346,6 +380,14 @@ A: Vraag aan het infopunt op het terrein, of mail na het festival naar diwali@ar
 
 V: Kan ik optreden, een stand hebben of sponsoren?
 A: Mail naar diwali@artindia.be en het team neemt contact met u op.
+
+## Over Diya
+
+V: Wie ben jij? Ben je een echt persoon?
+A: Ik ben Diya, de digitale gastvrouw van het festival, een AI-assistent van Art India. Ik beantwoord vragen over het Brussels Diwali Festival; voor al het andere is het team bereikbaar op diwali@artindia.be.
+
+V: Waarom de naam Diya?
+A: Een diya is het kleine kleilampje dat met Diwali wordt aangestoken. De gastvrouw van het festival kon moeilijk anders heten.
 
 ## Contact
 

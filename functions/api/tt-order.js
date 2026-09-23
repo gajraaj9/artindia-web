@@ -170,11 +170,29 @@ function questions(order) {
  */
 const referralTag = order => String(order.referral_tag || '').trim().slice(0, 120);
 
+/**
+ * Tags that name a channel rather than a person.
+ *
+ * /i/<n> mints ig-<n>, one per Instagram post, so a campaign can be read per
+ * post instead of as one lump. These must never be looked up as referral
+ * codes: there is nobody behind them to credit, and a KV read per order for a
+ * key that cannot exist is a round trip spent on nothing.
+ */
+const CHANNEL_TAGS = [[/^ig-/i, 'instagram']];
+
+function channelOf(tag) {
+  for (const [re, source] of CHANNEL_TAGS) if (re.test(tag)) return source;
+  return '';
+}
+
 /* The same tag, when it is one of our referral codes rather than a channel
-   name. Anything that is not six characters of the code alphabet is somebody
+   name. A channel tag is ruled out before the shape is even checked, and
+   anything else that is not six characters of the code alphabet is somebody
    else's campaign and credits nobody. */
 function findCampaign(order) {
-  const tag = referralTag(order).toUpperCase();
+  const raw = referralTag(order);
+  if (channelOf(raw)) return '';
+  const tag = raw.toUpperCase();
   return CODE_RE.test(tag) ? tag : '';
 }
 
@@ -721,7 +739,16 @@ export async function onRequestPost({ request, env }) {
     };
     if (firstName) attributes.FIRSTNAME = firstName;
     if (lastName) attributes.LASTNAME = lastName;
-    if (ref) attributes.UTM_SOURCE = ref;
+    /* A channel tag is filed as the channel it names, with the tag itself as
+       the campaign, so Brevo can segment on "came from Instagram" and on
+       which post. Anything else is recorded as it arrived. */
+    const channel = channelOf(ref);
+    if (channel) {
+      attributes.UTM_SOURCE = channel;
+      attributes.UTM_CAMPAIGN = ref;
+    } else if (ref) {
+      attributes.UTM_SOURCE = ref;
+    }
     if (code) attributes.REFERRAL_CODE = code;
     /* SMS and WHATSAPP are the same number. Brevo keeps them apart because one
        is billed per message and the other is a channel identity. */

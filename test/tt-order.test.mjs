@@ -578,3 +578,74 @@ test('the header image URL is overridable without a deploy', async () => {
   const header = sends[0].template.components.find(c => c.type === 'header');
   assert.equal(header.parameters[0].image.link, 'https://example.com/x.jpg');
 });
+
+/* ----------------------------------------------- Instagram channel tags */
+
+test('an ig- tag is filed as a channel, and credits nobody', async () => {
+  /* ig-7 is one Instagram post, not a person. There is nothing behind it to
+     credit, and KV must not be asked for a key that cannot exist. */
+  const kv = memoryKv({
+    'code:ABC234': JSON.stringify({ email: 'ravi@artindia.be', firstname: 'Ravi' }),
+  });
+  const reads = [];
+  const wrapped = {
+    ...kv,
+    async get(k, t) { reads.push(k); return kv.get(k, t); },
+  };
+  const { db } = stubWorld({
+    contacts: {
+      'ravi@artindia.be': {
+        email: 'ravi@artindia.be', listIds: [12], attributes: { REFERRED_BY: 4 },
+      },
+    },
+  });
+
+  const res = await post({ ...ENV, REFERRALS: wrapped }, order({ referral_tag: 'ig-7' }));
+  assert.equal(res.status, 200);
+
+  const c = db.get('anouk@example.com');
+  assert.equal(c.attributes.UTM_SOURCE, 'instagram', 'the channel, not the raw tag');
+  assert.equal(c.attributes.UTM_CAMPAIGN, 'ig-7', 'and which post');
+  assert.equal(db.get('ravi@artindia.be').attributes.REFERRED_BY, 4, 'nobody credited');
+  assert.ok(!reads.some(k => k.startsWith('code:ig')), 'never looked up as a referral code');
+});
+
+test('ig- tags of every shape are handled without throwing', async () => {
+  for (const tag of ['ig-1', 'ig-launch-2026', 'IG-7', 'ig-', 'ig-aaaaaaaaaaaaaaaaaaaa']) {
+    const { db } = stubWorld();
+    const res = await post({ ...ENV, REFERRALS: memoryKv() }, order({ referral_tag: tag }));
+    assert.equal(res.status, 200, tag);
+    assert.equal((await res.json()).ok, true, tag);
+    assert.equal(db.get('anouk@example.com').attributes.UTM_SOURCE, 'instagram', tag);
+    assert.equal(db.get('anouk@example.com').attributes.UTM_CAMPAIGN, tag, tag);
+  }
+});
+
+test('a real referral code still credits its owner, exactly as before', async () => {
+  const kv = memoryKv({
+    'code:ABC234': JSON.stringify({ email: 'ravi@artindia.be', firstname: 'Ravi' }),
+  });
+  const { db } = stubWorld({
+    contacts: {
+      'ravi@artindia.be': {
+        email: 'ravi@artindia.be', listIds: [12], attributes: { REFERRED_BY: 4 },
+      },
+    },
+  });
+
+  await post({ ...ENV, REFERRALS: kv }, order({ referral_tag: 'ABC234' }));
+
+  assert.equal(db.get('ravi@artindia.be').attributes.REFERRED_BY, 6, '4 + 2 adults');
+  assert.equal(db.get('anouk@example.com').attributes.UTM_SOURCE, 'ABC234',
+    'a code is recorded as it arrived, not renamed to a channel');
+  assert.equal(db.get('anouk@example.com').attributes.UTM_CAMPAIGN, undefined);
+  assert.equal(Number(await kv.get('refcount:ABC234')), 2);
+});
+
+test('the widget tag is still neither a channel nor a code', async () => {
+  const { db } = stubWorld();
+  await post({ ...ENV, REFERRALS: memoryKv() }, order());   /* event_page_widget */
+  const c = db.get('anouk@example.com');
+  assert.equal(c.attributes.UTM_SOURCE, 'event_page_widget');
+  assert.equal(c.attributes.UTM_CAMPAIGN, undefined);
+});

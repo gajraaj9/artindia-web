@@ -59,16 +59,36 @@ the only thing between the model and the message.
    Worker cannot read files, so the knowledge ships inside the bundle.
 3. It is live on the next deploy. There is no cache to clear.
 
-Two kinds of line are removed before the model ever sees them:
+### Dated facts switch themselves over
 
-- **anything inside `<!-- ... -->`** — this is how the 1 October prices are held
-  back. Quoting 12 EUR during the 10 EUR presale is the most expensive mistake
-  the bot could make, so those lines are commented out until the day.
-- **any line containing `[CONFIRM]`** — facts nobody has signed off. Visitor
-  numbers live here until they have a defensible source.
+The price change needs no deploy and no reminder. Text marked
+`[UNTIL 30 SEP]` is used to the end of 30 September; text marked `[1 OCT]`
+from 1 October, turning over at **Brussels** midnight. Whichever is not in
+force is removed before the model sees the file, so the bot can never quote
+12 EUR during the presale or 10 EUR after it.
 
-On 1 October: uncomment the `[1 OCT]` lines in all three languages and delete
-the presale lines above them.
+Two shapes work:
+
+```
+A: [UNTIL 30 SEP] Presale 10 EUR until 30 September. At the gate: 15 EUR.
+A: [1 OCT] 12 EUR online, 15 EUR at the gate.
+
+A [UNTIL 30 SEP] 10 EUR [1 OCT] 12 EUR ticket, with children under 12 free.
+```
+
+A line with one tag belongs entirely to that variant. A line with both is a
+swap inside a sentence, and **the second variant must be the same number of
+words as the first** — that is the only thing saying where it ends, since the
+sentence carries on afterwards. Punctuation stuck to the end of the second
+variant is handed back to the sentence, so the French comma lands right.
+
+Also removed: **any line containing `[CONFIRM]`** — facts nobody has signed
+off, such as visitor numbers — and **everything above the first
+`# ===== EN =====` banner**, which is editing guidance rather than knowledge.
+
+The switch is recomputed per Brussels day rather than once per worker, so a
+worker that started on 30 September follows the change at midnight instead of
+serving yesterday's price until Cloudflare recycles it.
 
 `npm test` fails if `_faq.js` has drifted from `faq.md`.
 

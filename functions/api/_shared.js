@@ -167,6 +167,8 @@ const ATTRIBUTES = {
   LANG: 'text',
   TICKET_ID: 'text',
   MARKETING_OPTIN: 'boolean',
+  UTM_SOURCE: 'text',
+  UTM_CAMPAIGN: 'text',
 };
 
 /* SMS and WHATSAPP are Brevo's own reserved contact fields. Creating them is an

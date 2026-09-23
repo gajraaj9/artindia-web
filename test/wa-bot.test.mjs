@@ -10,7 +10,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  stripFaq, FAQ, detectLang, pickLang, STOP_RE, HUMAN_RE, MENU_RE,
+  stripFaq, faqFor, brusselsDay, PRICE_CUTOVER, detectLang, pickLang, STOP_RE, HUMAN_RE, MENU_RE,
   buildMenu, utcDay, botKey, FALLBACK, isGreeting, DIYA, systemBlocks, tidyAnswer,
   menuTitles, myTicketsReply, GETTING_THERE_ANSWER, readAction, ACTIONS, SEEN_SECONDS,
 } from '../functions/api/_bot.js';
@@ -24,11 +24,73 @@ test('the compiled FAQ is the file on disk', () => {
     'functions/api/_faq.js is stale — run node build-diwali.mjs');
 });
 
-test('the prices that start on 1 October are not in what the model sees', () => {
-  assert.ok(FAQ_RAW.includes('12 EUR'), 'the hidden October price is in the source');
-  assert.ok(!FAQ.includes('12 EUR'),
+const SEP = new Date('2026-09-23T12:00:00Z');
+const OCT = new Date('2026-10-02T12:00:00Z');
+
+test('only one price is ever in front of the model', () => {
+  assert.ok(FAQ_RAW.includes('10 EUR') && FAQ_RAW.includes('12 EUR'),
+    'both are in the source, tagged');
+
+  const presale = stripFaq(FAQ_RAW, SEP);
+  assert.ok(presale.includes('10 EUR'));
+  assert.ok(!presale.includes('12 EUR'),
     'quoting 12 EUR during the 10 EUR presale is the worst thing the bot could say');
-  assert.ok(!FAQ.includes('<!--') && !FAQ.includes('-->'), 'no comment markers survive');
+
+  const october = stripFaq(FAQ_RAW, OCT);
+  assert.ok(october.includes('12 EUR'));
+  assert.ok(!october.includes('10 EUR'),
+    'and quoting the presale after it has ended is the second worst');
+
+  for (const t of [presale, october]) {
+    assert.ok(!/\[UNTIL 30 SEP\]|\[1 OCT\]/.test(t), 'no tag words survive');
+    assert.ok(!t.includes('<!--') && !t.includes('-->'));
+  }
+});
+
+test('the swap inside a sentence leaves the sentence intact, in all three languages', () => {
+  const presale = stripFaq(FAQ_RAW, SEP);
+  const october = stripFaq(FAQ_RAW, OCT);
+  assert.ok(presale.includes('A 10 EUR ticket, with children under 12 free, makes that possible.'));
+  assert.ok(october.includes('A 12 EUR ticket, with children under 12 free, makes that possible.'));
+  assert.ok(presale.includes('billet à 10 EUR, gratuit pour les moins de 12 ans'),
+    'the comma belongs to the sentence, not the price');
+  assert.ok(october.includes('billet à 12 EUR, gratuit pour les moins de 12 ans'));
+  assert.ok(presale.includes('ticket van 10 EUR, gratis voor kinderen onder 12'));
+  assert.ok(october.includes('ticket van 12 EUR, gratis voor kinderen onder 12'));
+});
+
+test('the whole-line variants swap over too', () => {
+  const presale = stripFaq(FAQ_RAW, SEP);
+  const october = stripFaq(FAQ_RAW, OCT);
+  assert.ok(presale.includes('Presale 10 EUR until 30 September. At the gate: 15 EUR.'));
+  assert.ok(!presale.includes('12 EUR online'));
+  assert.ok(october.includes('12 EUR online, 15 EUR at the gate.'));
+  assert.ok(!october.includes('Presale 10 EUR'));
+  assert.ok(october.includes('12 EUR en ligne') && october.includes('12 EUR online'));
+});
+
+test('it turns over at Brussels midnight, not UTC', () => {
+  assert.equal(PRICE_CUTOVER, '2026-10-01');
+  /* 30 September 23:59 in Brussels is still 21:59 UTC. */
+  assert.equal(brusselsDay(new Date('2026-09-30T21:59:00Z')), '2026-09-30');
+  assert.equal(brusselsDay(new Date('2026-09-30T22:01:00Z')), '2026-10-01');
+  assert.ok(stripFaq(FAQ_RAW, new Date('2026-09-30T21:59:00Z')).includes('10 EUR'));
+  assert.ok(stripFaq(FAQ_RAW, new Date('2026-09-30T22:01:00Z')).includes('12 EUR'));
+});
+
+test('the editing notes never reach the model', () => {
+  const faq = stripFaq(FAQ_RAW, SEP);
+  assert.ok(FAQ_RAW.includes('Rules for editing'), 'they are in the source');
+  assert.ok(!faq.includes('Rules for editing'),
+    'instructions to whoever maintains the file are not knowledge');
+  assert.ok(!faq.includes('Date tags, applied automatically'),
+    'and that line names both prices, which is the last thing to show the model');
+  assert.ok(faq.startsWith('# ===================== EN'));
+});
+
+test('the compiled FAQ is recomputed per Brussels day, not once per worker', () => {
+  assert.equal(faqFor(SEP), stripFaq(FAQ_RAW, SEP), 'same day, same text');
+  assert.notEqual(faqFor(SEP), faqFor(OCT), 'a worker that outlives the cutover follows it');
 });
 
 test('unsigned-off facts are dropped, whole line', () => {
@@ -49,12 +111,13 @@ test('a multi-line comment goes entirely', () => {
 });
 
 test('all three languages survive, with their real content', () => {
+  const faq = stripFaq(FAQ_RAW, SEP);
   for (const marker of ['===== EN =====', '===== FR =====', '===== NL =====']) {
-    assert.ok(FAQ.includes(marker), marker);
+    assert.ok(faq.includes(marker), marker);
   }
-  assert.ok(FAQ.includes('Presale 10 EUR until 30 September'));
-  assert.ok(FAQ.includes("Prévente 10 EUR jusqu'au 30 septembre"));
-  assert.ok(FAQ.includes('Voorverkoop 10 EUR tot 30 september'));
+  assert.ok(faq.includes('Presale 10 EUR until 30 September'));
+  assert.ok(faq.includes("Prévente 10 EUR jusqu'au 30 septembre"));
+  assert.ok(faq.includes('Voorverkoop 10 EUR tot 30 september'));
 });
 
 /* ------------------------------------------------------------- languages */
