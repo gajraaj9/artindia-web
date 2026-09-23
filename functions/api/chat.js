@@ -171,13 +171,21 @@ async function logTurn(kv, sid, entry, about = {}) {
 const menuButtons = (lang, buyer) =>
   (WEB_MENU[lang] || WEB_MENU.en)[buyer ? 'buyer' : 'guest'].map(([id, label]) => ({ id, label }));
 
-const helpButtons = lang => {
-  const copy = WEB_MENU[lang] || WEB_MENU.en;
-  return [
-    { id: 'CONTACT', label: copy.contact, href: 'mailto:diwali@artindia.be' },
-    { id: 'WHATSAPP', label: copy.whatsapp, href: 'https://wa.me/32490616661?text=Hi' },
-  ];
-};
+const WHATSAPP_URL = 'https://wa.me/32490616661?text=Hi';
+
+/* The same bot, on their own phone. Offered in the two places it is actually
+   useful — when Diya has just introduced herself, and when she has just said
+   she cannot help — rather than as a second permanent button on the page. */
+const whatsappChip = lang => ({
+  id: 'WHATSAPP',
+  label: (WEB_MENU[lang] || WEB_MENU.en).whatsapp,
+  href: WHATSAPP_URL,
+});
+
+const helpButtons = lang => [
+  { id: 'CONTACT', label: (WEB_MENU[lang] || WEB_MENU.en).contact, href: 'mailto:diwali@artindia.be' },
+  whatsappChip(lang),
+];
 
 /** One canned answer, or '' when the id is not one of ours. */
 function cannedAnswer(id, lang) {
@@ -248,7 +256,8 @@ export async function onRequestPost({ request, env }) {
   /* --- the opening --- */
   if (!body.message && !body.action && !body.lead && !body.identify) {
     await logTurn(kv, session.id, { dir: 'sys', text: 'session opened' }, { lang, state: session.st });
-    return out(WEB_GREETING[lang] || WEB_GREETING.en, menuButtons(lang, buyer));
+    return out(WEB_GREETING[lang] || WEB_GREETING.en,
+      menuButtons(lang, buyer).concat(whatsappChip(lang)));
   }
 
   /* --- identify: who are you, without joining anything --- */

@@ -22,7 +22,6 @@
   window.__diya = true;
 
   var KEY = 'artindia.diya';
-  var WA = 'https://wa.me/32490616661?text=Hi';
   var AVATAR = '/diya.png';
   var MAX_KEPT = 30;
 
@@ -30,19 +29,19 @@
   if (['en', 'fr', 'nl'].indexOf(LANG) === -1) LANG = 'en';
 
   var COPY = {
-    en: { launch: 'Chat with Diya', wa: 'WhatsApp', sub: 'Brussels Diwali Festival · AI host',
+    en: { launch: 'Chat with Diya', sub: 'Brussels Diwali Festival · AI host',
       ph: 'Ask a question…', send: 'Send', close: 'Close chat', offline: "I can't reach the festival right now. Please try again in a moment.",
       name: 'Your name', email: 'Your email', consent: 'Send me festival news from Art India, unsubscribe anytime',
       keep: 'Keep me posted', later: 'Maybe later', have: 'I already have a ticket',
       badEmail: 'That email does not look right.', needConsent: 'Please tick the box so we may write to you.',
       foot: 'Diya is an AI assistant. Answers come from the festival FAQ.' },
-    fr: { launch: 'Discuter avec Diya', wa: 'WhatsApp', sub: 'Brussels Diwali Festival · hôtesse IA',
+    fr: { launch: 'Discuter avec Diya', sub: 'Brussels Diwali Festival · hôtesse IA',
       ph: 'Posez une question…', send: 'Envoyer', close: 'Fermer le chat', offline: 'Je ne peux pas joindre le festival pour le moment. Réessayez dans un instant.',
       name: 'Votre nom', email: 'Votre e-mail', consent: "Envoyez-moi les actualités du festival d'Art India, désinscription à tout moment",
       keep: 'Tenez-moi au courant', later: 'Plus tard', have: "J'ai déjà un billet",
       badEmail: "Cette adresse e-mail ne semble pas correcte.", needConsent: 'Cochez la case pour que nous puissions vous écrire.',
       foot: 'Diya est une assistante IA. Les réponses viennent de la FAQ du festival.' },
-    nl: { launch: 'Chat met Diya', wa: 'WhatsApp', sub: 'Brussels Diwali Festival · AI-gastvrouw',
+    nl: { launch: 'Chat met Diya', sub: 'Brussels Diwali Festival · AI-gastvrouw',
       ph: 'Stel een vraag…', send: 'Versturen', close: 'Chat sluiten', offline: 'Ik kan het festival nu niet bereiken. Probeer het zo meteen opnieuw.',
       name: 'Uw naam', email: 'Uw e-mail', consent: 'Stuur me festivalnieuws van Art India, uitschrijven kan altijd',
       keep: 'Houd me op de hoogte', later: 'Later misschien', have: 'Ik heb al een ticket',
@@ -109,16 +108,6 @@
   var root = el('div', 'diya-root');
   var launchers = el('div', 'diya-launchers');
 
-  var waBtn = document.createElement('a');
-  waBtn.className = 'diya-fab diya-wa';
-  waBtn.href = WA;
-  waBtn.target = '_blank';
-  waBtn.rel = 'noopener noreferrer';
-  waBtn.setAttribute('aria-label', COPY.wa);
-  waBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'
-    + '<path d="M12 2a10 10 0 00-8.6 15L2 22l5.2-1.4A10 10 0 1012 2zm0 18a8 8 0 01-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1112 20zm4.4-5.8c-.2-.1-1.4-.7-1.6-.8s-.4-.1-.5.1-.6.8-.8 1-.3.2-.5.1a6.5 6.5 0 01-3.2-2.8c-.2-.4.2-.4.6-1.2.1-.2 0-.3 0-.4l-.7-1.7c-.2-.4-.4-.4-.5-.4h-.5a1 1 0 00-.7.3A3 3 0 006 8.6c0 1.8 1.3 3.5 1.5 3.7s2.5 3.8 6 5.3c2.1.9 2.9.9 4 .8.6-.1 1.4-.6 1.7-1.2s.2-1.1.1-1.2z"/></svg>';
-  waBtn.appendChild(el('span', 'diya-fab-label', COPY.wa));
-
   var launch = el('button', 'diya-fab');
   launch.type = 'button';
   launch.setAttribute('aria-label', COPY.launch);
@@ -130,7 +119,6 @@
   launch.appendChild(avatar);
   launch.appendChild(el('span', 'diya-fab-label', COPY.launch));
 
-  launchers.appendChild(waBtn);
   launchers.appendChild(launch);
 
   var panel = el('div', 'diya-panel');
@@ -210,7 +198,7 @@
         node.type = 'button';
         node.addEventListener('click', function () { chips.innerHTML = ''; talk({ action: b.id }); });
       }
-      node.className = 'diya-chip';
+      node.className = 'diya-chip' + (b.id === 'WHATSAPP' ? ' wa' : '');
       node.textContent = b.label;
       chips.appendChild(node);
     });
@@ -385,9 +373,28 @@
 
   /* --------------------------------------------------------------- start */
 
+  /* The site pins a ticket bar to the bottom of the screen below 720px once
+     the hero has scrolled away. The launcher sits above it when it is up and
+     drops back to 16px when it is not, so the two never cover each other. */
+  function watchStickyBar() {
+    var bar = document.getElementById('stickybar');
+    if (!bar) return;
+    function sync() {
+      var up = bar.classList.contains('show')
+        && getComputedStyle(bar).display !== 'none';
+      root.style.setProperty('--dy-lift', up ? (bar.offsetHeight + 12) + 'px' : '0px');
+    }
+    try {
+      new MutationObserver(sync).observe(bar, { attributes: true, attributeFilter: ['class'] });
+    } catch (e) { /* very old browser: the launcher just stays at 16px */ }
+    window.addEventListener('resize', sync);
+    sync();
+  }
+
   var css = document.createElement('link');
   css.rel = 'stylesheet';
   css.href = '/diya.css';
   document.head.appendChild(css);
   document.body.appendChild(root);
+  watchStickyBar();
 })();

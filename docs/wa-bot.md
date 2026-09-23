@@ -280,8 +280,20 @@ Already on all three language pages, emitted by `build-diwali.mjs`:
 <script src="/diya.js" defer></script>
 ```
 
-The widget injects its own stylesheet, a launcher and a WhatsApp button, and
-keeps itself off `/admin`, `/r` and `/i`. Nothing else to add.
+The widget injects its own stylesheet and one launcher — Diya's avatar with
+"Chat with Diya", 52px high, 16px off the bottom-right corner, avatar only
+below 480px — and keeps itself off `/admin`, `/r` and `/i`. Nothing else to
+add.
+
+There is no separate WhatsApp button on the page. WhatsApp is offered as a
+chip **inside** the panel, under the greeting and again whenever Diya cannot
+answer, linking to `wa.me/32490616661?text=Hi` in a new tab. Two moments where
+it helps, rather than a second permanent button competing with the launcher.
+
+The launcher watches the site's own mobile ticket bar (`#stickybar`, fixed to
+the bottom below 720px once the hero scrolls away) and lifts above it while it
+is showing, dropping back to 16px when it is not. There is no cookie bar to
+avoid: analytics here is cookie-free by design.
 
 ## Environment
 

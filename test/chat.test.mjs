@@ -168,7 +168,7 @@ test('it opens with the greeting and a menu', async () => {
   const r = await chat(ENV(memoryKv()), {});
   assert.match(r.body.reply, /^Namaste, I'm Diya/);
   assert.deepEqual(r.body.buttons.map(b => b.id),
-    ['TICKETS', 'GETTING_THERE', 'FOOD', 'ASK']);
+    ['TICKETS', 'GETTING_THERE', 'FOOD', 'ASK', 'WHATSAPP']);
   assert.equal(r.body.state.known, 'anonymous');
 });
 
@@ -397,7 +397,8 @@ const EXPECTED = {
     buttons: ['Tickets', 'Getting there', 'Food & drink', 'Ask me anything'],
     lead: 'Want me to keep you posted on the festival? Leave your name and email.',
     fallback: "Thanks for your message. I can't answer that here. Write to diwali@artindia.be or see diwali.artindia.be.",
-    help: ['Email the team', 'Chat on WhatsApp'],
+    help: ['Email the team', 'Continue on WhatsApp'],
+    whatsapp: 'Continue on WhatsApp',
     noTicket: /can't find a ticket for this email/,
   },
   fr: {
@@ -405,7 +406,8 @@ const EXPECTED = {
     buttons: ['Billets', 'Comment venir', 'Boire et manger', 'Poser une question'],
     lead: 'Vous voulez que je vous tienne au courant du festival ? Laissez votre nom et votre e-mail.',
     fallback: 'Merci pour votre message. Je ne peux pas répondre à cela ici. Écrivez à diwali@artindia.be ou consultez diwali.artindia.be.',
-    help: ["Écrire à l'équipe", 'Discuter sur WhatsApp'],
+    help: ["Écrire à l'équipe", 'Continuer sur WhatsApp'],
+    whatsapp: 'Continuer sur WhatsApp',
     noTicket: /ne trouve pas de billet/,
   },
   nl: {
@@ -413,7 +415,8 @@ const EXPECTED = {
     buttons: ['Tickets', 'Bereikbaarheid', 'Eten en drinken', 'Stel een vraag'],
     lead: 'Wilt u op de hoogte blijven van het festival? Laat uw naam en e-mailadres achter.',
     fallback: 'Bedankt voor uw bericht. Daar kan ik hier niet op antwoorden. Mail naar diwali@artindia.be of kijk op diwali.artindia.be.',
-    help: ['Mail het team', 'Chat op WhatsApp'],
+    help: ['Mail het team', 'Verder op WhatsApp'],
+    whatsapp: 'Verder op WhatsApp',
     noTicket: /vind geen ticket/,
   },
 };
@@ -425,7 +428,11 @@ for (const [lang, want] of Object.entries(EXPECTED)) {
 
     const open = await chat(env, { lang });
     assert.equal(open.body.reply, want.greeting, `${lang} greeting`);
-    assert.deepEqual(open.body.buttons.map(b => b.label), want.buttons, `${lang} menu`);
+    assert.deepEqual(open.body.buttons.map(b => b.label),
+      want.buttons.concat(want.whatsapp), `${lang} menu plus the WhatsApp chip`);
+    const wa = open.body.buttons[open.body.buttons.length - 1];
+    assert.equal(wa.id, 'WHATSAPP');
+    assert.equal(wa.href, 'https://wa.me/32490616661?text=Hi', `${lang} WhatsApp link`);
 
     const asked = await chat(env, { lang, session: open.body.session, message: 'a question' });
     assert.equal(asked.body.reply, want.fallback, `${lang} fallback`);
@@ -469,7 +476,8 @@ test('crossing languages re-greets rather than replaying the other one', async (
      no transcript, so a greeting in the language of the page now open. */
   const fr = await chat(env, { lang: 'fr', session: en.body.session });
   assert.equal(fr.body.reply, EXPECTED.fr.greeting);
-  assert.deepEqual(fr.body.buttons.map(b => b.label), EXPECTED.fr.buttons);
+  assert.deepEqual(fr.body.buttons.map(b => b.label),
+    EXPECTED.fr.buttons.concat(EXPECTED.fr.whatsapp));
 });
 
 test('a buyer keeps their state across a language switch', async () => {
@@ -481,7 +489,7 @@ test('a buyer keeps their state across a language switch', async () => {
   const fr = await chat(ENV(kv), { lang: 'fr', session: id.body.session });
   assert.equal(fr.body.state.known, 'buyer', 'the session token survives the switch');
   assert.deepEqual(fr.body.buttons.map(b => b.id),
-    ['GETTING_THERE', 'PROGRAMME', 'DRAW', 'ASK']);
+    ['GETTING_THERE', 'PROGRAMME', 'DRAW', 'ASK', 'WHATSAPP']);
   assert.match(fr.body.reply, /^Namaste, je suis Diya/);
 });
 
@@ -505,4 +513,33 @@ test('the page language is only overridden by a clear signal', async () => {
     await chat(ENV(memoryKv()), { lang: 'en', message: text });
     assert.match(prompts[0].system[1].text, expect, text);
   }
+});
+
+test('WhatsApp is offered under the greeting and in the fallback, nowhere else', async () => {
+  const env = ENV(memoryKv());
+  world({ answer: 'NOT_COVERED' });
+  const has = r => r.body.buttons.some(b => b.id === 'WHATSAPP');
+
+  const open = await chat(env, {});
+  assert.ok(has(open), 'under the greeting');
+
+  const stuck = await chat(env, { session: open.body.session, message: 'can I bring a drone' });
+  assert.ok(has(stuck), 'and when Diya cannot help');
+
+  /* Not on every answer, not on a menu, not on a canned button: it is an
+     offer at the two moments it helps, not a second permanent button. */
+  const menu = await chat(env, { session: stuck.body.session, action: 'MENU' });
+  assert.ok(!has(menu), 'not on the menu');
+  const canned = await chat(env, { session: menu.body.session, action: 'GETTING_THERE' });
+  assert.ok(!has(canned), 'not on a canned answer');
+  const resumed = await chat(env, { session: canned.body.session, resume: true });
+  assert.ok(!has(resumed), 'not on a resume');
+});
+
+test('the WhatsApp chip opens the same bot on their phone', async () => {
+  world();
+  const open = await chat(ENV(memoryKv()), {});
+  const wa = open.body.buttons.find(b => b.id === 'WHATSAPP');
+  assert.equal(wa.href, 'https://wa.me/32490616661?text=Hi');
+  assert.equal(wa.label, 'Continue on WhatsApp');
 });

@@ -7,21 +7,29 @@
   --dy-bot: #241738; --dy-me: #E8A33B;
   font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
+/* 16px from the corner, lifted by --dy-lift when the site's own mobile ticket
+   bar is showing. diya.js watches that bar and sets the variable; it is 0 on
+   desktop, where the bar is display:none. */
 .diya-launchers {
-  position: fixed; right: 16px; bottom: 16px; z-index: 2147483000;
-  display: flex; flex-direction: column-reverse; gap: 10px; align-items: flex-end;
+  position: fixed; right: 16px; z-index: 2147483000;
+  bottom: calc(16px + var(--dy-lift, 0px));
+  transition: bottom .28s ease;
 }
+@media (prefers-reduced-motion: reduce) { .diya-launchers { transition: none; } }
 .diya-fab {
   display: flex; align-items: center; gap: .5rem; border: 0; cursor: pointer;
-  border-radius: 999px; padding: 6px 16px 6px 6px; color: var(--dy-night);
-  background: var(--dy-marigold); box-shadow: 0 6px 20px rgba(0, 0, 0, .3);
-  font: inherit; font-weight: 700; text-decoration: none;
+  height: 52px; padding: 0 18px 0 4px; border-radius: 999px;
+  color: var(--dy-night); background: var(--dy-marigold);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .3);
+  font: inherit; font-weight: 700; text-decoration: none; white-space: nowrap;
 }
-.diya-fab img, .diya-fab svg { width: 44px; height: 44px; border-radius: 50%; display: block; }
-.diya-fab.diya-wa { background: var(--dy-green); color: #fff; padding: 6px 16px 6px 8px; }
-.diya-fab.diya-wa svg { width: 28px; height: 28px; margin: 8px; }
+.diya-fab img { width: 44px; height: 44px; border-radius: 50%; display: block; }
 .diya-fab:focus-visible { outline: 3px solid var(--dy-ember); outline-offset: 3px; }
-@media (max-width: 560px) { .diya-fab .diya-fab-label { display: none; } .diya-fab { padding: 6px; } }
+/* Below 480px the label goes and the launcher is a 52px circle. */
+@media (max-width: 480px) {
+  .diya-fab .diya-fab-label { display: none; }
+  .diya-fab { width: 52px; padding: 0; justify-content: center; }
+}
 
 .diya-panel {
   position: fixed; right: 16px; bottom: 16px; z-index: 2147483001;
@@ -67,6 +75,9 @@
   border: 1px solid var(--dy-line); border-radius: 999px; padding: .35rem .7rem;
 }
 .diya-chip:hover { border-color: var(--dy-marigold); }
+/* The WhatsApp offer reads as WhatsApp, not as another FAQ shortcut. */
+.diya-chip.wa { color: var(--dy-green); border-color: rgba(37, 211, 102, .45); }
+.diya-chip.wa:hover { border-color: var(--dy-green); }
 
 .diya-form { padding: .75rem .9rem; border-top: 1px solid var(--dy-line); background: var(--dy-aubergine); }
 .diya-form label { display: block; font-size: .78rem; font-weight: 600; margin-bottom: .2rem; }
