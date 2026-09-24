@@ -29,19 +29,19 @@
   if (['en', 'fr', 'nl'].indexOf(LANG) === -1) LANG = 'en';
 
   var COPY = {
-    en: { launch: 'Chat with Diya', sub: 'Brussels Diwali Festival · AI host',
+    en: { back: 'Back to site', launch: 'Chat with Diya', sub: 'Brussels Diwali Festival · AI host',
       ph: 'Ask a question…', send: 'Send', close: 'Close chat', offline: "I can't reach the festival right now. Please try again in a moment.",
       name: 'Your name', email: 'Your email', consent: 'Send me festival news from Art India, unsubscribe anytime',
       keep: 'Keep me posted', later: 'Maybe later', have: 'I already have a ticket',
       badEmail: 'That email does not look right.', needConsent: 'Please tick the box so we may write to you.',
       foot: 'Diya is an AI assistant. Answers come from the festival FAQ.' },
-    fr: { launch: 'Discuter avec Diya', sub: 'Brussels Diwali Festival · hôtesse IA',
+    fr: { back: 'Retour au site', launch: 'Discuter avec Diya', sub: 'Brussels Diwali Festival · hôtesse IA',
       ph: 'Posez une question…', send: 'Envoyer', close: 'Fermer le chat', offline: 'Je ne peux pas joindre le festival pour le moment. Réessayez dans un instant.',
       name: 'Votre nom', email: 'Votre e-mail', consent: "Envoyez-moi les actualités du festival d'Art India, désinscription à tout moment",
       keep: 'Tenez-moi au courant', later: 'Plus tard', have: "J'ai déjà un billet",
       badEmail: "Cette adresse e-mail ne semble pas correcte.", needConsent: 'Cochez la case pour que nous puissions vous écrire.',
       foot: 'Diya est une assistante IA. Les réponses viennent de la FAQ du festival.' },
-    nl: { launch: 'Chat met Diya', sub: 'Brussels Diwali Festival · AI-gastvrouw',
+    nl: { back: 'Terug naar site', launch: 'Chat met Diya', sub: 'Brussels Diwali Festival · AI-gastvrouw',
       ph: 'Stel een vraag…', send: 'Versturen', close: 'Chat sluiten', offline: 'Ik kan het festival nu niet bereiken. Probeer het zo meteen opnieuw.',
       name: 'Uw naam', email: 'Uw e-mail', consent: 'Stuur me festivalnieuws van Art India, uitschrijven kan altijd',
       keep: 'Houd me op de hoogte', later: 'Later misschien', have: 'Ik heb al een ticket',
@@ -121,13 +121,21 @@
 
   launchers.appendChild(launch);
 
+  var backdrop = el('div', 'diya-backdrop');
+
   var panel = el('div', 'diya-panel');
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-modal', 'true');
   panel.setAttribute('aria-label', COPY.launch);
   panel.hidden = true;
 
+  var grab = el('div', 'diya-grab');
+
   var head = el('div', 'diya-head');
+  var back = el('button', 'diya-back');
+  back.type = 'button';
+  back.appendChild(document.createTextNode('\u2039 ' + COPY.back));
+  head.appendChild(back);
   var headImg = document.createElement('img');
   headImg.src = AVATAR;
   headImg.alt = '';
@@ -159,6 +167,7 @@
   bar.appendChild(input);
   bar.appendChild(send);
 
+  panel.appendChild(grab);
   panel.appendChild(head);
   panel.appendChild(log);
   panel.appendChild(chips);
@@ -167,6 +176,7 @@
   panel.appendChild(el('div', 'diya-foot', COPY.foot));
 
   root.appendChild(launchers);
+  root.appendChild(backdrop);
   root.appendChild(panel);
 
   /* ------------------------------------------------------------ painting */
@@ -328,8 +338,10 @@
   function openPanel() {
     lastFocus = document.activeElement;
     panel.hidden = false;
+    backdrop.classList.add('is-open');
     launchers.hidden = true;
     state.open = true;
+    syncViewport();
 
     /* A returning page keeps its thread and asks only for the buttons, which
        are not part of the transcript; a fresh one opens with the greeting.
@@ -344,6 +356,8 @@
 
   function closePanel() {
     panel.hidden = true;
+    backdrop.classList.remove('is-open');
+    root.style.setProperty('--dy-drag', '0px');
     launchers.hidden = false;
     state.open = false;
     if (lastFocus && lastFocus.focus) lastFocus.focus();
@@ -351,6 +365,57 @@
 
   launch.addEventListener('click', openPanel);
   close.addEventListener('click', closePanel);
+  back.addEventListener('click', closePanel);
+  backdrop.addEventListener('click', closePanel);
+
+  /* ------------------------------------------------- keyboard and swipe */
+
+  /* The sheet tracks the visual viewport rather than the layout one. When the
+     keyboard opens, the visual viewport shrinks and is offset; without this
+     the composer ends up behind the keyboard and the only way back to it is a
+     scroll that does not exist. */
+  function syncViewport() {
+    var vv = window.visualViewport;
+    if (!vv) return;
+    var keyboard = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    root.style.setProperty('--dy-kb', Math.round(keyboard) + 'px');
+    root.style.setProperty('--dy-vvh', Math.round(vv.height) + 'px');
+    if (state.open) log.scrollTop = log.scrollHeight;
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncViewport);
+    window.visualViewport.addEventListener('scroll', syncViewport);
+  }
+  window.addEventListener('orientationchange', syncViewport);
+  syncViewport();
+
+  /* Pull the sheet down to dismiss it. Only from the handle and the header,
+     so a swipe inside the transcript still scrolls the transcript. */
+  var dragFrom = null;
+  function dragStart(e) {
+    if (panel.hidden) return;
+    dragFrom = e.touches ? e.touches[0].clientY : null;
+    if (dragFrom !== null) panel.classList.add('is-dragging');
+  }
+  function dragMove(e) {
+    if (dragFrom === null) return;
+    var dy = e.touches[0].clientY - dragFrom;
+    if (dy > 0) root.style.setProperty('--dy-drag', Math.round(dy) + 'px');
+  }
+  function dragEnd(e) {
+    if (dragFrom === null) return;
+    var dy = (e.changedTouches ? e.changedTouches[0].clientY : dragFrom) - dragFrom;
+    panel.classList.remove('is-dragging');
+    root.style.setProperty('--dy-drag', '0px');
+    dragFrom = null;
+    if (dy > 80) closePanel();
+  }
+  [grab, head].forEach(function (n) {
+    n.addEventListener('touchstart', dragStart, { passive: true });
+    n.addEventListener('touchmove', dragMove, { passive: true });
+    n.addEventListener('touchend', dragEnd);
+    n.addEventListener('touchcancel', dragEnd);
+  });
 
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && state.open) closePanel();

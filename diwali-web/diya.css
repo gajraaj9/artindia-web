@@ -5,7 +5,19 @@
   --dy-marigold: #E8A33B; --dy-saffron: #FF9933; --dy-ember: #F6DFA6;
   --dy-green: #25D366; --dy-line: rgba(242, 239, 230, .16);
   --dy-bot: #241738; --dy-me: #E8A33B;
+  /* Everything below is px on purpose. rem follows the page's root font
+     size, so a site or a browser zoom that changes it was scaling the whole
+     widget with it, which is what made the text and chips oversized on a
+     phone. text-size-adjust stops iOS inflating it again on its own. */
   font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+}
+.diya-root * { font-size: inherit; }
+
+/* Dark ground behind the sheet. Phones only; a tap on it closes. */
+.diya-backdrop {
+  position: fixed; inset: 0; z-index: 2147483000; display: none;
+  background: rgba(5, 6, 18, .62); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
 }
 /* 16px from the corner, lifted by --dy-lift when the site's own mobile ticket
    bar is showing. diya.js watches that bar and sets the variable; it is 0 on
@@ -17,7 +29,7 @@
 }
 @media (prefers-reduced-motion: reduce) { .diya-launchers { transition: none; } }
 .diya-fab {
-  display: flex; align-items: center; gap: .5rem; border: 0; cursor: pointer;
+  display: flex; align-items: center; gap: 8px; border: 0; cursor: pointer;
   height: 52px; padding: 0 18px 0 4px; border-radius: 999px;
   color: var(--dy-night); background: var(--dy-marigold);
   box-shadow: 0 6px 20px rgba(0, 0, 0, .3);
@@ -32,76 +44,142 @@
 }
 
 .diya-panel {
-  position: fixed; right: 16px; bottom: 16px; z-index: 2147483001;
+  position: fixed; right: 16px; bottom: 16px; z-index: 2147483002;
+  transition: transform .22s ease;
   width: 380px; height: 600px; max-height: calc(100vh - 32px);
   display: flex; flex-direction: column; overflow: hidden;
   background: var(--dy-night); color: var(--dy-ink);
   border: 1px solid var(--dy-line); border-radius: 16px;
   box-shadow: 0 18px 50px rgba(0, 0, 0, .45);
 }
-@media (max-width: 560px) {
-  .diya-panel { right: 0; bottom: 0; width: 100vw; height: 100dvh; max-height: none; border-radius: 0; border: 0; }
-}
+
 .diya-head {
-  display: flex; align-items: center; gap: .6rem; padding: .75rem .9rem;
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px;
   background: var(--dy-aubergine); border-bottom: 1px solid var(--dy-line);
 }
 .diya-head img { width: 38px; height: 38px; border-radius: 50%; }
-.diya-head b { display: block; font-size: .98rem; }
-.diya-head span { display: block; font-size: .72rem; opacity: .72; }
+.diya-head b { display: block; font-size: 15px; font-weight: 700; }
+.diya-head span { display: block; font-size: 12px; opacity: .72; }
 .diya-x {
   margin-left: auto; background: none; border: 0; color: inherit; cursor: pointer;
-  font-size: 1.5rem; line-height: 1; padding: .25rem .4rem; border-radius: .4rem;
+  font-size: 24px; line-height: 1; padding: 4px 7px; border-radius: 7px; flex: 0 0 auto;
 }
+/* Phones only: a way out that reads as a way back, not just a dismissal. */
+.diya-back {
+  display: none; align-items: center; gap: 3px; background: none; border: 0;
+  color: var(--dy-ember); font: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; padding: 6px 8px 6px 0; border-radius: 7px; flex: 0 0 auto;
+}
+.diya-back:focus-visible { outline: 2px solid var(--dy-ember); outline-offset: 2px; }
+.diya-grab { display: none; }
 .diya-x:focus-visible, .diya-send:focus-visible, .diya-chip:focus-visible { outline: 2px solid var(--dy-ember); outline-offset: 2px; }
 
-.diya-log { flex: 1; overflow-y: auto; padding: .9rem; display: flex; flex-direction: column; gap: .5rem; }
-.diya-msg { max-width: 86%; padding: .55rem .75rem; border-radius: .85rem; white-space: pre-wrap; word-break: break-word; }
-.diya-msg.bot { background: var(--dy-bot); border-bottom-left-radius: .25rem; align-self: flex-start; }
-.diya-msg.me { background: var(--dy-me); color: var(--dy-night); border-bottom-right-radius: .25rem; align-self: flex-end; }
+.diya-log { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.diya-msg { max-width: 86%; padding: 9px 12px; border-radius: 14px; font-size: 15px;
+  white-space: pre-wrap; word-break: break-word; }
+.diya-msg.bot { background: var(--dy-bot); border-bottom-left-radius: 4px; align-self: flex-start; }
+.diya-msg.me { background: var(--dy-me); color: var(--dy-night); border-bottom-right-radius: 4px; align-self: flex-end; }
 .diya-msg a { color: var(--dy-ember); }
 .diya-msg.me a { color: var(--dy-night); }
-.diya-dots { align-self: flex-start; display: flex; gap: 4px; padding: .7rem .8rem; }
+.diya-dots { align-self: flex-start; display: flex; gap: 4px; padding: 11px 13px; }
 .diya-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--dy-ember); opacity: .5; animation: diya-blink 1.2s infinite; }
 .diya-dots i:nth-child(2) { animation-delay: .2s; }
 .diya-dots i:nth-child(3) { animation-delay: .4s; }
 @keyframes diya-blink { 0%, 60%, 100% { opacity: .25; } 30% { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .diya-dots i { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .diya-dots i { animation: none; }
+  .diya-panel, .diya-launchers { transition: none; }
+}
 
-.diya-chips { display: flex; flex-wrap: wrap; gap: .35rem; padding: 0 .9rem .5rem; }
+.diya-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 8px; }
 .diya-chip {
-  font: inherit; font-size: .84rem; cursor: pointer; text-decoration: none;
+  font: inherit; font-size: 14px; line-height: 1; cursor: pointer; text-decoration: none;
   background: transparent; color: var(--dy-ember);
-  border: 1px solid var(--dy-line); border-radius: 999px; padding: .35rem .7rem;
+  border: 1px solid var(--dy-line); border-radius: 999px;
+  min-height: 36px; padding: 0 14px; display: inline-flex; align-items: center;
 }
 .diya-chip:hover { border-color: var(--dy-marigold); }
 /* The WhatsApp offer reads as WhatsApp, not as another FAQ shortcut. */
 .diya-chip.wa { color: var(--dy-green); border-color: rgba(37, 211, 102, .45); }
 .diya-chip.wa:hover { border-color: var(--dy-green); }
 
-.diya-form { padding: .75rem .9rem; border-top: 1px solid var(--dy-line); background: var(--dy-aubergine); }
-.diya-form label { display: block; font-size: .78rem; font-weight: 600; margin-bottom: .2rem; }
+.diya-form { padding: 12px 14px; border-top: 1px solid var(--dy-line); background: var(--dy-aubergine); }
+.diya-form label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 3px; }
 .diya-form input[type="text"], .diya-form input[type="email"] {
-  width: 100%; padding: .5rem .6rem; margin-bottom: .5rem; font: inherit;
+  width: 100%; padding: 9px 10px; margin-bottom: 8px; font: inherit; font-size: 16px;
   color: var(--dy-ink); background: var(--dy-night);
-  border: 1px solid var(--dy-line); border-radius: .5rem;
+  border: 1px solid var(--dy-line); border-radius: 8px;
 }
-.diya-consent { display: flex; gap: .5rem; align-items: flex-start; font-size: .8rem; margin-bottom: .6rem; }
-.diya-consent input { margin-top: .2rem; }
-.diya-err { color: #ff9c8a; font-size: .78rem; margin-bottom: .5rem; }
-.diya-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
+.diya-consent { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; margin-bottom: 10px; }
+.diya-consent input { margin-top: 3px; width: 18px; height: 18px; }
+.diya-err { color: #ff9c8a; font-size: 13px; margin-bottom: 8px; }
+.diya-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .diya-actions button { flex: 1; }
 
-.diya-bar { display: flex; gap: .5rem; padding: .7rem .9rem; border-top: 1px solid var(--dy-line); }
+/* Pinned: the log scrolls, this does not. */
+.diya-bar { flex: 0 0 auto; display: flex; gap: 8px; padding: 10px 14px;
+  border-top: 1px solid var(--dy-line); background: var(--dy-night);
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
 .diya-bar input {
-  flex: 1; padding: .6rem .75rem; font: inherit; color: var(--dy-ink);
+  flex: 1; padding: 10px 14px; font: inherit; font-size: 16px; color: var(--dy-ink);
   background: var(--dy-aubergine); border: 1px solid var(--dy-line); border-radius: 999px;
 }
 .diya-bar input:focus-visible { outline: 2px solid var(--dy-ember); outline-offset: 1px; }
 .diya-send {
   border: 0; border-radius: 999px; width: 42px; cursor: pointer;
-  background: var(--dy-marigold); color: var(--dy-night); font-size: 1.1rem; font-weight: 700;
+  background: var(--dy-marigold); color: var(--dy-night); font-size: 18px; font-weight: 700;
 }
 .diya-send[disabled] { opacity: .5; cursor: not-allowed; }
-.diya-foot { padding: 0 .9rem .6rem; font-size: .68rem; opacity: .55; text-align: center; }
+.diya-foot { flex: 0 0 auto; padding: 0 14px 8px; font-size: 11px; opacity: .55; text-align: center; }
 [hidden] { display: none !important; }
+
+/* ---------------- phones: a bottom sheet, not a second page ---------------
+   It used to be 100dvh, which read as a page takeover and pushed the close
+   button off the top on any browser with its own toolbar. Now it sits over
+   the site, three quarters tall at most, with the site visible behind it.
+
+   --dy-vvh and --dy-kb are written by diya.js from visualViewport: the sheet
+   shrinks to the space the keyboard leaves and rides above it, rather than
+   being scrolled out of reach. */
+@media (max-width: 640px) {
+  .diya-backdrop.is-open { display: block; }
+
+  .diya-panel {
+    left: 0; right: 0; bottom: var(--dy-kb, 0px); width: auto;
+    height: auto; max-height: min(75vh, calc(var(--dy-vvh, 100vh) - 12px));
+    border-radius: 18px 18px 0 0; border: 1px solid var(--dy-line); border-bottom: 0;
+    transform: translateY(var(--dy-drag, 0px));
+  }
+  .diya-panel.is-dragging { transition: none; }
+
+  /* Somewhere to put a thumb, and a hint that it can be pulled down. */
+  .diya-grab {
+    display: block; width: 40px; height: 4px; border-radius: 999px;
+    background: var(--dy-line); margin: 8px auto 0; flex: 0 0 auto;
+  }
+  .diya-head {
+    padding: 8px 10px 10px calc(10px + env(safe-area-inset-left, 0px));
+    padding-right: calc(10px + env(safe-area-inset-right, 0px));
+    gap: 8px;
+  }
+  .diya-head img { width: 36px; height: 36px; flex: 0 0 auto; }
+  /* One tight row. The name and subtitle are the only flexible part, so they
+     shrink and clip rather than pushing the close button onto a second line. */
+  .diya-head > div { min-width: 0; flex: 1 1 auto; }
+  .diya-head b { font-size: 16px; }
+  .diya-head span { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .diya-back { display: inline-flex; }
+  /* 44px of tap target, always inside the safe area, never clipped. */
+  .diya-x {
+    width: 44px; height: 44px; display: inline-flex;
+    align-items: center; justify-content: center; padding: 0; font-size: 26px;
+  }
+  .diya-log { padding: 12px 14px; }
+  .diya-msg { max-width: 88%; }
+  /* Two rows of chips is the point; they must not stretch to fill one. */
+  .diya-chips { padding: 0 14px 8px; gap: 6px; }
+  .diya-chip { min-height: 36px; padding: 0 12px; font-size: 14px; }
+  .diya-form { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .diya-foot { display: none; }
+}
