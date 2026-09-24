@@ -24,6 +24,12 @@ on:
       # The build copies favicon.svg, og-diwali.png and _redirects out of
       # here, so the share card and the /go/ links count as build inputs.
       - diwali-holding/**
+      # The chat widget and the admin pages are copied into the site too. They
+      # were missing from this list, so a commit touching only the widget
+      # pushed cleanly and deployed nothing.
+      - diwali-web/**
+      - diwali-admin/**
+      - data/partners.json
   workflow_dispatch:
 
 permissions:
