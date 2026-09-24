@@ -29,19 +29,19 @@
   if (['en', 'fr', 'nl'].indexOf(LANG) === -1) LANG = 'en';
 
   var COPY = {
-    en: { send: 'Send', skip: 'Skip for now', locked: 'Fill in the form above', sent: 'Thanks, that is noted.', back: 'Back to site', launch: 'Chat with Diya', sub: 'Brussels Diwali Festival · AI host',
+    en: { submit: 'Send', skip: 'Skip for now', locked: 'Fill in the form above', sent: 'Thanks, that is noted.', back: 'Back to site', launch: 'Chat with Diya', sub: 'Brussels Diwali Festival · AI host',
       ph: 'Ask a question…', send: 'Send', close: 'Close chat', offline: "I can't reach the festival right now. Please try again in a moment.",
       name: 'Your name', email: 'Your email', consent: 'Send me festival news from Art India, unsubscribe anytime',
       keep: 'Keep me posted', later: 'Maybe later', have: 'I already have a ticket',
       badEmail: 'That email does not look right.', needConsent: 'Please tick the box so we may write to you.',
       foot: 'Diya is an AI assistant. Answers come from the festival FAQ.' },
-    fr: { send: 'Envoyer', skip: 'Passer', locked: 'Complétez le formulaire ci-dessus', sent: "Merci, c'est noté.", back: 'Retour au site', launch: 'Discuter avec Diya', sub: 'Brussels Diwali Festival · hôtesse IA',
+    fr: { submit: 'Envoyer', skip: 'Passer', locked: 'Complétez le formulaire ci-dessus', sent: "Merci, c'est noté.", back: 'Retour au site', launch: 'Discuter avec Diya', sub: 'Brussels Diwali Festival · hôtesse IA',
       ph: 'Posez une question…', send: 'Envoyer', close: 'Fermer le chat', offline: 'Je ne peux pas joindre le festival pour le moment. Réessayez dans un instant.',
       name: 'Votre nom', email: 'Votre e-mail', consent: "Envoyez-moi les actualités du festival d'Art India, désinscription à tout moment",
       keep: 'Tenez-moi au courant', later: 'Plus tard', have: "J'ai déjà un billet",
       badEmail: "Cette adresse e-mail ne semble pas correcte.", needConsent: 'Cochez la case pour que nous puissions vous écrire.',
       foot: 'Diya est une assistante IA. Les réponses viennent de la FAQ du festival.' },
-    nl: { send: 'Verzenden', skip: 'Overslaan', locked: 'Vul het formulier hierboven in', sent: 'Bedankt, genoteerd.', back: 'Terug naar site', launch: 'Chat met Diya', sub: 'Brussels Diwali Festival · AI-gastvrouw',
+    nl: { submit: 'Verzenden', skip: 'Overslaan', locked: 'Vul het formulier hierboven in', sent: 'Bedankt, genoteerd.', back: 'Terug naar site', launch: 'Chat met Diya', sub: 'Brussels Diwali Festival · AI-gastvrouw',
       ph: 'Stel een vraag…', send: 'Versturen', close: 'Chat sluiten', offline: 'Ik kan het festival nu niet bereiken. Probeer het zo meteen opnieuw.',
       name: 'Uw naam', email: 'Uw e-mail', consent: 'Stuur me festivalnieuws van Art India, uitschrijven kan altijd',
       keep: 'Houd me op de hoogte', later: 'Later misschien', have: 'Ik heb al een ticket',
@@ -265,13 +265,14 @@
     consentWrap.appendChild(consentRow);
     consentWrap.appendChild(consentErr);
 
-    var send = el('button', 'diya-primary');
-    send.type = 'button';
-    var sendLabel = el('span', null, COPY.send);
+    /* Named apart from the composer's send button, which is a different
+       control with its own label. */
+    var submitBtn = el('button', 'diya-primary');
+    submitBtn.type = 'button';
     var spinner = el('span', 'diya-spin');
     spinner.hidden = true;
-    send.appendChild(spinner);
-    send.appendChild(sendLabel);
+    submitBtn.appendChild(spinner);
+    submitBtn.appendChild(el('span', null, COPY.submit));
 
     var links = el('div', 'diya-lead-links');
     var skip = el('button', 'diya-textlink', COPY.skip);
@@ -283,7 +284,7 @@
     links.appendChild(skip);
     links.appendChild(already);
 
-    [name.wrap, mail.wrap, consentWrap, send, links]
+    [name.wrap, mail.wrap, consentWrap, submitBtn, links]
       .forEach(function (n) { card.appendChild(n); });
 
     log.appendChild(card);
@@ -305,7 +306,7 @@
     var EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
 
     function busy(on) {
-      send.disabled = on;
+      submitBtn.disabled = on;
       skip.disabled = on;
       already.disabled = on;
       spinner.hidden = !on;
@@ -334,7 +335,7 @@
         .then(function (d) { if (d) hideLead(); else busy(false); });
     }
 
-    send.addEventListener('click', submit);
+    submitBtn.addEventListener('click', submit);
     already.addEventListener('click', identify);
     skip.addEventListener('click', function () { hideLead(); });
 
