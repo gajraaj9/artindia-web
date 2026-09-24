@@ -31,14 +31,37 @@ const LANGS = ['en', 'fr', 'nl'];
 const PATH_OF = { en: '/', fr: '/fr/', nl: '/nl/' };
 const PARTNERS_OF = { en: '/partners/', fr: '/fr/partners/', nl: '/nl/partners/' };
 
-/* Tiers whose logos go on a white card.
-   Decided by looking at every logo on the indigo ground, not by measuring it:
-   Western Union scores well because the yellow W lifts the average, but its
-   wordmark is black and all but vanishes. The City of Brussels and ICCR marks
-   are white, so a card would make those disappear instead, which is why
-   institutional is the one tier without one. The rule is per tier, so a tier
-   never mixes carded and uncarded logos. */
-const CARD_TIERS = new Set(['presenting', 'patronage', 'network']);
+/* Which logos need a white card behind them, decided by looking at each one
+   on the indigo ground rather than by measuring it. Western Union measures as
+   good contrast because the yellow W lifts the average, but its wordmark is
+   black and all but vanishes.
+
+   NEVER_CARD is the other half of the problem: the City of Brussels and ICCR
+   marks are white line art drawn for dark grounds, so a card does not rescue
+   them, it erases them. */
+const NEEDS_CARD = new Set(['embassy-of-india', 'western-union', 'bicci', 'bica']);
+const NEVER_CARD = new Set(['city-of-brussels', 'iccr']);
+
+/**
+ * Card treatment for a tier.
+ *
+ * Per tier wherever a tier agrees with itself, so a row never mixes carded
+ * and bare logos. Patronage no longer agrees: it holds the Embassy of India,
+ * which is dark ink and unreadable without a card, and the City of Brussels,
+ * which is white and invisible with one. There is no setting that serves both,
+ * so that tier falls back to deciding per logo. The fix is a dark version of
+ * the City of Brussels mark, which their brand kit will have.
+ */
+function cardPolicy(list) {
+  const wants = list.some(x => NEEDS_CARD.has(x.id));
+  const refuses = list.some(x => NEVER_CARD.has(x.id));
+  if (wants && refuses) return x => NEEDS_CARD.has(x.id);
+  return () => wants;
+}
+
+/* Which layout a tier gets. */
+const FEATURE_TIERS = new Set(['presenting']);
+const GRID_TIERS = new Set(['patronage', 'institutional', 'network']);
 /* Dutch is region tagged: the copy is Flemish, and a Dutch reader in the
    Netherlands should not be told this is written for them. */
 const HREFLANG = { en: 'en', fr: 'fr', nl: 'nl-BE' };
@@ -410,7 +433,7 @@ function render(lang, page = 'home') {
       fr: "La dixième édition se construit en ce moment, et il reste de la place pour les entreprises et les associations qui veulent en faire partie. Dites-nous qui vous êtes et ce que vous aimeriez faire, nous vous répondrons.",
       nl: 'De tiende editie wordt nu gebouwd, en er is plaats voor bedrijven en verenigingen die er deel van willen uitmaken. Vertel ons wie u bent en wat u zou willen doen, en wij nemen contact op.',
     },
-    becomeCta: { en: 'Write to partners@artindia.be', fr: 'Écrivez à partners@artindia.be', nl: 'Mail naar partners@artindia.be' },
+    becomeCta: { en: 'Write to outreach@artindia.be', fr: 'Écrivez à outreach@artindia.be', nl: 'Mail naar outreach@artindia.be' },
     strip: { en: 'With the support of', fr: 'Avec le soutien de', nl: 'Met de steun van' },
     nav: { en: 'Partners', fr: 'Partenaires', nl: 'Partners' },
     title: {
@@ -444,14 +467,17 @@ function render(lang, page = 'home') {
     const blocks = P.tiers.map(tier => {
       const list = livePartners(tier);
       if (!list.length) return '';
-      const card = CARD_TIERS.has(tier.id);
-      const onDark = !card;
+      const carded = cardPolicy(list);
+      const mark = x => {
+        const card = carded(x);
+        return `<a class="p-mark${card ? ' is-card' : ''}" href="${esc(x.url)}" target="_blank" rel="noopener" aria-label="${e(x.name)}">${partnerLogo(x, !card, 'p-img')}</a>`;
+      };
       const label = `<h2 class="p-tier">${e(t(tier.label))}</h2>`;
 
-      if (tier.id === 'presenting' || tier.id === 'patronage') {
+      if (FEATURE_TIERS.has(tier.id)) {
         return `<section class="wrap p-sec">${label}${list.map(x => `
   <article class="p-feature">
-    <a class="p-mark ${card ? 'is-card' : ''}" href="${esc(x.url)}" target="_blank" rel="noopener" aria-label="${e(x.name)}">${partnerLogo(x, onDark, 'p-img')}</a>
+    ${mark(x)}
     <div class="p-body">
       <h3>${e(x.name)}</h3>
       <p>${e(t(x.text))}</p>
@@ -460,11 +486,11 @@ function render(lang, page = 'home') {
   </article>`).join('')}</section>`;
       }
 
-      if (tier.id === 'institutional' || tier.id === 'network') {
+      if (GRID_TIERS.has(tier.id)) {
         return `<section class="wrap p-sec">${label}
   <div class="p-grid">${list.map(x => `
     <article class="p-card">
-      <a class="p-mark ${card ? 'is-card' : ''}" href="${esc(x.url)}" target="_blank" rel="noopener" aria-label="${e(x.name)}">${partnerLogo(x, onDark, 'p-img')}</a>
+      ${mark(x)}
       <h3>${e(x.name)}</h3>
       <p>${e(t(x.text))}</p>
     </article>`).join('')}</div></section>`;
@@ -472,7 +498,7 @@ function render(lang, page = 'home') {
 
       return `<section class="wrap p-sec">${label}
   <ul class="p-logos">${list.map(x => `
-    <li><a class="p-mark ${card ? 'is-card' : ''}" href="${esc(x.url)}" target="_blank" rel="noopener">${partnerLogo(x, onDark, 'p-img')}<span class="p-name">${e(x.name)}</span></a></li>`).join('')}</ul></section>`;
+    <li><a class="p-mark${carded(x) ? ' is-card' : ''}" href="${esc(x.url)}" target="_blank" rel="noopener">${partnerLogo(x, !carded(x), 'p-img')}<span class="p-name">${e(x.name)}</span></a></li>`).join('')}</ul></section>`;
     }).join('');
 
     return `<main class="partners" id="partners-main">
@@ -484,7 +510,7 @@ ${blocks}
   <section class="wrap p-become">
     <h2>${e(pc('become'))}</h2>
     <p>${e(pc('becomeText'))}</p>
-    <a class="p-cta" href="mailto:partners@artindia.be">${e(pc('becomeCta'))}</a>
+    <a class="p-cta" href="mailto:outreach@artindia.be">${e(pc('becomeCta'))}</a>
   </section>
 </main>`;
   }
@@ -500,7 +526,7 @@ ${blocks}
     <span class="p-strip-logos">${live.map(x => {
       /* The same readability rule as the page: a dark-ink logo does not
          survive an indigo ground, and greyscale makes it worse. */
-      const card = CARD_TIERS.has(x.tier);
+      const card = NEEDS_CARD.has(x.id);
       return `<span class="p-strip-mark${card ? ' is-card' : ''}">${partnerLogo(x, !card, 'p-strip-img')}</span>`;
     }).join('')}</span>
   </a>

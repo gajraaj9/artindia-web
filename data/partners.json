@@ -1,22 +1,14 @@
 {
   "tiers": [
-    { "id":"presenting",   "label":{"en":"Presenting partner","fr":"Partenaire principal","nl":"Hoofdpartner"} },
     { "id":"patronage",    "label":{"en":"Under the patronage of","fr":"Sous le patronage de","nl":"Onder de hoge bescherming van"} },
-    { "id":"institutional","label":{"en":"Institutional partners","fr":"Partenaires institutionnels","nl":"Institutionele partners"} },
+    { "id":"presenting",   "label":{"en":"Main partner","fr":"Partenaire principal","nl":"Hoofdpartner"} },
+    { "id":"institutional","label":{"en":"Supported by","fr":"Avec le soutien de","nl":"Met de steun van"} },
     { "id":"network",      "label":{"en":"Network partners","fr":"Partenaires de réseau","nl":"Netwerkpartners"} },
     { "id":"community",    "label":{"en":"Community partners","fr":"Partenaires communautaires","nl":"Gemeenschapspartners"} },
     { "id":"media",        "label":{"en":"Media partners","fr":"Partenaires médias","nl":"Mediapartners"} },
     { "id":"suppliers",    "label":{"en":"Suppliers","fr":"Fournisseurs","nl":"Leveranciers"} }
   ],
   "partners": [
-    { "id":"western-union", "tier":"presenting", "live":true,
-      "name":"Western Union", "url":"https://www.westernunion.com",
-      "logo":"media/partners/western-union",
-      "text":{
-        "en":"Western Union joins the Brussels Diwali Festival as presenting partner for its tenth edition. A company that has connected families across borders for generations, supporting a festival that brings a community together in the heart of Europe.",
-        "fr":"Western Union rejoint le Brussels Diwali Festival comme partenaire principal de sa dixième édition. Une entreprise qui relie les familles par-delà les frontières depuis des générations, au côté d'un festival qui rassemble une communauté au cœur de l'Europe.",
-        "nl":"Western Union is hoofdpartner van de tiende editie van het Brussels Diwali Festival. Een bedrijf dat al generaties lang families over grenzen heen verbindt, naast een festival dat een gemeenschap samenbrengt in het hart van Europa."
-      } },
     { "id":"embassy-of-india", "tier":"patronage", "live":true,
       "name":"Embassy of India, Brussels", "url":"https://www.indianembassybrussels.gov.in",
       "logo":"media/partners/embassy-of-india",
@@ -25,13 +17,21 @@
         "fr":"L'Ambassade de l'Inde à Bruxelles accompagne le festival depuis sa première édition. Son patronage place Diwali à l'Atomium parmi les grandes célébrations de la culture indienne en Europe.",
         "nl":"De Ambassade van India in Brussel staat sinds de eerste editie achter het festival. Haar patronage plaatst Diwali aan het Atomium tussen de grote vieringen van de Indiase cultuur in Europa."
       } },
-    { "id":"city-of-brussels", "tier":"institutional", "live":true,
+    { "id":"city-of-brussels", "tier":"patronage", "live":true,
       "name":"City of Brussels", "url":"https://www.brussels.be",
       "logo":"media/partners/city-of-brussels",
       "text":{
         "en":"The City of Brussels welcomes the festival on the Atomium Esplanade and supports it as one of the city's major cultural events of the autumn.",
         "fr":"La Ville de Bruxelles accueille le festival sur l'esplanade de l'Atomium et le soutient comme l'un des grands rendez-vous culturels de l'automne bruxellois.",
         "nl":"De Stad Brussel verwelkomt het festival op de Atomiumesplanade en steunt het als een van de grote culturele evenementen van het Brusselse najaar."
+      } },
+    { "id":"western-union", "tier":"presenting", "live":true,
+      "name":"Western Union", "url":"https://www.westernunion.com",
+      "logo":"media/partners/western-union",
+      "text":{
+        "en":"Western Union returns as main partner for the third year. A company that has connected families across borders for generations, supporting a festival that brings a community together in the heart of Europe.",
+        "fr":"Western Union revient comme partenaire principal pour la troisième année. Une entreprise qui relie les familles par-delà les frontières depuis des générations, au côté d'un festival qui rassemble une communauté au cœur de l'Europe.",
+        "nl":"Western Union is voor het derde jaar hoofdpartner. Een bedrijf dat al generaties lang families over grenzen heen verbindt, naast een festival dat een gemeenschap samenbrengt in het hart van Europa."
       } },
     { "id":"iccr", "tier":"institutional", "live":true,
       "name":"Indian Council for Cultural Relations", "url":"https://iccr.gov.in",
