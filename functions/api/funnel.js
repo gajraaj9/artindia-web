@@ -193,6 +193,39 @@ export async function onRequestGet({ request, env }) {
     return json(200, { ok: true, types: out });
   }
 
+  /* ?raw=1 runs the same window twice, once filtered to our site tag and once
+     not, grouped by site tag. If the account has data and ours has none, the
+     tag is wrong; if neither has any, nothing has been ingested yet. */
+  if (q.get('raw')) {
+    if (!env.CF_ANALYTICS_TOKEN || !env.CF_ACCOUNT_ID) return json(503, { ok: false, error: 'not_configured' });
+    const since2 = new Date(Date.now() - 2 * 86400000).toISOString();
+    const until2 = new Date().toISOString();
+    const ask = async (query, variables) => {
+      const r = await fetch(GRAPHQL, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${env.CF_ANALYTICS_TOKEN}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ query, variables }),
+      });
+      return r.json();
+    };
+    const bySite = await ask(`
+      query($account:String!,$since:Time!,$until:Time!){viewer{accounts(filter:{accountTag:$account}){
+        rumPageloadEventsAdaptiveGroups(limit:20, filter:{datetime_geq:$since, datetime_leq:$until}){
+          count sum{visits} dimensions{siteTag}}}}}`,
+      { account: env.CF_ACCOUNT_ID, since: since2, until: until2 });
+    const ours = await ask(`
+      query($account:String!,$siteTag:string!,$since:Time!,$until:Time!){viewer{accounts(filter:{accountTag:$account}){
+        rumPageloadEventsAdaptiveGroups(limit:20, filter:{siteTag:$siteTag, datetime_geq:$since, datetime_leq:$until}){
+          count dimensions{date}}}}}`,
+      { account: env.CF_ACCOUNT_ID, siteTag: env.CF_WA_SITE_TAG || DEFAULT_SITE_TAG, since: since2, until: until2 });
+    return json(200, {
+      ok: true,
+      site_tag_used: env.CF_WA_SITE_TAG || DEFAULT_SITE_TAG,
+      any_site: bySite.errors || (((bySite.data || {}).viewer || {}).accounts || [])[0],
+      our_site: ours.errors || (((ours.data || {}).viewer || {}).accounts || [])[0],
+    });
+  }
+
   const days = Math.min(90, Math.max(1, Number(q.get('days')) || 7));
   const window = daysBack(days);
   const since = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10) + 'T00:00:00Z';
