@@ -23,8 +23,46 @@
 import { json, safeEqual, listAll } from './_shared.js';
 
 const GRAPHQL = 'https://api.cloudflare.com/client/v4/graphql';
-/* The site tag is not a secret: it is printed in every page's beacon tag. */
-const DEFAULT_SITE_TAG = 'c77e9f296e564f32b4b427bea8c78e87';
+const SITE_HOST = 'diwali.artindia.be';
+
+/* The beacon token in the page and the site tag the analytics API wants are
+   two different identifiers. Using the beacon token here returned an empty
+   result with no error for as long as it took to notice. So the tag is
+   discovered from the data instead: ask which site tags have pageloads for
+   this hostname and take that one. Cached per isolate; CF_WA_SITE_TAG still
+   overrides if it ever needs pinning. */
+let siteTagCache = null;
+
+async function ask(env, query, variables) {
+  const r = await fetch(GRAPHQL, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${env.CF_ANALYTICS_TOKEN}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ query, variables }),
+  });
+  return r.json();
+}
+
+async function resolveSiteTag(env) {
+  if (env.CF_WA_SITE_TAG) return env.CF_WA_SITE_TAG;
+  if (siteTagCache) return siteTagCache;
+  const since = new Date(Date.now() - 30 * 86400000).toISOString();
+  const body = await ask(env, `
+    query($account:String!,$since:Time!){viewer{accounts(filter:{accountTag:$account}){
+      rumPageloadEventsAdaptiveGroups(limit:50, orderBy:[count_DESC],
+        filter:{datetime_geq:$since}){ count dimensions{ siteTag requestHost } }}}}`,
+    { account: env.CF_ACCOUNT_ID, since });
+  if (body.errors && body.errors.length) {
+    console.error('funnel: site tag lookup failed', JSON.stringify(body.errors).slice(0, 300));
+    return '';
+  }
+  const rows = (((body.data || {}).viewer || {}).accounts || [])[0];
+  const groups = (rows && rows.rumPageloadEventsAdaptiveGroups) || [];
+  const mine = groups.find(g => (g.dimensions.requestHost || '') === SITE_HOST);
+  siteTagCache = (mine && mine.dimensions.siteTag) || '';
+  if (!siteTagCache) console.warn('funnel: no site tag found for', SITE_HOST);
+  else console.log('funnel: site tag for', SITE_HOST, 'is', siteTagCache);
+  return siteTagCache;
+}
 
 const dayString = d => d.toISOString().slice(0, 10);
 
@@ -47,7 +85,8 @@ async function visits(env, since, until) {
   if (!env.CF_ACCOUNT_ID || !env.CF_ANALYTICS_TOKEN) {
     return { ok: false, reason: 'not_configured' };
   }
-  const siteTag = env.CF_WA_SITE_TAG || DEFAULT_SITE_TAG;
+  const siteTag = await resolveSiteTag(env);
+  if (!siteTag) return { ok: false, reason: 'no_site_tag' };
   const query = `
     query Funnel($account: String!, $siteTag: String!, $since: Time!, $until: Time!) {
       viewer {
@@ -74,21 +113,10 @@ async function visits(env, since, until) {
     }`;
 
   try {
-    const res = await fetch(GRAPHQL, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${env.CF_ANALYTICS_TOKEN}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        variables: { account: env.CF_ACCOUNT_ID, siteTag, since, until },
-      }),
-    });
-    const body = await res.json();
-    if (!res.ok || (body.errors && body.errors.length)) {
-      console.error('funnel: web analytics query failed', res.status, JSON.stringify(body.errors || body).slice(0, 400));
-      return { ok: false, reason: 'query_failed', detail: (body.errors || [])[0] };
+    const body = await ask(env, query, { account: env.CF_ACCOUNT_ID, siteTag, since, until });
+    if (body.errors && body.errors.length) {
+      console.error('funnel: web analytics query failed', JSON.stringify(body.errors).slice(0, 400));
+      return { ok: false, reason: 'query_failed', detail: body.errors[0] };
     }
     const account = (((body.data || {}).viewer || {}).accounts || [])[0] || {};
     /* count is page views; sum.visits is Cloudflare's visit count, which is
@@ -101,6 +129,7 @@ async function visits(env, since, until) {
     }));
     return {
       ok: true,
+      site_tag: siteTag,
       by_day: byDay,
       views: byDay.reduce((n, r) => n + r.views, 0),
       visitors: byDay.reduce((n, r) => n + r.visitors, 0),
@@ -171,60 +200,6 @@ export async function onRequestGet({ request, env }) {
   if (!env.REFERRALS) return json(503, { ok: false, error: 'kv_not_bound' });
 
   const q = new URL(request.url).searchParams;
-
-  /* ?schema=1 asks Cloudflare what this dataset actually offers. The field
-     names here are not in any published reference I could reach, and guessing
-     one at a time costs a deploy each. */
-  if (q.get('schema')) {
-    if (!env.CF_ANALYTICS_TOKEN) return json(503, { ok: false, error: 'not_configured' });
-    const names = ['AccountRumPageloadEventsAdaptiveGroups', 'ZoneRumPageloadEventsAdaptiveGroups',
-      'AccountRumPageloadEventsAdaptiveGroupsSum', 'RumPageloadEventsAdaptiveGroups'];
-    const out = {};
-    for (const name of names) {
-      const r = await fetch(GRAPHQL, {
-        method: 'POST',
-        headers: { authorization: `Bearer ${env.CF_ANALYTICS_TOKEN}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ query: `{ __type(name: "${name}") { fields { name type { name kind ofType { name } } } } }` }),
-      });
-      const b = await r.json();
-      const t = ((b.data || {}).__type) || null;
-      if (t) out[name] = t.fields.map(f => f.name + ':' + (f.type.name || (f.type.ofType && f.type.ofType.name) || f.type.kind));
-    }
-    return json(200, { ok: true, types: out });
-  }
-
-  /* ?raw=1 runs the same window twice, once filtered to our site tag and once
-     not, grouped by site tag. If the account has data and ours has none, the
-     tag is wrong; if neither has any, nothing has been ingested yet. */
-  if (q.get('raw')) {
-    if (!env.CF_ANALYTICS_TOKEN || !env.CF_ACCOUNT_ID) return json(503, { ok: false, error: 'not_configured' });
-    const since2 = new Date(Date.now() - 2 * 86400000).toISOString();
-    const until2 = new Date().toISOString();
-    const ask = async (query, variables) => {
-      const r = await fetch(GRAPHQL, {
-        method: 'POST',
-        headers: { authorization: `Bearer ${env.CF_ANALYTICS_TOKEN}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ query, variables }),
-      });
-      return r.json();
-    };
-    const bySite = await ask(`
-      query($account:String!,$since:Time!,$until:Time!){viewer{accounts(filter:{accountTag:$account}){
-        rumPageloadEventsAdaptiveGroups(limit:20, filter:{datetime_geq:$since, datetime_leq:$until}){
-          count sum{visits} dimensions{siteTag}}}}}`,
-      { account: env.CF_ACCOUNT_ID, since: since2, until: until2 });
-    const ours = await ask(`
-      query($account:String!,$siteTag:string!,$since:Time!,$until:Time!){viewer{accounts(filter:{accountTag:$account}){
-        rumPageloadEventsAdaptiveGroups(limit:20, filter:{siteTag:$siteTag, datetime_geq:$since, datetime_leq:$until}){
-          count dimensions{date}}}}}`,
-      { account: env.CF_ACCOUNT_ID, siteTag: env.CF_WA_SITE_TAG || DEFAULT_SITE_TAG, since: since2, until: until2 });
-    return json(200, {
-      ok: true,
-      site_tag_used: env.CF_WA_SITE_TAG || DEFAULT_SITE_TAG,
-      any_site: bySite.errors || (((bySite.data || {}).viewer || {}).accounts || [])[0],
-      our_site: ours.errors || (((ours.data || {}).viewer || {}).accounts || [])[0],
-    });
-  }
 
   const days = Math.min(90, Math.max(1, Number(q.get('days')) || 7));
   const window = daysBack(days);
