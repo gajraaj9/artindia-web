@@ -27,7 +27,7 @@ export async function onRequestGet({ request, env }) {
     ? q.get('lang').toLowerCase() : '';
 
   const click = clickFrom(request, { cta, lang });
-  await logClick(env, click);
+  const sink = await logClick(env, click);
 
   const to = new URL(env.TICKET_URL || BOX_OFFICE);
 
@@ -48,7 +48,13 @@ export async function onRequestGet({ request, env }) {
 
   return new Response(null, {
     status: 302,
-    headers: { location: to.toString(), 'cache-control': 'no-store' },
+    headers: {
+      location: to.toString(),
+      'cache-control': 'no-store',
+      /* Which sink took the click. The difference between a bound dataset and
+         a silent fallback is otherwise invisible from outside. */
+      'x-click-sink': sink,
+    },
   });
 }
 

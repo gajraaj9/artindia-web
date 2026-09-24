@@ -199,6 +199,12 @@ async function bumpCounter(kv, key) {
  * Never throws and never delays the redirect by more than the write: a
  * measurement layer that can break a ticket sale is not worth having.
  */
+/* Column order for the dataset, so the writer and the reader cannot drift.
+   Analytics Engine has no column names of its own: blob1 is whatever you put
+   first, for ever. */
+export const CLICK_BLOBS = ['cta', 'lang', 'referrer', 'utm_source', 'utm_medium',
+  'utm_campaign', 'ref', 'device', 'country'];
+
 export async function logClick(env, click) {
   const row = {
     ts: new Date().toISOString(),
@@ -218,8 +224,7 @@ export async function logClick(env, click) {
     try {
       ds.writeDataPoint({
         indexes: [row.cta],
-        blobs: [row.cta, row.lang, row.referrer, row.utm_source, row.utm_medium,
-          row.utm_campaign, row.ref, row.device, row.country],
+        blobs: CLICK_BLOBS.map(k => row[k]),
         doubles: [1],
       });
       console.log('click', JSON.stringify(row));

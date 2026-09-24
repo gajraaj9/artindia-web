@@ -20,7 +20,7 @@
  * else still works, because the clicks and the orders are ours.
  */
 
-import { json, safeEqual, listAll } from './_shared.js';
+import { json, safeEqual, listAll, CLICK_BLOBS } from './_shared.js';
 
 const GRAPHQL = 'https://api.cloudflare.com/client/v4/graphql';
 const SITE_HOST = 'diwali.artindia.be';
@@ -144,6 +144,65 @@ async function visits(env, since, until) {
   }
 }
 
+/* ---------------------------------------------------------- analytics engine */
+
+const SQL_API = account =>
+  `https://api.cloudflare.com/client/v4/accounts/${account}/analytics_engine/sql`;
+
+/** One SQL query against the click dataset. Null when it cannot be run. */
+async function sql(env, query) {
+  if (!env.CF_ACCOUNT_ID || !env.CF_ANALYTICS_TOKEN) return null;
+  try {
+    const r = await fetch(SQL_API(env.CF_ACCOUNT_ID), {
+      method: 'POST',
+      headers: { authorization: `Bearer ${env.CF_ANALYTICS_TOKEN}` },
+      body: query,
+    });
+    const text = await r.text();
+    if (!r.ok) {
+      console.error('funnel: sql failed', r.status, text.slice(0, 300));
+      return null;
+    }
+    return JSON.parse(text);
+  } catch (e) {
+    console.error('funnel: sql threw', String(e));
+    return null;
+  }
+}
+
+const DATASET = 'diwali_clicks';
+/* blob1..blobN in the order logClick writes them. */
+const col = name => `blob${CLICK_BLOBS.indexOf(name) + 1}`;
+
+/**
+ * Clicks out of the dataset rather than the KV counters.
+ *
+ * Analytics Engine samples under load, so a row stands for _sample_interval
+ * clicks and summing that is the unbiased count. Returns null when the
+ * dataset cannot be read, and the caller falls back to KV.
+ */
+async function clicksFromAE(env, days) {
+  const body = await sql(env, `
+    SELECT toDate(timestamp) AS date,
+           ${col('cta')} AS cta,
+           ${col('lang')} AS lang,
+           ${col('utm_source')} AS source,
+           SUM(_sample_interval) AS count
+    FROM ${DATASET}
+    WHERE timestamp >= NOW() - INTERVAL '${days}' DAY
+    GROUP BY date, cta, lang, source
+    ORDER BY date DESC
+    LIMIT 1000`);
+  if (!body || !Array.isArray(body.data)) return null;
+  return body.data.map(r => ({
+    date: String(r.date).slice(0, 10),
+    cta: r.cta || 'unknown',
+    lang: r.lang || 'xx',
+    source: r.source || 'direct',
+    count: Number(r.count) || 0,
+  }));
+}
+
 /* clicks:<date>:<cta>:<lang>:<source> -> a count. */
 async function clicks(kv, days) {
   const keys = await listAll(kv, 'clicks:', 5000);
@@ -201,18 +260,36 @@ export async function onRequestGet({ request, env }) {
 
   const q = new URL(request.url).searchParams;
 
+  /* ?rows=1 shows the last few rows exactly as the dataset holds them. */
+  if (q.get('rows')) {
+    const body = await sql(env, `
+      SELECT timestamp, ${CLICK_BLOBS.map((n, i) => `blob${i + 1} AS ${n}`).join(', ')},
+             _sample_interval
+      FROM ${DATASET}
+      WHERE timestamp >= NOW() - INTERVAL '1' DAY
+      ORDER BY timestamp DESC
+      LIMIT ${Math.min(50, Math.max(1, Number(q.get('rows')) || 10))}`);
+    if (!body) return json(503, { ok: false, error: 'dataset_unreadable' });
+    return json(200, { ok: true, dataset: DATASET, rows: body.data, meta: body.meta });
+  }
+
   const days = Math.min(90, Math.max(1, Number(q.get('days')) || 7));
   const window = daysBack(days);
   const since = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10) + 'T00:00:00Z';
   const until = new Date().toISOString();
 
-  let clickRows, orderRows, visitData;
+  let clickRows, orderRows, visitData, clickSource;
   try {
-    [clickRows, orderRows, visitData] = await Promise.all([
-      clicks(env.REFERRALS, window),
+    let fromAE;
+    [fromAE, orderRows, visitData] = await Promise.all([
+      clicksFromAE(env, days),
       orders(env.REFERRALS, window),
       visits(env, since, until),
     ]);
+    /* The dataset is the source of truth once it is bound: KV stops being
+       written the moment it is, so reading KV would quietly show zero. */
+    clickRows = fromAE || await clicks(env.REFERRALS, window);
+    clickSource = fromAE ? 'analytics_engine' : 'kv';
   } catch (e) {
     console.error('funnel: read failed', String(e));
     return json(500, { ok: false, error: 'read_failed' });
@@ -229,6 +306,7 @@ export async function onRequestGet({ request, env }) {
     generated_at: new Date().toISOString(),
     visits: visitData,
     clicks: {
+      source: clickSource,
       total: totalClicks,
       by_cta: group(clickRows, 'cta'),
       by_lang: group(clickRows, 'lang'),
