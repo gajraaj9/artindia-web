@@ -29,19 +29,19 @@
   if (['en', 'fr', 'nl'].indexOf(LANG) === -1) LANG = 'en';
 
   var COPY = {
-    en: { back: 'Back to site', launch: 'Chat with Diya', sub: 'Brussels Diwali Festival · AI host',
+    en: { send: 'Send', skip: 'Skip for now', locked: 'Fill in the form above', sent: 'Thanks, that is noted.', back: 'Back to site', launch: 'Chat with Diya', sub: 'Brussels Diwali Festival · AI host',
       ph: 'Ask a question…', send: 'Send', close: 'Close chat', offline: "I can't reach the festival right now. Please try again in a moment.",
       name: 'Your name', email: 'Your email', consent: 'Send me festival news from Art India, unsubscribe anytime',
       keep: 'Keep me posted', later: 'Maybe later', have: 'I already have a ticket',
       badEmail: 'That email does not look right.', needConsent: 'Please tick the box so we may write to you.',
       foot: 'Diya is an AI assistant. Answers come from the festival FAQ.' },
-    fr: { back: 'Retour au site', launch: 'Discuter avec Diya', sub: 'Brussels Diwali Festival · hôtesse IA',
+    fr: { send: 'Envoyer', skip: 'Passer', locked: 'Complétez le formulaire ci-dessus', sent: "Merci, c'est noté.", back: 'Retour au site', launch: 'Discuter avec Diya', sub: 'Brussels Diwali Festival · hôtesse IA',
       ph: 'Posez une question…', send: 'Envoyer', close: 'Fermer le chat', offline: 'Je ne peux pas joindre le festival pour le moment. Réessayez dans un instant.',
       name: 'Votre nom', email: 'Votre e-mail', consent: "Envoyez-moi les actualités du festival d'Art India, désinscription à tout moment",
       keep: 'Tenez-moi au courant', later: 'Plus tard', have: "J'ai déjà un billet",
       badEmail: "Cette adresse e-mail ne semble pas correcte.", needConsent: 'Cochez la case pour que nous puissions vous écrire.',
       foot: 'Diya est une assistante IA. Les réponses viennent de la FAQ du festival.' },
-    nl: { back: 'Terug naar site', launch: 'Chat met Diya', sub: 'Brussels Diwali Festival · AI-gastvrouw',
+    nl: { send: 'Verzenden', skip: 'Overslaan', locked: 'Vul het formulier hierboven in', sent: 'Bedankt, genoteerd.', back: 'Terug naar site', launch: 'Chat met Diya', sub: 'Brussels Diwali Festival · AI-gastvrouw',
       ph: 'Stel een vraag…', send: 'Versturen', close: 'Chat sluiten', offline: 'Ik kan het festival nu niet bereiken. Probeer het zo meteen opnieuw.',
       name: 'Uw naam', email: 'Uw e-mail', consent: 'Stuur me festivalnieuws van Art India, uitschrijven kan altijd',
       keep: 'Houd me op de hoogte', later: 'Later misschien', have: 'Ik heb al een ticket',
@@ -153,8 +153,6 @@
   log.setAttribute('role', 'log');
   log.setAttribute('aria-live', 'polite');
   var chips = el('div', 'diya-chips');
-  var leadBox = el('div', 'diya-form');
-  leadBox.hidden = true;
 
   var bar = el('div', 'diya-bar');
   var input = document.createElement('input');
@@ -171,7 +169,6 @@
   panel.appendChild(head);
   panel.appendChild(log);
   panel.appendChild(chips);
-  panel.appendChild(leadBox);
   panel.appendChild(bar);
   panel.appendChild(el('div', 'diya-foot', COPY.foot));
 
@@ -230,63 +227,145 @@
 
   /* ------------------------------------------------------------- the lead */
 
+  var leadCard = null;
+
+  /* A card in the transcript, where Diya just asked the question, rather than
+     a panel bolted under it. The old one left the free text box open next to
+     it with no send button, so the only visible way to answer a question
+     about your name and email was to type a sentence at it. */
   function showLead() {
-    leadBox.innerHTML = '';
-    leadBox.hidden = false;
+    if (leadCard) return;
 
-    var err = el('div', 'diya-err');
-    err.hidden = true;
+    var card = el('div', 'diya-lead');
 
-    var nameLabel = el('label', null, COPY.name);
-    nameLabel.htmlFor = 'diya-name';
-    var name = document.createElement('input');
-    name.type = 'text'; name.id = 'diya-name'; name.autocomplete = 'given-name';
+    function field(id, labelText, type, autocomplete) {
+      var wrap = el('div', 'diya-field');
+      var lab = el('label', null, labelText);
+      lab.htmlFor = id;
+      var box = document.createElement('input');
+      box.type = type; box.id = id; box.autocomplete = autocomplete;
+      var err = el('div', 'diya-field-err');
+      err.hidden = true;
+      err.id = id + '-err';
+      wrap.appendChild(lab); wrap.appendChild(box); wrap.appendChild(err);
+      return { wrap: wrap, input: box, err: err };
+    }
 
-    var mailLabel = el('label', null, COPY.email);
-    mailLabel.htmlFor = 'diya-email';
-    var mail = document.createElement('input');
-    mail.type = 'email'; mail.id = 'diya-email'; mail.autocomplete = 'email';
+    var name = field('diya-name', COPY.name, 'text', 'given-name');
+    var mail = field('diya-email', COPY.email, 'email', 'email');
 
+    var consentWrap = el('div', 'diya-field');
     var consentRow = el('label', 'diya-consent');
     var tick = document.createElement('input');
     tick.type = 'checkbox';
     consentRow.appendChild(tick);
     consentRow.appendChild(document.createTextNode(COPY.consent));
+    var consentErr = el('div', 'diya-field-err');
+    consentErr.hidden = true;
+    consentWrap.appendChild(consentRow);
+    consentWrap.appendChild(consentErr);
 
-    var actions = el('div', 'diya-actions');
-    var keep = el('button', 'diya-chip', COPY.keep);
-    keep.type = 'button';
-    var later = el('button', 'diya-chip', COPY.later);
-    later.type = 'button';
-    actions.appendChild(keep);
-    actions.appendChild(later);
+    var send = el('button', 'diya-primary');
+    send.type = 'button';
+    var sendLabel = el('span', null, COPY.send);
+    var spinner = el('span', 'diya-spin');
+    spinner.hidden = true;
+    send.appendChild(spinner);
+    send.appendChild(sendLabel);
 
-    var already = el('button', 'diya-chip', COPY.have);
+    var links = el('div', 'diya-lead-links');
+    var skip = el('button', 'diya-textlink', COPY.skip);
+    skip.type = 'button';
+    /* Kept from the previous form: without it a buyer has no way to say who
+       they are, which is the only route to their own ticket count. */
+    var already = el('button', 'diya-textlink', COPY.have);
     already.type = 'button';
-    already.style.marginTop = '.5rem';
+    links.appendChild(skip);
+    links.appendChild(already);
 
-    [err, nameLabel, name, mailLabel, mail, consentRow, actions, already]
-      .forEach(function (n) { leadBox.appendChild(n); });
+    [name.wrap, mail.wrap, consentWrap, send, links]
+      .forEach(function (n) { card.appendChild(n); });
 
-    function fail(msg) { err.textContent = msg; err.hidden = false; }
+    log.appendChild(card);
+    log.scrollTop = log.scrollHeight;
+    leadCard = card;
+    lockInput(true);
 
-    keep.addEventListener('click', function () {
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(mail.value.trim())) return fail(COPY.badEmail);
-      if (!tick.checked) return fail(COPY.needConsent);
-      hideLead();
+    function clearErrors() {
+      [name.err, mail.err, consentErr].forEach(function (e) { e.hidden = true; e.textContent = ''; });
+      [name.input, mail.input].forEach(function (i) { i.classList.remove('is-bad'); i.removeAttribute('aria-invalid'); });
+    }
+    function failField(f, msg) {
+      f.err.textContent = msg; f.err.hidden = false;
+      f.input.classList.add('is-bad');
+      f.input.setAttribute('aria-invalid', 'true');
+      f.input.setAttribute('aria-describedby', f.err.id);
+      f.input.focus();
+    }
+    var EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
+
+    function busy(on) {
+      send.disabled = on;
+      skip.disabled = on;
+      already.disabled = on;
+      spinner.hidden = !on;
+    }
+
+    function submit() {
+      clearErrors();
+      if (!EMAIL.test(mail.input.value.trim())) return failField(mail, COPY.badEmail);
+      if (!tick.checked) {
+        consentErr.textContent = COPY.needConsent;
+        consentErr.hidden = false;
+        tick.focus();
+        return;
+      }
+      busy(true);
       fire('diya_lead');
-      talk({ lead: { name: name.value.trim(), email: mail.value.trim(), consent: true } });
+      talk({ lead: { name: name.input.value.trim(), email: mail.input.value.trim(), consent: true } })
+        .then(function (d) { if (d) hideLead(); else busy(false); });
+    }
+
+    function identify() {
+      clearErrors();
+      if (!EMAIL.test(mail.input.value.trim())) return failField(mail, COPY.badEmail);
+      busy(true);
+      talk({ identify: { email: mail.input.value.trim() } })
+        .then(function (d) { if (d) hideLead(); else busy(false); });
+    }
+
+    send.addEventListener('click', submit);
+    already.addEventListener('click', identify);
+    skip.addEventListener('click', function () { hideLead(); });
+
+    /* Enter from either field sends, which is what a two field form implies. */
+    [name.input, mail.input].forEach(function (i) {
+      i.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); submit(); }
+      });
+      /* The keyboard shrinks the sheet; keep the card in the part that is left. */
+      i.addEventListener('focus', function () {
+        setTimeout(function () { card.scrollIntoView({ block: 'nearest' }); }, 250);
+      });
     });
-    later.addEventListener('click', hideLead);
-    already.addEventListener('click', function () {
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(mail.value.trim())) return fail(COPY.badEmail);
-      hideLead();
-      talk({ identify: { email: mail.value.trim() } });
-    });
-    name.focus();
+
+    name.input.focus();
   }
 
-  function hideLead() { leadBox.hidden = true; leadBox.innerHTML = ''; input.focus(); }
+  /* The free text box has nothing useful to do while the form is open, and an
+     enabled box with no send button is what caused the confusion. */
+  function lockInput(on) {
+    input.disabled = on;
+    send.disabled = on;
+    input.placeholder = on ? COPY.locked : COPY.ph;
+    chips.hidden = on;
+  }
+
+  function hideLead() {
+    if (leadCard) { leadCard.remove(); leadCard = null; }
+    lockInput(false);
+    log.scrollTop = log.scrollHeight;
+  }
 
   /* ----------------------------------------------------------------- talk */
 
@@ -295,7 +374,7 @@
     var body = { lang: LANG, session: state.session };
     for (var k in payload) if (Object.prototype.hasOwnProperty.call(payload, k)) body[k] = payload[k];
 
-    fetch('/api/chat', {
+    return fetch('/api/chat', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
@@ -310,10 +389,15 @@
           if (d.leadPrompt) { bubble('bot', d.leadPrompt); remember('bot', d.leadPrompt); }
           showLead();
         }
+        return d;
       })
       .catch(function () {
         thinking(false);
         bubble('bot', COPY.offline);
+        /* Resolves with nothing rather than rejecting, so a caller can tell a
+           failed send from a successful one and leave the form up with what
+           the visitor typed still in it. */
+        return null;
       });
   }
 

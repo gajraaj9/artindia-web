@@ -88,7 +88,7 @@
 .diya-dots i:nth-child(3) { animation-delay: .4s; }
 @keyframes diya-blink { 0%, 60%, 100% { opacity: .25; } 30% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
-  .diya-dots i { animation: none; }
+  .diya-dots i, .diya-spin { animation: none; }
   .diya-panel, .diya-launchers { transition: none; }
 }
 
@@ -104,18 +104,59 @@
 .diya-chip.wa { color: var(--dy-green); border-color: rgba(37, 211, 102, .45); }
 .diya-chip.wa:hover { border-color: var(--dy-green); }
 
-.diya-form { padding: 12px 14px; border-top: 1px solid var(--dy-line); background: var(--dy-aubergine); }
-.diya-form label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 3px; }
-.diya-form input[type="text"], .diya-form input[type="email"] {
-  width: 100%; padding: 9px 10px; margin-bottom: 8px; font: inherit; font-size: 16px;
-  color: var(--dy-ink); background: var(--dy-night);
-  border: 1px solid var(--dy-line); border-radius: 8px;
+/* ------------- the lead form, a card inside the transcript -------------
+   It sits where Diya asked the question, so the answer belongs to the
+   conversation rather than appearing in a tray underneath it. While it is up
+   the chips are hidden and the free text box is disabled: an enabled box with
+   no send button next to a two field form is what made this confusing. */
+.diya-lead {
+  align-self: stretch; background: var(--dy-aubergine);
+  border: 1px solid var(--dy-line); border-radius: 14px; padding: 14px;
 }
-.diya-consent { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; margin-bottom: 10px; }
-.diya-consent input { margin-top: 3px; width: 18px; height: 18px; }
-.diya-err { color: #ff9c8a; font-size: 13px; margin-bottom: 8px; }
-.diya-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-.diya-actions button { flex: 1; }
+.diya-field { margin-bottom: 12px; }
+.diya-lead label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+.diya-lead input[type="text"], .diya-lead input[type="email"] {
+  /* 16px: below it iOS zooms the page when the field is focused, and that
+     zoom would take the sheet with it. */
+  width: 100%; padding: 11px 12px; font: inherit; font-size: 16px;
+  color: var(--dy-ink); background: var(--dy-night);
+  border: 1px solid var(--dy-line); border-radius: 9px;
+}
+.diya-lead input:focus-visible { outline: 2px solid var(--dy-ember); outline-offset: 1px; }
+.diya-lead input.is-bad { border-color: #ff9c8a; }
+.diya-field-err { color: #ff9c8a; font-size: 12.5px; margin-top: 5px; }
+.diya-consent {
+  display: flex; gap: 9px; align-items: flex-start; font-size: 13px;
+  font-weight: 400; line-height: 1.4; cursor: pointer;
+}
+.diya-consent input { margin-top: 2px; width: 18px; height: 18px; flex: 0 0 auto; accent-color: var(--dy-marigold); }
+.diya-primary {
+  width: 100%; min-height: 44px; margin-top: 2px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+  color: var(--dy-night); background: var(--dy-marigold);
+  border: 0; border-radius: 999px;
+}
+.diya-primary[disabled] { opacity: .65; cursor: progress; }
+.diya-primary:focus-visible { outline: 3px solid var(--dy-ember); outline-offset: 2px; }
+.diya-spin {
+  width: 15px; height: 15px; border-radius: 50%; flex: 0 0 auto;
+  border: 2px solid rgba(11, 14, 36, .35); border-top-color: var(--dy-night);
+  animation: diya-turn .7s linear infinite;
+}
+@keyframes diya-turn { to { transform: rotate(360deg); } }
+.diya-lead-links {
+  display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 10px;
+}
+.diya-textlink {
+  background: none; border: 0; padding: 4px 2px; cursor: pointer;
+  font: inherit; font-size: 13px; color: var(--dy-ember); text-decoration: underline;
+}
+.diya-textlink[disabled] { opacity: .5; cursor: default; }
+.diya-textlink:focus-visible { outline: 2px solid var(--dy-ember); outline-offset: 2px; }
+
+.diya-bar input[disabled] { opacity: .55; cursor: not-allowed; }
+.diya-send[disabled] { opacity: .5; cursor: not-allowed; }
 
 /* Pinned: the log scrolls, this does not. */
 .diya-bar { flex: 0 0 auto; display: flex; gap: 8px; padding: 10px 14px;
@@ -180,6 +221,8 @@
   /* Two rows of chips is the point; they must not stretch to fill one. */
   .diya-chips { padding: 0 14px 8px; gap: 6px; }
   .diya-chip { min-height: 36px; padding: 0 12px; font-size: 14px; }
-  .diya-form { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  /* Full width fields and button, as the sheet is narrow. */
+  .diya-lead { padding: 13px; }
+  .diya-lead-links { gap: 12px; }
   .diya-foot { display: none; }
 }
