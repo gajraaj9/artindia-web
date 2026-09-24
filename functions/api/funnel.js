@@ -58,7 +58,7 @@ async function visits(env, since, until) {
             filter: { siteTag: $siteTag, datetime_geq: $since, datetime_leq: $until }
           ) {
             count
-            uniq { uniques }
+            sum { visits }
             dimensions { date }
           }
           byReferrer: rumPageloadEventsAdaptiveGroups(
@@ -91,10 +91,13 @@ async function visits(env, since, until) {
       return { ok: false, reason: 'query_failed', detail: (body.errors || [])[0] };
     }
     const account = (((body.data || {}).viewer || {}).accounts || [])[0] || {};
+    /* count is page views; sum.visits is Cloudflare's visit count, which is
+       the closest this dataset gets to unique visitors and is what the Web
+       Analytics dashboard itself shows. */
     const byDay = (account.byDay || []).map(r => ({
       date: r.dimensions.date,
       views: r.count,
-      visitors: (r.uniq && r.uniq.uniques) || 0,
+      visitors: (r.sum && r.sum.visits) || 0,
     }));
     return {
       ok: true,
@@ -168,6 +171,28 @@ export async function onRequestGet({ request, env }) {
   if (!env.REFERRALS) return json(503, { ok: false, error: 'kv_not_bound' });
 
   const q = new URL(request.url).searchParams;
+
+  /* ?schema=1 asks Cloudflare what this dataset actually offers. The field
+     names here are not in any published reference I could reach, and guessing
+     one at a time costs a deploy each. */
+  if (q.get('schema')) {
+    if (!env.CF_ANALYTICS_TOKEN) return json(503, { ok: false, error: 'not_configured' });
+    const names = ['AccountRumPageloadEventsAdaptiveGroups', 'ZoneRumPageloadEventsAdaptiveGroups',
+      'AccountRumPageloadEventsAdaptiveGroupsSum', 'RumPageloadEventsAdaptiveGroups'];
+    const out = {};
+    for (const name of names) {
+      const r = await fetch(GRAPHQL, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${env.CF_ANALYTICS_TOKEN}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ query: `{ __type(name: "${name}") { fields { name type { name kind ofType { name } } } } }` }),
+      });
+      const b = await r.json();
+      const t = ((b.data || {}).__type) || null;
+      if (t) out[name] = t.fields.map(f => f.name + ':' + (f.type.name || (f.type.ofType && f.type.ofType.name) || f.type.kind));
+    }
+    return json(200, { ok: true, types: out });
+  }
+
   const days = Math.min(90, Math.max(1, Number(q.get('days')) || 7));
   const window = daysBack(days);
   const since = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10) + 'T00:00:00Z';
