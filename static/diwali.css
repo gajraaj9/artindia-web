@@ -603,12 +603,16 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
   font-size:clamp(34px,7vw,64px);color:var(--ink);margin:0 0 18px;letter-spacing:.005em}
 .p-intro p{font-size:clamp(16px,2.1vw,19px);line-height:1.62;color:var(--ink);opacity:.86;margin:0}
 
-/* Desktop only. The intro carried its own max-width, which overrode the
-   .wrap container and re-centred it, so it sat indented from the tier labels
-   and cards that share that container. From 900px up it uses the same
-   container as everything else and the paragraph does the measuring instead,
-   which is what keeps the left edges flush. Below 900px nothing changes. */
-@media(min-width:900px){
+/* The intro carried its own max-width, which overrode the .wrap container and
+   re-centred it, so it sat indented from the tier labels and cards that share
+   that container. From 800px up it uses the same container as everything else
+   and the paragraph does the measuring instead, which is what keeps the left
+   edges flush.
+
+   800 rather than 900 because that is where the indent actually starts: below
+   roughly 805px the container is already narrower than the 760px cap, so the
+   block is flush regardless and there was nothing to fix. */
+@media(min-width:800px){
   .p-intro{max-width:var(--max);padding-block:8px 24px}
   /* One line. Scaled from the viewport so the longest of the three, the
      French, still fits at 900px, and capped where the design caps. */
