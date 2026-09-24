@@ -756,12 +756,12 @@ test('the tidying is applied to what actually goes out', async () => {
 
 test('My tickets counts adults off the total and names the difference', () => {
   assert.equal(myTicketsReply('en', 2, 1),
-    "You have 2 adult and 1 child ticket, valid on both days. Show the QR code from your "
-    + "Ticket Tailor email at the entrance. Didn't receive it? Write to diwali@artindia.be.");
-  assert.match(myTicketsReply('en', 1, 0), /^You have 1 adult ticket, valid on both days\./);
+    "You have 2 adult and 1 child ticket, come Saturday or Sunday, or both. Show the QR "
+    + "code from your Ticket Tailor email at the entrance. Didn't receive it? Write to diwali@artindia.be.");
+  assert.match(myTicketsReply('en', 1, 0), /^You have 1 adult ticket, come Saturday or Sunday, or both\./);
   assert.match(myTicketsReply('en', 3, 2), /^You have 3 adult and 2 child tickets,/);
-  assert.match(myTicketsReply('fr', 2, 1), /^Vous avez 2 billets adultes et 1 billet enfant,/);
-  assert.match(myTicketsReply('nl', 2, 1), /^U heeft 2 volwassenentickets en 1 kinderticket,/);
+  assert.match(myTicketsReply('fr', 2, 1), /^Vous avez 2 billets adultes et 1 billet enfant, venez le samedi/);
+  assert.match(myTicketsReply('nl', 2, 1), /^U heeft 2 volwassenentickets en 1 kinderticket, kom op zaterdag/);
   for (const lang of ['en', 'fr', 'nl']) {
     assert.match(myTicketsReply(lang, 2, 1), /diwali@artindia\.be/, lang);
   }
@@ -771,7 +771,7 @@ test('My tickets, end to end, with the numbers off the contact', async () => {
   const kv = memoryKv({ [botKey.seen('+32474919900')]: '1' });
   const { sent } = world({ contact: BUYER });   /* TICKET_COUNT 4, CHILD_COUNT 2 */
   await inbound(ENV(kv), button('MY_TICKETS'));
-  assert.match(texts(sent)[0], /^You have 2 adult and 2 child tickets, valid on both days\./);
+  assert.match(texts(sent)[0], /^You have 2 adult and 2 child tickets, come Saturday or Sunday, or both\./);
 });
 
 test('a stranger tapping a buyer button is told there is no ticket', async () => {
@@ -863,7 +863,7 @@ test('"how many tickets did I buy" runs the My tickets handler', async () => {
 
   assert.equal(prompts.length, 1, 'the model was asked, and routed');
   assert.equal(texts(sent).length, 1, 'one reply, not a token and a reply');
-  assert.match(texts(sent)[0], /^You have 2 adult and 2 child tickets, valid on both days\./);
+  assert.match(texts(sent)[0], /^You have 2 adult and 2 child tickets, come Saturday or Sunday, or both\./);
   assert.ok(!texts(sent)[0].includes('ACTION:'), 'the token never reaches the visitor');
 });
 

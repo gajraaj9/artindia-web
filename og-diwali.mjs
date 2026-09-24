@@ -101,9 +101,9 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
 /* One card per language. The date line and the price line are the only
    parts that change; the name stays as it is written on the poster. */
 const CARDS = [
-  { suffix: '',    date: 'Atomium, 24-25 October 2026', price: 'Weekend tickets from &#8364;10' },
-  { suffix: '-fr', date: 'Atomium, 24-25 octobre 2026', price: 'Billets week-end d\u00e8s 10 &#8364;' },
-  { suffix: '-nl', date: 'Atomium, 24-25 oktober 2026', price: 'Weekendtickets vanaf 10 &#8364;' },
+  { suffix: '',    date: 'Atomium, 24-25 October 2026', price: 'Saturday or Sunday, from &#8364;10' },
+  { suffix: '-fr', date: 'Atomium, 24-25 octobre 2026', price: 'Samedi ou dimanche, d\u00e8s 10 &#8364;' },
+  { suffix: '-nl', date: 'Atomium, 24-25 oktober 2026', price: 'Zaterdag of zondag, vanaf 10 &#8364;' },
 ];
 
 for (const c of CARDS) {

@@ -333,9 +333,9 @@ export const LINK_IS_ELSEWHERE = {
 };
 
 export const WEB_MY_TICKETS = (lang, adults, children) => ({
-  en: `You have ${adults} adult and ${children} child ticket${children === 1 ? '' : 's'}, valid on both days. The QR code is in your Ticket Tailor email.`,
-  fr: `Vous avez ${adults} billet${adults === 1 ? '' : 's'} adulte${adults === 1 ? '' : 's'} et ${children} billet${children === 1 ? '' : 's'} enfant${children === 1 ? '' : 's'}, valables les deux jours. Le QR code est dans votre e-mail Ticket Tailor.`,
-  nl: `U heeft ${adults} volwassenenticket${adults === 1 ? '' : 's'} en ${children} kinderticket${children === 1 ? '' : 's'}, geldig op beide dagen. De QR-code staat in uw Ticket Tailor e-mail.`,
+  en: `You have ${adults} adult and ${children} child ticket${children === 1 ? '' : 's'}, come Saturday or Sunday, or both. The QR code is in your Ticket Tailor email.`,
+  fr: `Vous avez ${adults} billet${adults === 1 ? '' : 's'} adulte${adults === 1 ? '' : 's'} et ${children} billet${children === 1 ? '' : 's'} enfant${children === 1 ? '' : 's'}, venez le samedi ou le dimanche, ou les deux. Le QR code est dans votre e-mail Ticket Tailor.`,
+  nl: `U heeft ${adults} volwassenenticket${adults === 1 ? '' : 's'} en ${children} kinderticket${children === 1 ? '' : 's'}, kom op zaterdag of zondag, of allebei. De QR-code staat in uw Ticket Tailor e-mail.`,
 }[lang] || '');
 
 export const NO_TICKET_FOR_EMAIL = {
@@ -545,9 +545,9 @@ export function myTicketsReply(lang, adults, children) {
   }[lang] || '';
 
   return {
-    en: `${counted}, valid on both days. Show the QR code from your Ticket Tailor email at the entrance. Didn't receive it? Write to diwali@artindia.be.`,
-    fr: `${counted}, valables les deux jours. Présentez le QR code de votre e-mail Ticket Tailor à l'entrée. Vous ne l'avez pas reçu ? Écrivez à diwali@artindia.be.`,
-    nl: `${counted}, geldig op beide dagen. Toon de QR-code uit uw Ticket Tailor e-mail aan de ingang. Niet ontvangen? Mail naar diwali@artindia.be.`,
+    en: `${counted}, come Saturday or Sunday, or both. Show the QR code from your Ticket Tailor email at the entrance. Didn't receive it? Write to diwali@artindia.be.`,
+    fr: `${counted}, venez le samedi ou le dimanche, ou les deux. Présentez le QR code de votre e-mail Ticket Tailor à l'entrée. Vous ne l'avez pas reçu ? Écrivez à diwali@artindia.be.`,
+    nl: `${counted}, kom op zaterdag of zondag, of allebei. Toon de QR-code uit uw Ticket Tailor e-mail aan de ingang. Niet ontvangen? Mail naar diwali@artindia.be.`,
   }[lang] || '';
 }
 

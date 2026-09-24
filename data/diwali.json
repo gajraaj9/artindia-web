@@ -68,9 +68,9 @@
       "nl": "Muziek, dans, eten en vuurwerk. Het grootste Diwalifeest van Europa."
     },
     "cta_note_1": {
-      "en": "One ticket from €10, unlimited access on both days",
-      "fr": "Un billet dès 10 €, accès illimité les deux jours",
-      "nl": "Eén ticket vanaf € 10, onbeperkte toegang op beide dagen"
+      "en": "One ticket from €10, come Saturday or Sunday, or both",
+      "fr": "Un billet dès 10 €, venez le samedi ou le dimanche, ou les deux",
+      "nl": "Eén ticket vanaf € 10, kom op zaterdag of zondag, of allebei"
     },
     "cta_note_2": {
       "en": "Children under 12 free",
@@ -102,9 +102,9 @@
           "nl": "10 €"
         },
         "note": {
-          "en": "Until 30 September. Valid the whole weekend.",
-          "fr": "Jusqu'au 30 septembre. Valable tout le week-end.",
-          "nl": "Tot 30 september. Geldig het hele weekend."
+          "en": "Until 30 September. Either day, or both.",
+          "fr": "Jusqu'au 30 septembre. L'un ou l'autre jour, ou les deux.",
+          "nl": "Tot 30 september. Eén dag of allebei."
         }
       },
       {
@@ -141,9 +141,9 @@
     ],
     "notes": [
       {
-        "en": "No booking fees. One ticket covers both days.",
-        "fr": "Sans frais de réservation. Un billet pour les deux jours.",
-        "nl": "Geen reserveringskosten. Een ticket geldt voor beide dagen."
+        "en": "No booking fees. One ticket, come Saturday or Sunday, or both.",
+        "fr": "Sans frais de réservation. Un billet, venez le samedi ou le dimanche, ou les deux.",
+        "nl": "Geen reserveringskosten. Eén ticket, kom op zaterdag of zondag, of allebei."
       }
     ],
     "kicker": {
@@ -152,9 +152,9 @@
       "nl": "Tickets"
     },
     "heading": {
-      "en": "Weekend tickets",
-      "fr": "Billets week-end",
-      "nl": "Weekendtickets"
+      "en": "Saturday, Sunday, or both",
+      "fr": "Samedi, dimanche, ou les deux",
+      "nl": "Zaterdag, zondag, of allebei"
     },
     "cta_live": {
       "en": "Select tickets, €10",
@@ -218,9 +218,9 @@
       },
       {
         "q": {
-          "en": "Your ticket is valid both days",
-          "fr": "Votre billet est valable les deux jours",
-          "nl": "Je ticket geldt beide dagen"
+          "en": "Come Saturday or Sunday, or both",
+          "fr": "Venez le samedi ou le dimanche, ou les deux",
+          "nl": "Kom op zaterdag of zondag, of allebei"
         },
         "a": {
           "en": "Your ticket is valid on Saturday and Sunday.",
@@ -782,9 +782,9 @@
       "nl": "Lees verder"
     },
     "sticky_txt": {
-      "en": "Weekend tickets from €10",
-      "fr": "Billets week-end dès 10 €",
-      "nl": "Weekendtickets vanaf 10 €"
+      "en": "Saturday or Sunday, from €10",
+      "fr": "Samedi ou dimanche, dès 10 €",
+      "nl": "Zaterdag of zondag, vanaf 10 €"
     },
     "sticky_cta": {
       "en": "Select tickets",

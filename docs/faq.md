@@ -35,14 +35,14 @@ A: Yes, 15 EUR at the gate, card preferred.
 Q: Do children need a ticket?
 A: Children under 12 enter free but must be registered with a free child ticket when you book, so we can count everyone on site. Each child gets their own festival wristband.
 
-Q: Is the ticket valid for both days?
-A: Yes, one ticket lets you visit both days, as long as it is used by the same person.
+Q: Can I come on Saturday and Sunday?
+A: Yes. One ticket covers the whole festival, so come Saturday or Sunday, or both, as long as it is used by the same person.
 
 Q: I did not receive my ticket.
 A: Check your spam folder for an email from Ticket Tailor. If it is not there, write to diwali@artindia.be with the name used at purchase.
 
 Q: Can I get a refund or change the date?
-A: Tickets are not refundable. Your ticket is valid on both days, so no date change is needed.
+A: Tickets are not refundable. You can come Saturday or Sunday, or both, so there is no date to change.
 
 Q: Do I need to print my ticket?
 A: No. Show the QR code on your phone at the entrance.
@@ -164,14 +164,14 @@ R: Oui, 15 EUR à l'entrée, de préférence par carte.
 Q: Les enfants ont-ils besoin d'un billet ?
 R: Les enfants de moins de 12 ans entrent gratuitement mais doivent être enregistrés avec un billet enfant gratuit lors de la réservation, pour que nous puissions compter tout le monde sur le site. Chaque enfant reçoit son propre bracelet du festival.
 
-Q: Le billet est-il valable les deux jours ?
-R: Oui, un billet permet de venir les deux jours, à condition qu'il soit utilisé par la même personne.
+Q: Puis-je venir le samedi et le dimanche ?
+R: Oui. Un billet couvre tout le festival : venez le samedi ou le dimanche, ou les deux, à condition qu'il soit utilisé par la même personne.
 
 Q: Je n'ai pas reçu mon billet.
 R: Vérifiez votre dossier spam pour un e-mail de Ticket Tailor. S'il n'y est pas, écrivez à diwali@artindia.be avec le nom utilisé lors de l'achat.
 
 Q: Puis-je être remboursé ou changer de date ?
-R: Les billets ne sont pas remboursables. Votre billet est valable les deux jours, aucun changement de date n'est nécessaire.
+R: Les billets ne sont pas remboursables. Vous pouvez venir le samedi ou le dimanche, ou les deux, il n'y a donc pas de date à changer.
 
 Q: Dois-je imprimer mon billet ?
 R: Non. Montrez le code QR sur votre téléphone à l'entrée.
@@ -293,14 +293,14 @@ A: Ja, 15 EUR aan de ingang, bij voorkeur met kaart.
 V: Hebben kinderen een ticket nodig?
 A: Kinderen onder 12 jaar mogen gratis binnen, maar moeten bij het boeken geregistreerd worden met een gratis kinderticket, zodat we iedereen op het terrein kunnen tellen. Elk kind krijgt een eigen festivalbandje.
 
-V: Is het ticket geldig op beide dagen?
-A: Ja, met één ticket kunt u beide dagen komen, zolang het door dezelfde persoon wordt gebruikt.
+V: Kan ik op zaterdag en zondag komen?
+A: Ja. Eén ticket geldt voor het hele festival: kom op zaterdag of zondag, of allebei, zolang het door dezelfde persoon wordt gebruikt.
 
 V: Ik heb mijn ticket niet ontvangen.
 A: Kijk in uw spammap naar een e-mail van Ticket Tailor. Staat hij er niet, mail dan naar diwali@artindia.be met de naam die u bij de aankoop gebruikte.
 
 V: Kan ik een terugbetaling of een andere datum krijgen?
-A: Tickets worden niet terugbetaald. Uw ticket is geldig op beide dagen, dus een datumwijziging is niet nodig.
+A: Tickets worden niet terugbetaald. U kunt op zaterdag of zondag komen, of allebei, dus er is geen datum om te wijzigen.
 
 V: Moet ik mijn ticket afdrukken?
 A: Nee. Toon de QR-code op uw telefoon aan de ingang.

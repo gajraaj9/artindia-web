@@ -260,7 +260,7 @@ test('a buyer can see how many tickets they have', async () => {
   assert.match(id.body.reply, /^Welcome back, Ravi, you have a ticket/);
 
   const r = await chat(ENV(kv), { session: id.body.session, action: 'MY_TICKETS' });
-  assert.match(r.body.reply, /^You have 2 adult and 2 child tickets, valid on both days\./);
+  assert.match(r.body.reply, /^You have 2 adult and 2 child tickets, come Saturday or Sunday, or both\./);
   assert.match(r.body.reply, /Ticket Tailor email/);
 });
 
