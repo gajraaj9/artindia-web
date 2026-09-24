@@ -86,6 +86,13 @@ const EMBED = LIVE && Boolean(d.event.widget_url);
 const TICKETS_HREF = EMBED ? '#tickets' : (LIVE ? d.event.ticket_url : '#register');
 const CTA_EXTERNAL = LIVE && !EMBED;
 
+/* Every link that leaves for the box office goes through /go/buy, so the
+   click is counted before the visitor is handed over. Each one carries a
+   stable id, which is the only thing that makes the funnel readable: header
+   and hero and sticky are different questions. */
+const buyHref = (cta, lang) =>
+  CTA_EXTERNAL ? `/go/buy?cta=${cta}&lang=${lang}` : TICKETS_HREF;
+
 const out = join(HERE, 'dist-diwali');
 
 const FLAGS = d.flags || {};
@@ -176,7 +183,7 @@ function render(lang, page = 'home') {
     <div class="lamps">${Array.from({ length: 10 }, (_, i) => lamp(i === 9 ? 1.5 : 1)).join('')}</div>
     <div class="days">${days}</div>
     <div class="hero-actions">
-      <a class="btn" id="hero-cta" href="${esc(TICKETS_HREF)}"${CTA_EXTERNAL ? ' rel="noopener"' : ''}>${
+      <a class="btn" id="hero-cta" data-buy href="${esc(buyHref('hero', lang))}"${CTA_EXTERNAL ? ' rel="noopener"' : ''}>${
         e(LIVE ? d.tickets.cta_hero : d.tickets.cta_presale)}</a>
       <span class="btn-note" id="cta-note">${e(d.event.cta_note_1)}<br><span class="btn-note-2">${
         e(d.event.cta_note_2)}</span></span>
@@ -291,7 +298,7 @@ function render(lang, page = 'home') {
     </div>
     <p class="tt-fallback">${e(tk.embed_fallback)}
       <a id="tt-fallback-link" href="${esc(d.event.ticket_url)}" rel="noopener">${e(tk.embed_fallback_link)}</a></p>`
-      : `<p class="ticket-cta"><a class="btn" id="ticket-cta" href="${esc(TICKETS_HREF)}"${CTA_EXTERNAL ? ' rel="noopener"' : ''}>${
+      : `<p class="ticket-cta"><a class="btn" id="ticket-cta" data-buy href="${esc(buyHref('tickets', lang))}"${CTA_EXTERNAL ? ' rel="noopener"' : ''}>${
           e(LIVE ? tk.cta_live : tk.cta_presale)}</a></p>`;
 
     return `<section class="band tickets" id="tickets">
@@ -632,13 +639,8 @@ ${alternates}
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Mukta:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/diwali.css?v=${CSSV}">
-<!-- Cloudflare Web Analytics. Cookie free, so it needs no consent banner,
-     which is the whole reason it is here rather than GA4.
-     [DECISION: CF_ANALYTICS_TOKEN] Paste the token from the Cloudflare
-     dashboard and uncomment. Shipping it with a placeholder token would
-     send every visitor a request that 400s, so it stays commented.
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "CF_ANALYTICS_TOKEN"}'></script>
--->
+<!-- Web Analytics is injected by Cloudflare Pages itself, cookie free, which
+     is why this site needs no consent banner. Nothing to add here. -->
 <script>${langScript}</script>
 <script type="application/ld+json">${jsonld}</script>
 </head>
@@ -657,7 +659,7 @@ ${alternates}
                 aria-controls="lang-list" aria-label="${e(d.ui.lang_label)}">${lang.toUpperCase()}<svg viewBox="0 0 10 6" width="10" height="6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
         <div class="lang-list" id="lang-list">${langSwitch}</div>
       </div>
-      <a class="bar-cta" href="${esc(TICKETS_HREF)}"${CTA_EXTERNAL ? ' rel="noopener"' : ''}>${
+      <a class="bar-cta" data-buy href="${esc(buyHref('header', lang))}"${CTA_EXTERNAL ? ' rel="noopener"' : ''}>${
         e(LIVE ? d.tickets.cta_short : d.tickets.kicker)}</a>
     </div>
   </div>
@@ -679,7 +681,7 @@ ${footer()}
 <div class="stickybar" id="stickybar"${LIVE ? '' : ' style="display:none"'}>
   <div class="wrap sb-in">
     <span class="sb-txt">${e(d.ui.sticky_txt)}</span>
-    <a class="sb-cta" href="${esc(CTA_EXTERNAL ? d.event.ticket_url : '#tickets')}"${CTA_EXTERNAL ? ' rel="noopener"' : ''}>${e(d.ui.sticky_cta)}</a>
+    <a class="sb-cta" data-buy href="${esc(CTA_EXTERNAL ? buyHref('sticky', lang) : '#tickets')}"${CTA_EXTERNAL ? ' rel="noopener"' : ''}>${e(d.ui.sticky_cta)}</a>
   </div>
 </div>
 <script>
@@ -988,6 +990,28 @@ form.addEventListener('submit', async ev => {
     btn.textContent = BTN_LABEL;
   }
 });
+</script>
+<!-- Campaign parameters travel on the href, not in storage. Whatever the
+     landing URL carried is copied onto every /go/buy link, so a visitor who
+     arrives from a poster and buys twenty minutes later still counts as the
+     poster's sale. Nothing is written to the browser, so nothing needs
+     consenting to. -->
+<script>
+(function () {
+  try {
+    var q = new URLSearchParams(location.search);
+    var carry = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'ref'];
+    var found = carry.filter(function (k) { return q.get(k); });
+    if (!found.length) return;
+    var links = document.querySelectorAll('a[data-buy]');
+    for (var i = 0; i < links.length; i++) {
+      var u = new URL(links[i].getAttribute('href'), location.origin);
+      if (u.pathname !== '/go/buy') continue;
+      found.forEach(function (k) { u.searchParams.set(k, q.get(k)); });
+      links[i].setAttribute('href', u.pathname + u.search);
+    }
+  } catch (e) { /* the links still work untagged */ }
+})();
 </script>
 <!-- Diya, the festival's chat host. One tag; the widget injects its own CSS
      and keeps itself off /admin, /r and /i. -->

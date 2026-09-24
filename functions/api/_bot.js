@@ -13,6 +13,10 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { FAQ_RAW } from './_faq.js';
+import { listAll } from './_shared.js';
+
+/* Re-exported: it used to live here and several modules import it from here. */
+export { listAll };
 
 /* --------------------------------------------------------------- the faq */
 
@@ -849,17 +853,6 @@ export async function logMessage(kv, phone, entry, about = {}) {
   catch (e) { console.error('bot: log write failed', phone, String(e)); }
 }
 
-/** Every key under a prefix, following the cursor to the end. */
-export async function listAll(kv, prefix, cap = 1000) {
-  const keys = [];
-  let cursor;
-  do {
-    const page = await kv.list({ prefix, cursor, limit: 1000 });
-    for (const k of page.keys) keys.push(k.name);
-    cursor = page.list_complete || keys.length >= cap ? null : page.cursor;
-  } while (cursor);
-  return keys.slice(0, cap);
-}
 
 /** The UTC day the daily limit is counted against. */
 export const utcDay = (now = new Date()) => now.toISOString().slice(0, 10);

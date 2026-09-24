@@ -3,7 +3,9 @@
   "include": [
     "/api/*",
     "/r/*",
-    "/i/*"
+    "/i/*",
+    "/go/buy",
+    "/go/vb"
   ],
   "exclude": []
 }

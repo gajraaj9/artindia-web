@@ -50,6 +50,7 @@
 import {
   json, pick, truthy, isEmail, normalisePhone, referralCode, CODE_RE,
   getContact, ensureAttributes, upsertContact, codeKey, orderKey, refcountKey,
+  tagClass, ordersKey,
 } from './_shared.js';
 import { botKey, logMessage, LOG_SECONDS } from './_bot.js';
 
@@ -790,6 +791,21 @@ export async function onRequestPost({ request, env }) {
         TICKET_ID: a.ticketId || orderId,
       }, [buyersList]);
       if (!r.ok) console.error('tt-order: attendee upsert failed', a.email, r.status, r.detail);
+    }
+
+    /* What the order arrived tagged with, counted by day so the funnel can
+       say how many sales the site's own buttons produced without reading
+       every order back. referral_tag is the only tag Ticket Tailor carries. */
+    if (kv) {
+      try {
+        const cls = tagClass(ref);
+        const key = ordersKey(orderDate, cls);
+        const before = Number(await kv.get(key)) || 0;
+        await kv.put(key, String(before + 1), { expirationTtl: 90 * 24 * 60 * 60 });
+        console.log('tt-order tag', orderId, ref || '(none)', '->', cls);
+      } catch (e) {
+        console.error('tt-order: order tag counter failed', String(e));
+      }
     }
 
     if (kv && campaign) {

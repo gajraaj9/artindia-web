@@ -967,9 +967,10 @@ test('after two hours the menu comes back, and every message pushes it out', asy
 
 test('the referral link answers HEAD too', async () => {
   const { onRequestGet, onRequestHead } = await import('../functions/r/[code].js');
-  const env = { REFERRALS: { async get() { return null; } } };
-  const head = await onRequestHead({ params: { code: 'ABC234' }, env });
-  const get = await onRequestGet({ params: { code: 'ABC234' }, env });
+  const env = { REFERRALS: { async get() { return null; }, async put() {} } };
+  const request = new Request('https://diwali.artindia.be/r/ABC234');
+  const head = await onRequestHead({ request, params: { code: 'ABC234' }, env });
+  const get = await onRequestGet({ request, params: { code: 'ABC234' }, env });
   assert.equal(head.status, 302);
   assert.equal(head.headers.get('location'), get.headers.get('location'));
 });

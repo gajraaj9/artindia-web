@@ -12,7 +12,7 @@
 /go/ig      /?utm_source=instagram&utm_medium=social  302
 /go/fb      /?utm_source=facebook&utm_medium=social   302
 /go/qr      /?utm_source=qr&utm_medium=print          302
-/go/vb      https://diwali.artindia.be/?utm_source=visitbrussels&utm_medium=listing&utm_campaign=diwali2026    302
+# /go/vb moved to functions/go/vb.js so the click is counted. Same target.
 
 # Per-post Instagram links live in functions/i/[n].js, not here. Pages does
 # not substitute a :placeholder inside the destination's query string — it

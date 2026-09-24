@@ -89,6 +89,15 @@
   .count-box b { display: block; font-size: 1.3rem; }
   .count-box span { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
   .empty { color: var(--muted); text-align: center; padding: 2rem 1rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+  th, td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .tbl-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--line);
+              border-radius: .6rem; padding: .5rem .7rem; margin-bottom: .8rem; }
+  .tbl-h { font-size: .8rem; font-weight: 700; margin: .2rem 0 .4rem; }
+  .range { display: flex; gap: .35rem; margin-bottom: .8rem; flex-wrap: wrap; }
+  .range button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
   .field { margin-bottom: .8rem; }
   label { display: block; font-weight: 600; font-size: .85rem; margin-bottom: .3rem; }
   input {
@@ -124,11 +133,13 @@
       <button type="button" role="tab" data-tab="welcome" aria-selected="false">Welcome</button>
       <button type="button" role="tab" data-tab="questions" aria-selected="false">Unanswered</button>
       <button type="button" role="tab" data-tab="web" aria-selected="false">Web</button>
+      <button type="button" role="tab" data-tab="funnel" aria-selected="false">Funnel</button>
     </nav>
     <section id="tab-chats"></section>
     <section id="tab-welcome" hidden></section>
     <section id="tab-questions" hidden></section>
     <section id="tab-web" hidden></section>
+    <section id="tab-funnel" hidden></section>
   </div>
 </main>
 
@@ -317,6 +328,98 @@
     });
   }
 
+  var funnel = null, funnelDays = 7;
+
+  function table(root, title, head, rows) {
+    var box = el('div', 'tbl-wrap');
+    box.appendChild(el('div', 'tbl-h', title));
+    if (!rows.length) { box.appendChild(el('div', 'meta', 'Nothing yet.')); root.appendChild(box); return; }
+    var t = el('table');
+    var tr = el('tr');
+    head.forEach(function (h, i) {
+      var th = el('th', i ? 'n' : null, h);
+      tr.appendChild(th);
+    });
+    var thead = el('thead'); thead.appendChild(tr); t.appendChild(thead);
+    var tb = el('tbody');
+    rows.forEach(function (r) {
+      var row = el('tr');
+      r.forEach(function (c, i) { row.appendChild(el('td', i ? 'n' : null, c)); });
+      tb.appendChild(row);
+    });
+    t.appendChild(tb);
+    box.appendChild(t);
+    root.appendChild(box);
+  }
+
+  function renderFunnel(root) {
+    root.innerHTML = '';
+
+    var range = el('div', 'range');
+    [1, 7, 30].forEach(function (n) {
+      var b = el('button', null, n === 1 ? 'Today' : n + ' days');
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(n === funnelDays));
+      b.addEventListener('click', function () { funnelDays = n; loadFunnel(); });
+      range.appendChild(b);
+    });
+    root.appendChild(range);
+
+    if (!funnel) { root.appendChild(empty('Loading…')); return; }
+
+    var v = funnel.visits || {};
+    var counts = el('div', 'counts');
+    [['Views', v.ok ? v.views : 'n/a'], ['Visitors', v.ok ? v.visitors : 'n/a'],
+     ['Clicks', funnel.clicks.total], ['Orders', funnel.orders.total]].forEach(function (pair) {
+      var b = el('div', 'count-box');
+      b.appendChild(el('b', null, pair[1]));
+      b.appendChild(el('span', null, pair[0]));
+      counts.appendChild(b);
+    });
+    root.appendChild(counts);
+
+    if (!v.ok) {
+      root.appendChild(el('div', 'row', 'Visits unavailable: ' + (v.reason || 'unknown')
+        + '. Set CF_ACCOUNT_ID and CF_ANALYTICS_TOKEN to fill this in.'));
+    }
+
+    var r = funnel.ratios || {};
+    table(root, 'Ratios', ['Step', '%'], [
+      ['Clicks per visit', r.clicks_per_visit == null ? 'n/a' : r.clicks_per_visit + '%'],
+      ['Orders per click', r.orders_per_click == null ? 'n/a' : r.orders_per_click + '%'],
+      ['Orders per visit', r.orders_per_visit == null ? 'n/a' : r.orders_per_visit + '%'],
+    ]);
+
+    table(root, 'Clicks by button', ['CTA', 'Clicks'],
+      funnel.clicks.by_cta.map(function (x) { return [x.name, x.count]; }));
+    table(root, 'Clicks by language', ['Language', 'Clicks'],
+      funnel.clicks.by_lang.map(function (x) { return [x.name, x.count]; }));
+    table(root, 'Clicks by source', ['utm_source', 'Clicks'],
+      funnel.clicks.by_source.map(function (x) { return [x.name, x.count]; }));
+
+    table(root, 'Orders by tag', ['Tag', 'Orders'],
+      funnel.orders.by_tag.map(function (x) { return [x.name, x.count]; })
+        .concat([['tagged', funnel.orders.tagged], ['untagged', funnel.orders.untagged]]));
+
+    if (v.ok) {
+      table(root, 'Top referrers', ['Host', 'Views'],
+        (v.referrers || []).map(function (x) { return [x.host, x.views]; }));
+      table(root, 'Visits by day', ['Date', 'Views', 'Visitors'],
+        (v.by_day || []).slice().reverse().map(function (x) { return [x.date, x.views, x.visitors]; }));
+    }
+  }
+
+  function loadFunnel() {
+    var token = readToken();
+    if (!token) return;
+    funnel = null;
+    renderFunnel($('tab-funnel'));
+    fetch('/api/funnel?days=' + funnelDays, { headers: { 'X-Admin-Token': token } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { funnel = d.ok ? d : null; renderFunnel($('tab-funnel')); })
+      .catch(function () { $('tab-funnel').innerHTML = ''; $('tab-funnel').appendChild(empty('Could not load the funnel.')); });
+  }
+
   function paint() {
     var pill = $('bot-pill');
     pill.className = 'pill ' + (data.bot_enabled ? 'on' : 'off');
@@ -328,10 +431,11 @@
     renderWelcome($('tab-welcome'));
     renderQuestions($('tab-questions'));
     renderWeb($('tab-web'));
+    renderFunnel($('tab-funnel'));
   }
 
   function show(name) {
-    ['chats', 'welcome', 'questions', 'web'].forEach(function (n) {
+    ['chats', 'welcome', 'questions', 'web', 'funnel'].forEach(function (n) {
       $('tab-' + n).hidden = n !== name;
     });
     Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (b) {
@@ -340,7 +444,12 @@
   }
 
   Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (b) {
-    b.addEventListener('click', function () { show(b.dataset.tab); });
+    b.addEventListener('click', function () {
+      show(b.dataset.tab);
+      /* Fetched when it is first looked at, not on every dashboard load: it
+         is the one tab that calls out to Cloudflare. */
+      if (b.dataset.tab === 'funnel' && !funnel) loadFunnel();
+    });
   });
 
   function load() {

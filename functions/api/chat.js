@@ -37,7 +37,10 @@ import {
    to our Anthropic key. */
 const ALLOWED = ['https://diwali.artindia.be', 'https://artindia.be', 'https://www.artindia.be'];
 const IP_DAILY_CAP = 200;
+/* Through the same counter as the site's own buttons, so a sale that starts
+   in the chat is not invisible next to one that starts on the page. */
 const TICKETS_URL = 'https://tickets.artindia.be';
+const buyHref = lang => `/go/buy?cta=diya&lang=${lang}`;
 const LOG_MESSAGES = 40;
 
 const allowedOrigin = origin =>
@@ -358,7 +361,7 @@ export async function onRequestPost({ request, env }) {
 
     const buttons = menuButtons(lang, buyer);
     if (id === 'TICKETS' && !buyer) {
-      buttons.unshift({ id: 'BUY', label: (WEB_MENU[lang] || WEB_MENU.en).buy, href: TICKETS_URL });
+      buttons.unshift({ id: 'BUY', label: (WEB_MENU[lang] || WEB_MENU.en).buy, href: buyHref(lang) });
     }
     /* Asked once, after a real answer — never on the greeting. */
     const askLead = !session.al && !buyer && id !== 'ASK';

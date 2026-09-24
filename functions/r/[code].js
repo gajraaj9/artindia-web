@@ -10,7 +10,7 @@
  * cannot be told to stop.
  */
 
-import { CODE_RE } from '../api/_shared.js';
+import { CODE_RE, logClick, clickFrom } from '../api/_shared.js';
 
 /* The Ticket Tailor box office, same URL the site's own CTA points at. In env
    so a change of event id does not need a deploy of this function. */
@@ -22,8 +22,9 @@ const redirect = to => new Response(null, {
   headers: { location: to, 'cache-control': 'no-store' },
 });
 
-export async function onRequestGet({ params, env }) {
+export async function onRequestGet({ request, params, env }) {
   const code = String(params.code || '').trim().toUpperCase();
+  await logClick(env, clickFrom(request, { cta: 'referral', utm_source: 'referral', utm_medium: 'whatsapp', ref: CODE_RE.test(code) ? code : '' }));
 
   /* An unreadable or unknown code still gets the visitor to the festival.
      Someone who mistyped a link off a phone screen should land on the site,

@@ -1,3 +1,5 @@
+import { logClick, clickFrom } from '../api/_shared.js';
+
 /**
  * GET /i/<n>   one Instagram post  ->  the box office
  *
@@ -23,13 +25,15 @@ const BOX_OFFICE = 'https://tickets.artindia.be/events/artindia/2392534';
    long or strange ends up on somebody's contact record in Brevo. */
 const TAG_RE = /^[a-z0-9-]{1,20}$/;
 
+
 const redirect = to => new Response(null, {
   status: 302,
   headers: { location: to, 'cache-control': 'no-store' },
 });
 
-export function onRequestGet({ params, env }) {
+export async function onRequestGet({ request, params, env }) {
   const n = String(params.n || '').trim();
+  await logClick(env, clickFrom(request, { cta: 'ig', utm_source: 'instagram', utm_medium: 'social', ref: TAG_RE.test(n) ? 'ig-' + n : '' }));
   const url = new URL(env.TICKET_URL || BOX_OFFICE);
 
   /* Instagram is recorded either way — the visit happened and came from

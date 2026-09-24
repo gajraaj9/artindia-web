@@ -352,8 +352,8 @@ test('a FAQ button also earns the prompt, but Ask me anything does not', async (
 
   const tickets = await chat(ENV(memoryKv()), { action: 'TICKETS' });
   assert.equal(tickets.body.askLead, true);
-  assert.ok(tickets.body.buttons.some(b => b.id === 'BUY' && b.href.includes('tickets.artindia.be')),
-    'and somewhere to buy');
+  assert.ok(tickets.body.buttons.some(b => b.id === 'BUY' && b.href === '/go/buy?cta=diya&lang=en'),
+    'and somewhere to buy, counted like every other button');
 });
 
 test('a buyer is never asked for their details', async () => {

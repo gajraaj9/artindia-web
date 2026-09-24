@@ -135,6 +135,132 @@ export function safeEqual(a, b) {
   return diff === 0;
 }
 
+/** Every key under a prefix, following the cursor to the end. */
+export async function listAll(kv, prefix, cap = 1000) {
+  const keys = [];
+  let cursor;
+  do {
+    const page = await kv.list({ prefix, cursor, limit: 1000 });
+    for (const k of page.keys) keys.push(k.name);
+    cursor = page.list_complete || keys.length >= cap ? null : page.cursor;
+  } while (cursor);
+  return keys.slice(0, cap);
+}
+
+/* --------------------------------------------------------------- clicks */
+
+export const BOX_OFFICE = 'https://tickets.artindia.be/events/artindia/2392534';
+
+/* Coarse on purpose. A bucket is enough to see that the phones convert
+   differently from the desktops; anything finer is fingerprinting. */
+export function deviceOf(ua) {
+  const s = String(ua || '');
+  if (/\b(iPad|Tablet)\b/i.test(s)) return 'tablet';
+  if (/\b(Mobi|Android|iPhone|iPod)\b/i.test(s)) return 'mobile';
+  if (!s) return 'unknown';
+  return 'desktop';
+}
+
+/* Tag classes, so an order can be read back as "came from the site" without
+   re-parsing every possible tag shape twice. */
+export function tagClass(ref) {
+  const r = String(ref || '').trim();
+  if (!r) return 'untagged';
+  if (/^site-/i.test(r)) return 'site';
+  if (/^ig-/i.test(r)) return 'ig';
+  if (/^(vb|fb|metro|wa|qr)$/i.test(r)) return r.toLowerCase();
+  if (/^[A-HJ-NP-Z2-9]{6}$/i.test(r)) return 'referral';
+  return 'other';
+}
+
+export const clicksKey = (day, cta, lang, source) =>
+  `clicks:${day}:${cta}:${lang}:${source || 'direct'}`;
+export const ordersKey = (day, cls) => `orders:${day}:${cls}`;
+
+/* Ninety days: long enough to read a campaign after the festival, short
+   enough that the namespace does not grow for ever. */
+const COUNT_TTL = 90 * 24 * 60 * 60;
+
+async function bumpCounter(kv, key) {
+  /* Read then write, so two clicks in the same instant can lose one. At this
+     volume that is a rounding error on a funnel, and the alternative is a
+     lock on the hot path of a redirect somebody is waiting for. */
+  const now = Number(await kv.get(key)) || 0;
+  await kv.put(key, String(now + 1), { expirationTtl: COUNT_TTL });
+}
+
+/**
+ * One click on a link that leaves for the box office.
+ *
+ * Analytics Engine when the dataset is bound, which keeps the whole row and
+ * costs nothing to query later. Otherwise daily counters in KV, which is
+ * enough for the funnel and needs no binding anyone has to create first.
+ *
+ * Never throws and never delays the redirect by more than the write: a
+ * measurement layer that can break a ticket sale is not worth having.
+ */
+export async function logClick(env, click) {
+  const row = {
+    ts: new Date().toISOString(),
+    cta: String(click.cta || 'unknown').slice(0, 32),
+    lang: String(click.lang || '').slice(0, 5),
+    referrer: String(click.referrer || '').slice(0, 300),
+    utm_source: String(click.utm_source || '').slice(0, 64),
+    utm_medium: String(click.utm_medium || '').slice(0, 64),
+    utm_campaign: String(click.utm_campaign || '').slice(0, 64),
+    ref: String(click.ref || '').slice(0, 64),
+    device: String(click.device || '').slice(0, 16),
+    country: String(click.country || '').slice(0, 4),
+  };
+
+  const ds = env.DIWALI_CLICKS;
+  if (ds && typeof ds.writeDataPoint === 'function') {
+    try {
+      ds.writeDataPoint({
+        indexes: [row.cta],
+        blobs: [row.cta, row.lang, row.referrer, row.utm_source, row.utm_medium,
+          row.utm_campaign, row.ref, row.device, row.country],
+        doubles: [1],
+      });
+      console.log('click', JSON.stringify(row));
+      return 'analytics_engine';
+    } catch (e) {
+      console.error('logClick: analytics engine write failed', String(e));
+    }
+  }
+
+  if (!env.REFERRALS) {
+    console.warn('logClick: no dataset and no KV, click not counted', row.cta);
+    return 'none';
+  }
+  try {
+    await bumpCounter(env.REFERRALS,
+      clicksKey(row.ts.slice(0, 10), row.cta, row.lang || 'xx', row.utm_source));
+    console.log('click', JSON.stringify(row));
+    return 'kv';
+  } catch (e) {
+    console.error('logClick: kv write failed', String(e));
+    return 'none';
+  }
+}
+
+/** Everything a redirect needs to read off the incoming request. */
+export function clickFrom(request, extra = {}) {
+  const url = new URL(request.url);
+  const q = url.searchParams;
+  return {
+    cta: q.get('cta') || extra.cta || '',
+    lang: q.get('lang') || extra.lang || '',
+    referrer: request.headers.get('referer') || '',
+    utm_source: q.get('utm_source') || extra.utm_source || '',
+    utm_medium: q.get('utm_medium') || extra.utm_medium || '',
+    utm_campaign: q.get('utm_campaign') || extra.utm_campaign || '',
+    ref: q.get('ref') || extra.ref || '',
+    device: deviceOf(request.headers.get('user-agent')),
+    country: (request.cf && request.cf.country) || '',
+  };
+}
+
 /* ------------------------------------------------------------------ brevo */
 
 export const brevo = (env, path, init = {}) =>
