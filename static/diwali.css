@@ -603,6 +603,19 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
   font-size:clamp(34px,7vw,64px);color:var(--ink);margin:0 0 18px;letter-spacing:.005em}
 .p-intro p{font-size:clamp(16px,2.1vw,19px);line-height:1.62;color:var(--ink);opacity:.86;margin:0}
 
+/* Desktop only. The intro carried its own max-width, which overrode the
+   .wrap container and re-centred it, so it sat indented from the tier labels
+   and cards that share that container. From 900px up it uses the same
+   container as everything else and the paragraph does the measuring instead,
+   which is what keeps the left edges flush. Below 900px nothing changes. */
+@media(min-width:900px){
+  .p-intro{max-width:var(--max);padding-block:8px 24px}
+  /* One line. Scaled from the viewport so the longest of the three, the
+     French, still fits at 900px, and capped where the design caps. */
+  .p-intro h1{font-size:clamp(40px,5.2vw,64px);white-space:nowrap;margin:0 0 14px}
+  .p-intro p{max-width:62ch}
+}
+
 .p-sec{padding-block:0 52px}
 .p-tier{font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
   color:var(--marigold);margin:0 0 20px;padding-bottom:10px;border-bottom:1px solid var(--line)}
