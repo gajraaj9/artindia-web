@@ -1,0 +1,61 @@
+{
+  "tiers": [
+    { "id":"presenting",   "label":{"en":"Presenting partner","fr":"Partenaire principal","nl":"Hoofdpartner"} },
+    { "id":"patronage",    "label":{"en":"Under the patronage of","fr":"Sous le patronage de","nl":"Onder de hoge bescherming van"} },
+    { "id":"institutional","label":{"en":"Institutional partners","fr":"Partenaires institutionnels","nl":"Institutionele partners"} },
+    { "id":"network",      "label":{"en":"Network partners","fr":"Partenaires de réseau","nl":"Netwerkpartners"} },
+    { "id":"community",    "label":{"en":"Community partners","fr":"Partenaires communautaires","nl":"Gemeenschapspartners"} },
+    { "id":"media",        "label":{"en":"Media partners","fr":"Partenaires médias","nl":"Mediapartners"} },
+    { "id":"suppliers",    "label":{"en":"Suppliers","fr":"Fournisseurs","nl":"Leveranciers"} }
+  ],
+  "partners": [
+    { "id":"western-union", "tier":"presenting", "live":true,
+      "name":"Western Union", "url":"https://www.westernunion.com",
+      "logo":"media/partners/western-union",
+      "text":{
+        "en":"Western Union joins the Brussels Diwali Festival as presenting partner for its tenth edition. A company that has connected families across borders for generations, supporting a festival that brings a community together in the heart of Europe.",
+        "fr":"Western Union rejoint le Brussels Diwali Festival comme partenaire principal de sa dixième édition. Une entreprise qui relie les familles par-delà les frontières depuis des générations, au côté d'un festival qui rassemble une communauté au cœur de l'Europe.",
+        "nl":"Western Union is hoofdpartner van de tiende editie van het Brussels Diwali Festival. Een bedrijf dat al generaties lang families over grenzen heen verbindt, naast een festival dat een gemeenschap samenbrengt in het hart van Europa."
+      } },
+    { "id":"embassy-of-india", "tier":"patronage", "live":true,
+      "name":"Embassy of India, Brussels", "url":"https://www.indianembassybrussels.gov.in",
+      "logo":"media/partners/embassy-of-india",
+      "text":{
+        "en":"The Embassy of India in Brussels has stood with the festival since its first edition. Its patronage places Diwali at the Atomium among the leading celebrations of Indian culture in Europe.",
+        "fr":"L'Ambassade de l'Inde à Bruxelles accompagne le festival depuis sa première édition. Son patronage place Diwali à l'Atomium parmi les grandes célébrations de la culture indienne en Europe.",
+        "nl":"De Ambassade van India in Brussel staat sinds de eerste editie achter het festival. Haar patronage plaatst Diwali aan het Atomium tussen de grote vieringen van de Indiase cultuur in Europa."
+      } },
+    { "id":"city-of-brussels", "tier":"institutional", "live":true,
+      "name":"City of Brussels", "url":"https://www.brussels.be",
+      "logo":"media/partners/city-of-brussels",
+      "text":{
+        "en":"The City of Brussels welcomes the festival on the Atomium Esplanade and supports it as one of the city's major cultural events of the autumn.",
+        "fr":"La Ville de Bruxelles accueille le festival sur l'esplanade de l'Atomium et le soutient comme l'un des grands rendez-vous culturels de l'automne bruxellois.",
+        "nl":"De Stad Brussel verwelkomt het festival op de Atomiumesplanade en steunt het als een van de grote culturele evenementen van het Brusselse najaar."
+      } },
+    { "id":"iccr", "tier":"institutional", "live":true,
+      "name":"Indian Council for Cultural Relations", "url":"https://iccr.gov.in",
+      "logo":"media/partners/iccr",
+      "text":{
+        "en":"The Indian Council for Cultural Relations, Government of India, brings India's performing arts to the world. Its support helps bring artists from India to the Atomium stage.",
+        "fr":"L'Indian Council for Cultural Relations, organisme du gouvernement indien, porte les arts de la scène de l'Inde dans le monde entier. Son soutien permet de faire venir des artistes d'Inde sur la scène de l'Atomium.",
+        "nl":"De Indian Council for Cultural Relations, een orgaan van de Indiase overheid, brengt de podiumkunsten van India naar de wereld. Met zijn steun komen artiesten uit India naar het podium aan het Atomium."
+      } },
+    { "id":"bicci", "tier":"network", "live":true,
+      "name":"Belgo-Indian Chamber of Commerce & Industry", "url":"https://bicci.be",
+      "logo":"media/partners/bicci",
+      "text":{
+        "en":"BICCI brings Belgian and Indian businesses together through trade missions, events and a growing member network. Its members and their families are part of the festival crowd every year.",
+        "fr":"La BICCI rapproche les entreprises belges et indiennes par des missions commerciales, des événements et un réseau de membres en croissance. Ses membres et leurs familles font partie du public du festival chaque année.",
+        "nl":"BICCI brengt Belgische en Indiase bedrijven samen via handelsmissies, events en een groeiend ledennetwerk. Haar leden en hun gezinnen horen elk jaar bij het festivalpubliek."
+      } },
+    { "id":"bica", "tier":"network", "live":true,
+      "name":"Belgium India Creative Association", "url":"https://bica.eu.com",
+      "logo":"media/partners/bica",
+      "text":{
+        "en":"BICA fosters cultural exchange and creative collaboration between Belgium and India, supporting emerging talent and building a community around it. A natural partner for a festival built on artists.",
+        "fr":"La BICA favorise les échanges culturels et la collaboration créative entre la Belgique et l'Inde, soutient les talents émergents et construit une communauté autour d'eux. Un partenaire naturel pour un festival porté par ses artistes.",
+        "nl":"BICA bevordert culturele uitwisseling en creatieve samenwerking tussen België en India, steunt opkomend talent en bouwt er een gemeenschap rond. Een vanzelfsprekende partner voor een festival dat op artiesten is gebouwd."
+      } }
+  ]
+}

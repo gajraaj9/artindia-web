@@ -25,9 +25,20 @@ import sharp from 'sharp';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SITE = 'https://diwali.artindia.be';
 const d = JSON.parse(readFileSync(join(HERE, 'data/diwali.json'), 'utf8'));
+const P = JSON.parse(readFileSync(join(HERE, 'data/partners.json'), 'utf8'));
 
 const LANGS = ['en', 'fr', 'nl'];
 const PATH_OF = { en: '/', fr: '/fr/', nl: '/nl/' };
+const PARTNERS_OF = { en: '/partners/', fr: '/fr/partners/', nl: '/nl/partners/' };
+
+/* Tiers whose logos go on a white card.
+   Decided by looking at every logo on the indigo ground, not by measuring it:
+   Western Union scores well because the yellow W lifts the average, but its
+   wordmark is black and all but vanishes. The City of Brussels and ICCR marks
+   are white, so a card would make those disappear instead, which is why
+   institutional is the one tier without one. The rule is per tier, so a tier
+   never mixes carded and uncarded logos. */
+const CARD_TIERS = new Set(['presenting', 'patronage', 'network']);
 /* Dutch is region tagged: the copy is Flemish, and a Dutch reader in the
    Netherlands should not be told this is written for them. */
 const HREFLANG = { en: 'en', fr: 'fr', nl: 'nl-BE' };
@@ -79,7 +90,7 @@ const lamp = (scale = 1) => `<svg class="lamp" viewBox="0 0 32 40" width="${28 *
   <path d="M4 24 h24 c-1 6-6 9-12 9 s-11-3-12-9z" fill="#8A4B2A"/></svg>`;
 
 /* ================================================================ page */
-function render(lang) {
+function render(lang, page = 'home') {
   /* Picks the language, and refuses to fall back. A missing translation is a
      build failure, not a page that is half English. */
   const t = v => {
@@ -384,10 +395,126 @@ function render(lang) {
 </footer>`;
   }
 
+  /* ----------------------------------------------------------- partners */
+
+  const PARTNER_COPY = {
+    headline: { en: 'Ten years, made together', fr: 'Dix ans, construits ensemble', nl: 'Tien jaar, samen gebouwd' },
+    intro: {
+      en: 'The Brussels Diwali Festival is produced by Art India ASBL, a non-profit that has shared Indian arts and culture with Belgium since 2013. Every edition is made possible by the institutions, companies and community groups on this page. They are part of the team.',
+      fr: "Le Brussels Diwali Festival est produit par Art India ASBL, une association sans but lucratif qui partage les arts et la culture de l'Inde avec la Belgique depuis 2013. Chaque édition existe grâce aux institutions, entreprises et associations réunies sur cette page. Elles font partie de l'équipe.",
+      nl: 'Het Brussels Diwali Festival wordt geproduceerd door Art India vzw, een vereniging die sinds 2013 Indiase kunst en cultuur deelt met België. Elke editie is mogelijk dankzij de instellingen, bedrijven en verenigingen op deze pagina. Zij maken deel uit van het team.',
+    },
+    become: { en: 'Become a partner', fr: 'Devenir partenaire', nl: 'Partner worden' },
+    becomeText: {
+      en: 'The tenth edition is being built now, and there is room for companies and associations who want to be part of it. Tell us who you are and what you would like to do, and we will come back to you.',
+      fr: "La dixième édition se construit en ce moment, et il reste de la place pour les entreprises et les associations qui veulent en faire partie. Dites-nous qui vous êtes et ce que vous aimeriez faire, nous vous répondrons.",
+      nl: 'De tiende editie wordt nu gebouwd, en er is plaats voor bedrijven en verenigingen die er deel van willen uitmaken. Vertel ons wie u bent en wat u zou willen doen, en wij nemen contact op.',
+    },
+    becomeCta: { en: 'Write to partners@artindia.be', fr: 'Écrivez à partners@artindia.be', nl: 'Mail naar partners@artindia.be' },
+    strip: { en: 'With the support of', fr: 'Avec le soutien de', nl: 'Met de steun van' },
+    nav: { en: 'Partners', fr: 'Partenaires', nl: 'Partners' },
+    title: {
+      en: 'Partners | Brussels Diwali Festival 2026',
+      fr: 'Partenaires | Brussels Diwali Festival 2026',
+      nl: 'Partners | Brussels Diwali Festival 2026',
+    },
+  };
+
+  const pc = k => PARTNER_COPY[k][lang];
+
+  /* A logo is looked up by stem: an svg if there is one, otherwise a png, and
+     a -white variant wins when the logo sits on the indigo ground. */
+  function logoFile(stem, onDark) {
+    const tries = onDark
+      ? [`${stem}-white.svg`, `${stem}-white.png`, `${stem}.svg`, `${stem}.png`]
+      : [`${stem}.svg`, `${stem}.png`];
+    for (const rel of tries) if (existsSync(join(HERE, rel))) return '/static/partners/' + rel.split('/').pop();
+    return '';
+  }
+
+  const livePartners = tier => P.partners.filter(x => x.live && x.tier === tier.id);
+
+  function partnerLogo(x, onDark, cls) {
+    const src = logoFile(x.logo, onDark);
+    if (!src) return '';
+    return `<img class="${cls}" src="${src}" alt="${e(x.name)}" loading="lazy" decoding="async">`;
+  }
+
+  function partnersMain() {
+    const blocks = P.tiers.map(tier => {
+      const list = livePartners(tier);
+      if (!list.length) return '';
+      const card = CARD_TIERS.has(tier.id);
+      const onDark = !card;
+      const label = `<h2 class="p-tier">${e(t(tier.label))}</h2>`;
+
+      if (tier.id === 'presenting' || tier.id === 'patronage') {
+        return `<section class="wrap p-sec">${label}${list.map(x => `
+  <article class="p-feature">
+    <a class="p-mark ${card ? 'is-card' : ''}" href="${esc(x.url)}" target="_blank" rel="noopener" aria-label="${e(x.name)}">${partnerLogo(x, onDark, 'p-img')}</a>
+    <div class="p-body">
+      <h3>${e(x.name)}</h3>
+      <p>${e(t(x.text))}</p>
+      <a class="p-link" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url.replace(/^https?:\/\//, ''))}</a>
+    </div>
+  </article>`).join('')}</section>`;
+      }
+
+      if (tier.id === 'institutional' || tier.id === 'network') {
+        return `<section class="wrap p-sec">${label}
+  <div class="p-grid">${list.map(x => `
+    <article class="p-card">
+      <a class="p-mark ${card ? 'is-card' : ''}" href="${esc(x.url)}" target="_blank" rel="noopener" aria-label="${e(x.name)}">${partnerLogo(x, onDark, 'p-img')}</a>
+      <h3>${e(x.name)}</h3>
+      <p>${e(t(x.text))}</p>
+    </article>`).join('')}</div></section>`;
+      }
+
+      return `<section class="wrap p-sec">${label}
+  <ul class="p-logos">${list.map(x => `
+    <li><a class="p-mark ${card ? 'is-card' : ''}" href="${esc(x.url)}" target="_blank" rel="noopener">${partnerLogo(x, onDark, 'p-img')}<span class="p-name">${e(x.name)}</span></a></li>`).join('')}</ul></section>`;
+    }).join('');
+
+    return `<main class="partners" id="partners-main">
+  <section class="wrap p-intro">
+    <h1>${e(pc('headline'))}</h1>
+    <p>${e(pc('intro'))}</p>
+  </section>
+${blocks}
+  <section class="wrap p-become">
+    <h2>${e(pc('become'))}</h2>
+    <p>${e(pc('becomeText'))}</p>
+    <a class="p-cta" href="mailto:partners@artindia.be">${e(pc('becomeCta'))}</a>
+  </section>
+</main>`;
+  }
+
+  /* The slim strip above the footer on the landing page. Greyscale until
+     hovered, and the whole strip is one link to the partners page. */
+  function partnerStrip() {
+    const live = P.tiers.flatMap(livePartners);
+    if (!live.length) return '';
+    return `<section class="p-strip" id="partner-strip">
+  <a class="wrap p-strip-in" href="${PARTNERS_OF[lang]}">
+    <span class="p-strip-label">${e(pc('strip'))}</span>
+    <span class="p-strip-logos">${live.map(x => {
+      /* The same readability rule as the page: a dark-ink logo does not
+         survive an indigo ground, and greyscale makes it worse. */
+      const card = CARD_TIERS.has(x.tier);
+      return `<span class="p-strip-mark${card ? ' is-card' : ''}">${partnerLogo(x, !card, 'p-strip-img')}</span>`;
+    }).join('')}</span>
+  </a>
+</section>`;
+  }
+
   /* ------------------------------------------------------- head bits */
+  /* Every page points at its own siblings, so /fr/partners offers
+     /nl/partners rather than the Dutch landing page. */
+  const pathsFor = page === 'partners' ? PARTNERS_OF : PATH_OF;
+  const selfPath = pathsFor[lang];
   const alternates = LANGS.map(l =>
-    `<link rel="alternate" hreflang="${HREFLANG[l]}" href="${SITE}${PATH_OF[l]}">`).join('\n') +
-    `\n<link rel="alternate" hreflang="x-default" href="${SITE}/">`;
+    `<link rel="alternate" hreflang="${HREFLANG[l]}" href="${SITE}${pathsFor[l]}">`).join('\n') +
+    `\n<link rel="alternate" hreflang="x-default" href="${SITE}${pathsFor.en}">`;
 
   const ogImage = lang !== 'en' && existsSync(join(HERE, `diwali-holding/og-diwali-${lang}.png`))
     ? `/og-diwali-${lang}.png` : '/og-diwali.png';
@@ -439,23 +566,39 @@ if(want!=='en')location.replace(P[want]);})();`;
      shows the current language as a button that opens the other two, because
      three pills plus a ticket link will not fit one row at 390px. */
   const langSwitch = LANGS.map(l =>
-    `<a href="${PATH_OF[l]}" hreflang="${HREFLANG[l]}" data-lang="${l}"${l === lang ? ' class="on" aria-current="true"' : ''}>${l.toUpperCase()}</a>`
+    `<a href="${pathsFor[l]}" hreflang="${HREFLANG[l]}" data-lang="${l}"${l === lang ? ' class="on" aria-current="true"' : ''}>${l.toUpperCase()}</a>`
   ).join('');
+
+  /* The landing page keeps its layout exactly as it was. The partners page
+     is its own main, with no hero and no Atomium photograph. */
+  const heroBlock = page === 'partners' ? '' : hero();
+  const mainBlock = page === 'partners' ? partnersMain() : `<main>
+${atomiumStrip()}
+${awaits()}
+${timeline()}
+${tickets()}
+${kids()}
+${lamps()}
+${theme()}
+${PRACTICAL_ON ? practical() : ''}
+${partners()}
+${register()}
+</main>`;
 
   return `<!DOCTYPE html>
 <html lang="${HREFLANG[lang]}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${e(d.meta.title)}</title>
-<meta name="description" content="${e(d.meta.description)}">
-<link rel="canonical" href="${SITE}${PATH_OF[lang]}">
+<title>${page === 'partners' ? e(pc('title')) : e(d.meta.title)}</title>
+<meta name="description" content="${page === 'partners' ? e(pc('intro')) : e(d.meta.description)}">
+<link rel="canonical" href="${SITE}${selfPath}">
 ${alternates}
 <meta property="og:type" content="website">
 <meta property="og:locale" content="${OG_LOCALE[lang]}">
-<meta property="og:title" content="${e(d.meta.og_title)}">
-<meta property="og:description" content="${e(d.meta.og_description)}">
-<meta property="og:url" content="${SITE}${PATH_OF[lang]}">
+<meta property="og:title" content="${page === 'partners' ? e(pc('headline')) : e(d.meta.og_title)}">
+<meta property="og:description" content="${page === 'partners' ? e(pc('intro')) : e(d.meta.og_description)}">
+<meta property="og:url" content="${SITE}${selfPath}">
 <meta property="og:image" content="${SITE}${ogImage}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#0B0E24">
@@ -474,7 +617,7 @@ ${alternates}
 <script type="application/ld+json">${jsonld}</script>
 </head>
 <body>
-<a class="skip" href="#awaits">${e(d.ui.skip)}</a>
+<a class="skip" href="${page === 'partners' ? '#partners-main' : '#awaits'}">${e(d.ui.skip)}</a>
 <nav class="topbar">
   <div class="wrap bar">
     <div class="bar-left">
@@ -498,22 +641,14 @@ ${alternates}
     <span class="pill-name">Brussels Diwali</span>
     <span class="pill-rule"></span>
     ${d.nav.filter(n => PRACTICAL_ON || n.href !== '#practical')
-        .map((n, i) => `<a href="${esc(n.href)}"${i === 0 ? ' class="on"' : ''}>${e(n.label)}</a>`).join('')}
+        .map((n, i) => `<a href="${esc(page === 'partners' ? PATH_OF[lang] + n.href : n.href)}"${
+          i === 0 && page !== 'partners' ? ' class="on"' : ''}>${e(n.label)}</a>`).join('')}
+    <a href="${PARTNERS_OF[lang]}"${page === 'partners' ? ' class="on" aria-current="page"' : ''}>${e(pc('nav'))}</a>
   </div>
 </div>
-${hero()}
-<main>
-${atomiumStrip()}
-${awaits()}
-${timeline()}
-${tickets()}
-${kids()}
-${lamps()}
-${theme()}
-${PRACTICAL_ON ? practical() : ''}
-${partners()}
-${register()}
-</main>
+${heroBlock}
+${mainBlock}
+${page === 'partners' ? '' : partnerStrip()}
 ${footer()}
 <div class="stickybar" id="stickybar"${LIVE ? '' : ' style="display:none"'}>
   <div class="wrap sb-in">
@@ -854,6 +989,17 @@ for (const lang of LANGS) {
   const dir = lang === 'en' ? out : join(out, lang);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'index.html'), render(lang));
+
+  const pdir = join(dir, 'partners');
+  mkdirSync(pdir, { recursive: true });
+  writeFileSync(join(pdir, 'index.html'), render(lang, 'partners'));
+}
+
+/* Partner logos. Normalised to PNG at build time is not enough on its own:
+   they also have to be reachable from the page, and /static/partners is
+   where the landing page's rail already looks for them. */
+if (existsSync(join(HERE, 'media/partners'))) {
+  cpSync(join(HERE, 'media/partners'), join(out, 'static/partners'), { recursive: true });
 }
 cpSync(join(HERE, 'static/diwali.css'), join(out, 'diwali.css'));
 /* _routes.json keeps every static hit off the Functions worker: only /api/*
@@ -954,9 +1100,10 @@ writeFileSync(join(out, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${SITE
 writeFileSync(join(out, 'sitemap.xml'),
   `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
-${LANGS.map(l => `<url><loc>${SITE}${PATH_OF[l]}</loc>
-${LANGS.map(a => `  <xhtml:link rel="alternate" hreflang="${HREFLANG[a]}" href="${SITE}${PATH_OF[a]}"/>`).join('\n')}
-</url>`).join('\n')}
+${[PATH_OF, PARTNERS_OF].map(paths => LANGS.map(l => `<url><loc>${SITE}${paths[l]}</loc>
+${LANGS.map(a => `  <xhtml:link rel="alternate" hreflang="${HREFLANG[a]}" href="${SITE}${paths[a]}"/>`).join('\n')}
+  <xhtml:link rel="alternate" hreflang="x-default" href="${SITE}${paths.en}"/>
+</url>`).join('\n')).join('\n')}
 </urlset>
 `);
 
