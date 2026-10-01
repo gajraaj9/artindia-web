@@ -42,10 +42,17 @@ export function parseName(file) {
 }
 
 export class Images {
-  constructor(srcDir, outDir, publicPath = '/static/img') {
+  /**
+   * `namespace` keeps a second source folder from colliding with the first.
+   * Callers still ask for the bare stem; only the cache key and the emitted
+   * filename carry the prefix, so media/programme/puja.jpg becomes
+   * pg-puja-<hash>-800.webp and never fights media/puja.jpg for the name.
+   */
+  constructor(srcDir, outDir, publicPath = '/static/img', { namespace = '' } = {}) {
     this.srcDir = srcDir;
     this.outDir = outDir;
     this.publicPath = publicPath;
+    this.ns = namespace;
     this.cacheFile = join(process.cwd(), '.cache', 'images.json');
     this.cache = existsSync(this.cacheFile)
       ? JSON.parse(readFileSync(this.cacheFile, 'utf8')) : {};
@@ -60,6 +67,9 @@ export class Images {
       this.byStem.set(stem, { file: f, position });
     }
   }
+
+  /** The on-disk name for a stem: namespaced, so two folders can share one. */
+  key(stem) { return this.ns + stem; }
 
   has(stem) { return this.byStem.has(stem); }
 
@@ -83,7 +93,7 @@ export class Images {
     if (!widths.length) widths.push(meta.width);
 
     mkdirSync(this.outDir, { recursive: true });
-    const cached = this.cache[stem];
+    const cached = this.cache[this.key(stem)];
     const fresh = cached && cached.hash === hash
       && cached.files.every(f => existsSync(join(this.outDir, f)));
 
@@ -94,7 +104,7 @@ export class Images {
         ['webp', { quality: 78 }],
         ['jpg',  { quality: 80, progressive: true, mozjpeg: true }],
       ]) {
-        const name = `${stem}-${hash}-${w}.${fmt}`;
+        const name = `${this.key(stem)}-${hash}-${w}.${fmt}`;
         files.push(name);
         const dest = join(this.outDir, name);
         if (fresh && existsSync(dest)) { this.reused++; continue; }
@@ -110,7 +120,7 @@ export class Images {
       width: meta.width, height: meta.height,
       ratio: meta.width / meta.height,
     });
-    this.cache[stem] = { hash, files };
+    this.cache[this.key(stem)] = { hash, files };
     return entry;
   }
 
@@ -119,7 +129,7 @@ export class Images {
     const e = this.byStem.get(stem);
     if (!e || !e.ready) return '';
     const set = fmt => e.widths
-      .map(w => `${this.publicPath}/${stem}-${e.hash}-${w}.${fmt} ${w}w`).join(', ');
+      .map(w => `${this.publicPath}/${this.key(stem)}-${e.hash}-${w}.${fmt} ${w}w`).join(', ');
     const largest = e.widths[e.widths.length - 1];
     const style = [
       ratio ? `aspect-ratio:${ratio}` : '',
@@ -129,21 +139,26 @@ export class Images {
     return `<picture class="${className}">
   <source type="image/avif" srcset="${set('avif')}" sizes="${sizes}">
   <source type="image/webp" srcset="${set('webp')}" sizes="${sizes}">
-  <img src="${this.publicPath}/${stem}-${e.hash}-${largest}.jpg"
+  <img src="${this.publicPath}/${this.key(stem)}-${e.hash}-${largest}.jpg"
        srcset="${set('jpg')}" sizes="${sizes}"
        width="${e.width}" height="${e.height}" alt="${alt.replace(/"/g, '&quot;')}"
        ${eager ? 'fetchpriority="high"' : 'loading="lazy" decoding="async"'}
        style="${style}"></picture>`;
   }
 
+  /* Merged into whatever is on disk, not written over it: the cache file is
+     shared between instances and a plain write would drop the other one's
+     entries, which costs a full re-encode on the next build. */
   save() {
     mkdirSync(join(process.cwd(), '.cache'), { recursive: true });
-    writeFileSync(this.cacheFile, JSON.stringify(this.cache, null, 2));
+    const onDisk = existsSync(this.cacheFile)
+      ? JSON.parse(readFileSync(this.cacheFile, 'utf8')) : {};
+    writeFileSync(this.cacheFile, JSON.stringify({ ...onDisk, ...this.cache }, null, 2));
   }
 
   report() {
     const n = this.byStem.size;
-    if (!n) return 'No source images in media/';
+    if (!n) return `No source images in ${this.srcDir}`;
     return `Images: ${n} source · ${this.built} generated · ${this.reused} cached`;
   }
 }

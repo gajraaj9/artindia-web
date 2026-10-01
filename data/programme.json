@@ -1,0 +1,321 @@
+{
+  "meta": {
+    "title": {"en": "Programme | Brussels Diwali Festival 2026", "fr": "Programme | Brussels Diwali Festival 2026", "nl": "Programma | Brussels Diwali Festival 2026"},
+    "description": {"en": "Two days, four chapters: the full programme of the Brussels Diwali Festival, 24 and 25 October 2026 at the Atomium.", "fr": "Deux jours, quatre chapitres : le programme complet du Brussels Diwali Festival, les 24 et 25 octobre 2026 à l'Atomium.", "nl": "Twee dagen, vier hoofdstukken: het volledige programma van het Brussels Diwali Festival, 24 en 25 oktober 2026 aan het Atomium."}
+  },
+  "hero": {
+    "kicker": {"en": "Programme · 24 and 25 October 2026 · Atomium Esplanade", "fr": "Programme · 24 et 25 octobre 2026 · Esplanade de l'Atomium", "nl": "Programma · 24 en 25 oktober 2026 · Esplanade van het Atomium"},
+    "headline": {"en": "Two days. Four chapters. All of India.", "fr": "Deux jours. Quatre chapitres. Toute l'Inde.", "nl": "Twee dagen. Vier hoofdstukken. Heel India."},
+    "intro": {"en": "From the opening blessing to the fireworks, each day is a journey through India. Choose your day, or come for both.", "fr": "De la bénédiction d'ouverture au feu d'artifice, chaque journée est un voyage à travers l'Inde. Choisissez votre jour, ou venez les deux.", "nl": "Van de openingszegen tot het vuurwerk: elke dag is een reis door India. Kies je dag, of kom allebei."},
+    "choose": {"en": "Choose your day", "fr": "Choisissez votre jour", "nl": "Kies je dag"},
+    "night_line": {"en": "Whichever day you choose, the night ends with fireworks and Ticket2Bollywood.", "fr": "Quel que soit le jour choisi, la nuit se termine par le feu d'artifice et Ticket2Bollywood.", "nl": "Welke dag je ook kiest, de nacht eindigt met vuurwerk en Ticket2Bollywood."}
+  },
+  "ui": {
+    "now_showing": {"en": "Now showing", "fr": "Programme affiché", "nl": "Nu getoond"},
+    "tap_to_view": {"en": "Tap to view", "fr": "Voir ce jour", "nl": "Bekijk deze dag"},
+    "viewing": {"en": "You are viewing", "fr": "Vous consultez", "nl": "Je bekijkt"},
+    "chapter": {"en": "Chapter", "fr": "Chapitre", "nl": "Hoofdstuk"},
+    "both_days": {"en": "Saturday and Sunday", "fr": "Samedi et dimanche", "nl": "Zaterdag en zondag"},
+    "between": {"en": "Between the acts", "fr": "Entre les spectacles", "nl": "Tussen de optredens"},
+    "ticket_heading": {"en": "One ticket. Come Saturday or Sunday, or both.", "fr": "Un billet. Venez samedi ou dimanche, ou les deux.", "nl": "Eén ticket. Kom zaterdag of zondag, of allebei."}
+  },
+  "days": [
+    {
+      "id": "saturday",
+      "slug": "",
+      "date": {"en": "Saturday 24 October", "fr": "Samedi 24 octobre", "nl": "Zaterdag 24 oktober"},
+      "short": {"en": "Saturday 24 Oct", "fr": "Samedi 24 oct.", "nl": "Zaterdag 24 okt"},
+      "button": {"en": "Saturday", "fr": "Samedi", "nl": "Zaterdag"},
+      "hindi": "परंपरा",
+      "word": {"en": "Roots", "fr": "Racines", "nl": "Wortels"},
+      "tagline": {"en": "Tradition, family and the classical masters.", "fr": "Tradition, famille et grands maîtres classiques.", "nl": "Traditie, familie en de klassieke meesters."},
+      "only": {"en": "Only on Saturday", "fr": "Uniquement le samedi", "nl": "Alleen op zaterdag"},
+      "that_was": {"en": "That was Saturday. Sunday has its own programme.", "fr": "Voilà pour le samedi. Le dimanche a son propre programme.", "nl": "Dat was zaterdag. Zondag heeft zijn eigen programma."},
+      "see": {"en": "See Saturday: Roots", "fr": "Voir le samedi : Racines", "nl": "Bekijk zaterdag: Wortels"},
+      "feature": "suryaprakash",
+      "chapters": {
+        "blessing": ["opening", "procession", "puja", "offering"],
+        "heritage": ["vandana", "ganesha", "spice-route", "little-india", "ramayana", "magic", "saree", "conservatory"],
+        "colours": ["tollywood", "ghoomar", "hiphop", "kathak", "dakshin", "devi", "address", "pind"]
+      }
+    },
+    {
+      "id": "sunday",
+      "slug": "sunday",
+      "date": {"en": "Sunday 25 October", "fr": "Dimanche 25 octobre", "nl": "Zondag 25 oktober"},
+      "short": {"en": "Sunday 25 Oct", "fr": "Dimanche 25 oct.", "nl": "Zondag 25 okt"},
+      "button": {"en": "Sunday", "fr": "Dimanche", "nl": "Zondag"},
+      "hindi": "संगम",
+      "word": {"en": "Encounters", "fr": "Rencontres", "nl": "Ontmoetingen"},
+      "tagline": {"en": "Meetings of styles, collaborations and glamour.", "fr": "Rencontres de styles, collaborations et glamour.", "nl": "Ontmoetingen van stijlen, samenwerkingen en glamour."},
+      "only": {"en": "Only on Sunday", "fr": "Uniquement le dimanche", "nl": "Alleen op zondag"},
+      "that_was": {"en": "That was Sunday. Saturday has its own programme.", "fr": "Voilà pour le dimanche. Le samedi a son propre programme.", "nl": "Dat was zondag. Zaterdag heeft zijn eigen programma."},
+      "see": {"en": "See Sunday: Encounters", "fr": "Voir le dimanche : Rencontres", "nl": "Bekijk zondag: Ontmoetingen"},
+      "feature": null,
+      "chapters": {
+        "blessing": ["opening", "puja", "offering", "kirtan"],
+        "heritage": ["ramayana", "odissi", "saree", "hiphop", "conservatory", "devi", "collaborations"],
+        "colours": ["dakshin", "tollywood", "kathak", "brides", "ganesha", "pind", "ghoomar"]
+      }
+    }
+  ],
+  "chapters": [
+    {
+      "id": "blessing",
+      "n": 1,
+      "photo": "chapter-blessing",
+      "ground": "#FFF6E6",
+      "band": "#8A4B00",
+      "when": {"en": "From noon", "fr": "Dès midi", "nl": "Vanaf de middag"},
+      "hindi": "शुभ आरंभ",
+      "title": {"en": "The Blessing", "fr": "La Bénédiction", "nl": "De Zegen"},
+      "promise": {"en": "A spiritual journey to India.", "fr": "Un voyage spirituel en Inde.", "nl": "Een spirituele reis naar India."},
+      "alt": {"en": "The puja at the festival temple", "fr": "La puja au temple du festival", "nl": "De puja in de festivaltempel"}
+    },
+    {
+      "id": "heritage",
+      "n": 2,
+      "photo": "chapter-heritage",
+      "ground": "#FBE7BD",
+      "band": "#5C3A00",
+      "when": {"en": "Afternoon", "fr": "Après-midi", "nl": "Namiddag"},
+      "hindi": "विरासत",
+      "title": {"en": "The Heritage", "fr": "L'Héritage", "nl": "Het Erfgoed"},
+      "promise": {"en": "Masters, epics and flavours.", "fr": "Maîtres, épopées et saveurs.", "nl": "Meesters, epossen en smaken."},
+      "alt": {"en": "A classical performance on the festival stage", "fr": "Un spectacle classique sur la scène du festival", "nl": "Een klassiek optreden op het festivalpodium"}
+    },
+    {
+      "id": "colours",
+      "n": 3,
+      "photo": "chapter-colours",
+      "ground": "#E8A33B",
+      "band": "#171B3D",
+      "when": {"en": "Evening", "fr": "Soirée", "nl": "Avond"},
+      "hindi": "रंग",
+      "title": {"en": "The Colours of India", "fr": "Les Couleurs de l'Inde", "nl": "De Kleuren van India"},
+      "promise": {"en": "Culture and diversity on one stage.", "fr": "Culture et diversité sur une seule scène.", "nl": "Cultuur en diversiteit op één podium."},
+      "alt": {"en": "A regional dance on the festival stage in the evening", "fr": "Une danse régionale sur la scène du festival, en soirée", "nl": "Een regionale dans op het festivalpodium, 's avonds"}
+    }
+  ],
+  "feature": {
+    "id": "suryaprakash",
+    "chapter": "heritage",
+    "photo": "suryaprakash",
+    "badge": {"en": "Exclusive concert", "fr": "Concert exclusif", "nl": "Exclusief concert"},
+    "hindi": "विद्वान",
+    "name": "Dr. Suryaprakash",
+    "title": {"en": "Vidwan of the Festival", "fr": "Vidwan du Festival", "nl": "Vidwan van het Festival"},
+    "line": {"en": "The festival's guest maestro gives one concert only: the classical music of South India, live at the foot of the Atomium.", "fr": "Le maître invité du festival donne un seul concert : la musique classique de l'Inde du Sud, en live au pied de l'Atomium.", "nl": "De gastmaestro van het festival geeft één enkel concert: de klassieke muziek van Zuid-India, live aan de voet van het Atomium."},
+    "bio": null
+  },
+  "acts": [
+    {
+      "id": "opening",
+      "tag": {"en": "Opening", "fr": "Ouverture", "nl": "Opening"},
+      "name": {"en": "Why We Light the Lamp", "fr": "Pourquoi nous allumons la lampe", "nl": "Waarom we de lamp aansteken"},
+      "line": {"en": "The story of Diwali, told as the festival opens.", "fr": "L'histoire de Diwali, racontée à l'ouverture du festival.", "nl": "Het verhaal van Diwali, verteld bij de opening van het festival."}
+    },
+    {
+      "id": "procession",
+      "tag": {"en": "Procession", "fr": "Procession", "nl": "Processie"},
+      "name": {"en": "Shobha Yatra: the Temple Procession", "fr": "Shobha Yatra : la procession du temple", "nl": "Shobha Yatra: de tempelprocessie"},
+      "line": {"en": "To the festival temple, in music and colour.", "fr": "Vers le temple du festival, en musique et en couleurs.", "nl": "Naar de festivaltempel, met muziek en kleur."}
+    },
+    {
+      "id": "puja",
+      "tag": {"en": "Ceremony", "fr": "Cérémonie", "nl": "Ceremonie"},
+      "name": {"en": "The Diwali Puja", "fr": "La puja de Diwali", "nl": "De Diwali-puja"},
+      "line": {"en": "The traditional blessing. Everyone is welcome.", "fr": "La bénédiction traditionnelle. Tout le monde est le bienvenu.", "nl": "De traditionele zegening. Iedereen is welkom."}
+    },
+    {
+      "id": "offering",
+      "tag": {"en": "Classical dance", "fr": "Danse classique", "nl": "Klassieke dans"},
+      "name": {"en": "An Offering in Dance", "fr": "Une offrande dansée", "nl": "Een offer in dans"},
+      "line": {"en": "Classical dance performed as a prayer.", "fr": "La danse classique comme une prière.", "nl": "Klassieke dans, opgevoerd als een gebed."}
+    },
+    {
+      "id": "kirtan",
+      "tag": {"en": "Devotional music", "fr": "Musique dévotionnelle", "nl": "Devotionele muziek"},
+      "name": {"en": "Kirtan with ISKCON", "fr": "Kirtan avec ISKCON", "nl": "Kirtan met ISKCON"},
+      "line": {"en": "Devotional singing you are invited to join.", "fr": "Des chants dévotionnels auxquels vous êtes invités à vous joindre.", "nl": "Devotionele zang waarbij je mag meezingen."}
+    },
+    {
+      "id": "vandana",
+      "tag": {"en": "Classical dance", "fr": "Danse classique", "nl": "Klassieke dans"},
+      "name": {"en": "Vandana: the Classical Invocation", "fr": "Vandana : l'invocation classique", "nl": "Vandana: de klassieke invocatie"},
+      "line": {"en": "A dance of salutation opens the stage.", "fr": "Une danse de salutation ouvre la scène.", "nl": "Een begroetingsdans opent het podium."}
+    },
+    {
+      "id": "ganesha",
+      "tag": {"en": "Dance", "fr": "Danse", "nl": "Dans"},
+      "name": {"en": "Deva Shree Ganesha", "fr": "Deva Shree Ganesha", "nl": "Deva Shree Ganesha"},
+      "line": {"en": "A tribute to the remover of obstacles.", "fr": "Un hommage à celui qui lève les obstacles.", "nl": "Een eerbetoon aan de wegnemer van obstakels."}
+    },
+    {
+      "id": "spice-route",
+      "tag": {"en": "Film and talk", "fr": "Film et rencontre", "nl": "Film en gesprek"},
+      "name": {"en": "The Spice Route: a Culinary Journey", "fr": "La Route des épices : un voyage culinaire", "nl": "De Specerijenroute: een culinaire reis"},
+      "line": {"en": "India's food story, told in film and talk.", "fr": "L'histoire de la cuisine indienne, en film et en paroles.", "nl": "Het verhaal van de Indiase keuken, in film en gesprek."}
+    },
+    {
+      "id": "little-india",
+      "tag": {"en": "Children", "fr": "Enfants", "nl": "Kinderen"},
+      "name": {"en": "Little India: the Next Generation", "fr": "Little India : la nouvelle génération", "nl": "Little India: de nieuwe generatie"},
+      "line": {"en": "The festival's youngest performers.", "fr": "Les plus jeunes artistes du festival.", "nl": "De jongste artiesten van het festival."}
+    },
+    {
+      "id": "ramayana",
+      "tag": {"en": "Dance drama", "fr": "Théâtre dansé", "nl": "Dansdrama"},
+      "name": {"en": "Ramayana: the Epic behind Diwali", "fr": "Ramayana : l'épopée à l'origine de Diwali", "nl": "Ramayana: het epos achter Diwali"},
+      "line": {"en": "The story of Rama's return, in dance drama.", "fr": "Le retour de Rama, raconté en théâtre dansé.", "nl": "Het verhaal van Rama's terugkeer, als dansdrama."}
+    },
+    {
+      "id": "magic",
+      "tag": {"en": "Magic", "fr": "Magie", "nl": "Goochelen"},
+      "name": {"en": "Jadoo: the Indian Magic Show", "fr": "Jadoo : le spectacle de magie indien", "nl": "Jadoo: de Indiase goochelshow"},
+      "line": {"en": "Wonder for children of every age.", "fr": "De l'émerveillement pour les enfants de tous les âges.", "nl": "Verwondering voor kinderen van alle leeftijden."}
+    },
+    {
+      "id": "saree",
+      "tag": {"en": "Saree showcase", "fr": "Défilé de saris", "nl": "Sarishow"},
+      "name": {"en": "Six Yards of Grace", "fr": "Six Yards of Grace", "nl": "Six Yards of Grace"},
+      "line": {"en": "The saree in all its regional styles.", "fr": "Le sari dans tous ses styles régionaux.", "nl": "De sari in al zijn regionale stijlen."}
+    },
+    {
+      "id": "conservatory",
+      "tag": {"en": "Live music", "fr": "Musique live", "nl": "Livemuziek"},
+      "name": {"en": "The Conservatory Concert", "fr": "Le concert du Conservatoire", "nl": "Het Conservatoriumconcert"},
+      "line": {"en": "Art India Music Conservatory, live.", "fr": "L'Art India Music Conservatory, en live.", "nl": "Het Art India Music Conservatory, live."}
+    },
+    {
+      "id": "odissi",
+      "tag": {"en": "Odisha", "fr": "Odisha", "nl": "Odisha"},
+      "name": {"en": "Odissi: Sculpture in Motion", "fr": "Odissi : la sculpture en mouvement", "nl": "Odissi: beeldhouwkunst in beweging"},
+      "line": {"en": "Odisha's temple dance, in collaboration.", "fr": "La danse des temples de l'Odisha, en collaboration.", "nl": "De tempeldans van Odisha, in samenwerking."}
+    },
+    {
+      "id": "hiphop",
+      "tag": {"en": "Urban", "fr": "Urbain", "nl": "Urban"},
+      "name": {"en": "Desi Beats: Hip Hop", "fr": "Desi Beats: Hip Hop", "nl": "Desi Beats: Hip Hop"},
+      "line": {"en": "India's new generation, in its own language.", "fr": "La nouvelle génération indienne, dans son propre langage.", "nl": "De nieuwe generatie van India, in haar eigen taal."}
+    },
+    {
+      "id": "devi",
+      "tag": {"en": "Gujarat", "fr": "Gujarat", "nl": "Gujarat"},
+      "name": {"en": "Devi: a Celebration of Motherhood", "fr": "Devi : une célébration de la maternité", "nl": "Devi: een viering van het moederschap"},
+      "line": {"en": "Gujarat's tribute to the Mother Goddess.", "fr": "L'hommage du Gujarat à la Déesse Mère.", "nl": "Het eerbetoon van Gujarat aan de Moedergodin."}
+    },
+    {
+      "id": "collaborations",
+      "tag": {"en": "Collaboration", "fr": "Collaboration", "nl": "Samenwerking"},
+      "name": {"en": "Culture United: the Collaborations", "fr": "Culture United : les collaborations", "nl": "Culture United: de samenwerkingen"},
+      "line": {"en": "Traditions meeting on one stage.", "fr": "Des traditions qui se rencontrent sur une même scène.", "nl": "Tradities die elkaar ontmoeten op één podium."}
+    },
+    {
+      "id": "kathak",
+      "tag": {"en": "North India", "fr": "Inde du Nord", "nl": "Noord-India"},
+      "name": {"en": "Kathak: Three Gharanas, One Stage", "fr": "Kathak : trois gharanas, une scène", "nl": "Kathak: drie gharana's, één podium"},
+      "line": {"en": "Jaipur, Lucknow and Banaras side by side.", "fr": "Jaipur, Lucknow et Bénarès côte à côte.", "nl": "Jaipur, Lucknow en Benares zij aan zij."}
+    },
+    {
+      "id": "ghoomar",
+      "tag": {"en": "Rajasthan", "fr": "Rajasthan", "nl": "Rajasthan"},
+      "name": {"en": "Ghoomar: the Royal Swirl of Rajasthan", "fr": "Ghoomar : le tourbillon royal du Rajasthan", "nl": "Ghoomar: de koninklijke werveling van Rajasthan"},
+      "line": {"en": "The dance of the desert palaces.", "fr": "La danse des palais du désert.", "nl": "De dans van de woestijnpaleizen."}
+    },
+    {
+      "id": "dakshin",
+      "tag": {"en": "South India", "fr": "Inde du Sud", "nl": "Zuid-India"},
+      "name": {"en": "Dakshin: a Journey through South India", "fr": "Dakshin : un voyage à travers l'Inde du Sud", "nl": "Dakshin: een reis door Zuid-India"},
+      "line": {"en": "The dances of the South in one sweep.", "fr": "Les danses du Sud en un seul élan.", "nl": "De dansen van het zuiden in één beweging."}
+    },
+    {
+      "id": "pind",
+      "tag": {"en": "Punjab", "fr": "Pendjab", "nl": "Punjab"},
+      "name": {"en": "Pind: a Journey to the Punjabi Village", "fr": "Pind : un voyage au village pendjabi", "nl": "Pind: een reis naar het Punjabi dorp"},
+      "line": {"en": "The beat and the joy of rural Punjab.", "fr": "Le rythme et la joie du Pendjab rural.", "nl": "Het ritme en de vreugde van het landelijke Punjab."}
+    },
+    {
+      "id": "tollywood",
+      "tag": {"en": "Telugu cinema", "fr": "Cinéma télougou", "nl": "Telugu-cinema"},
+      "name": {"en": "Tollywood Fire", "fr": "Tollywood Fire", "nl": "Tollywood Fire"},
+      "line": {"en": "The pulse of Telugu cinema.", "fr": "Le pouls du cinéma télougou.", "nl": "De hartslag van de Telugu-cinema."}
+    },
+    {
+      "id": "brides",
+      "tag": {"en": "Bridal showcase", "fr": "Défilé nuptial", "nl": "Bruidsshow"},
+      "name": {"en": "Brides of India", "fr": "Brides of India", "nl": "Brides of India"},
+      "line": {"en": "One country, many weddings: a bridal journey.", "fr": "Un pays, tant de mariages : un voyage nuptial.", "nl": "Eén land, vele bruiloften: een reis langs de bruidstradities."}
+    },
+    {
+      "id": "address",
+      "tag": {"en": "Guests of honour", "fr": "Invités d'honneur", "nl": "Eregasten"},
+      "name": {"en": "The Diwali Address", "fr": "L'allocution de Diwali", "nl": "De Diwali-toespraak"},
+      "line": {"en": "Greetings from the guests of honour.", "fr": "Le mot des invités d'honneur.", "nl": "Een woord van de eregasten."}
+    }
+  ],
+  "t2b": {
+    "photo": "chapter-t2b",
+    "when": {"en": "Night", "fr": "Nuit", "nl": "Nacht"},
+    "kicker": {"en": "The return of", "fr": "Le retour de", "nl": "De terugkeer van"},
+    "title": "Ticket2Bollywood",
+    "intro": {"en": "Art India's Bollywood night is back, on both nights of the festival. Two different days. The same big night.", "fr": "La soirée Bollywood d'Art India est de retour, les deux soirs du festival. Deux journées différentes. La même grande nuit.", "nl": "De Bollywoodnacht van Art India is terug, op beide avonden van het festival. Twee verschillende dagen. Dezelfde grote nacht."},
+    "alt": {"en": "Fireworks above the Atomium at night", "fr": "Feu d'artifice au-dessus de l'Atomium, la nuit", "nl": "Vuurwerk boven het Atomium bij nacht"},
+    "items": [
+      {
+        "id": "t2b-bollywood",
+        "headline": false,
+        "step": {"en": "On stage", "fr": "Sur scène", "nl": "Op het podium"},
+        "name": {"en": "Bollywood", "fr": "Bollywood", "nl": "Bollywood"},
+        "sub": {"en": "The stage show", "fr": "Le spectacle", "nl": "De podiumshow"},
+        "line": {"en": "The festival's dancers open the night on stage.", "fr": "Les danseurs du festival ouvrent la nuit sur scène.", "nl": "De dansers van het festival openen de nacht op het podium."}
+      },
+      {
+        "id": "dj-nitro",
+        "headline": false,
+        "step": {"en": "Introducing", "fr": "Première", "nl": "Nieuw"},
+        "name": {"en": "DJ Nitro", "fr": "DJ Nitro", "nl": "DJ Nitro"},
+        "sub": {"en": "First time on the Diwali stage", "fr": "Pour la première fois sur la scène de Diwali", "nl": "Voor het eerst op het Diwali-podium"},
+        "line": {"en": "The esplanade turns dance floor.", "fr": "L'esplanade devient piste de danse.", "nl": "De esplanade wordt een dansvloer."}
+      },
+      {
+        "id": "fireworks",
+        "headline": false,
+        "step": {"en": "Fireworks", "fr": "Feu d'artifice", "nl": "Vuurwerk"},
+        "name": {"en": "Diwali in the Sky", "fr": "Diwali dans le ciel", "nl": "Diwali in de lucht"},
+        "sub": {"en": "Fireworks at the Atomium", "fr": "Feu d'artifice à l'Atomium", "nl": "Vuurwerk aan het Atomium"},
+        "line": {"en": "Both nights, weather permitting.", "fr": "Les deux soirs, si la météo le permet.", "nl": "Beide avonden, als het weer het toelaat."}
+      },
+      {
+        "id": "dj-param",
+        "headline": true,
+        "step": {"en": "Headline set", "fr": "Tête d'affiche", "nl": "Headliner"},
+        "name": {"en": "DJ Param", "fr": "DJ Param", "nl": "DJ Param"},
+        "sub": {"en": "The best Indian DJ in Europe", "fr": "Le meilleur DJ indien d'Europe", "nl": "De beste Indiase dj van Europa"},
+        "line": {"en": "The main set. Dance until the lights go down.", "fr": "Le set principal. Dansez jusqu'à l'extinction des lumières.", "nl": "De hoofdset. Dans tot de lichten uitgaan."}
+      }
+    ]
+  },
+  "between": [
+    {
+      "title": {"en": "See", "fr": "Voir", "nl": "Zien"},
+      "line": {"en": "Colourful stalls with costumes and crafts.", "fr": "Des échoppes colorées, costumes et artisanat.", "nl": "Kleurrijke kraampjes met kostuums en kunstnijverheid."}
+    },
+    {
+      "title": {"en": "Hear", "fr": "Écouter", "nl": "Horen"},
+      "line": {"en": "A dhol you feel before you hear it.", "fr": "Un dhol que l'on sent avant de l'entendre.", "nl": "Een dhol die je voelt voor je hem hoort."}
+    },
+    {
+      "title": {"en": "Taste", "fr": "Goûter", "nl": "Proeven"},
+      "line": {"en": "Chaat, dosa and jalebi, region by region.", "fr": "Chaat, dosa et jalebi, région par région.", "nl": "Chaat, dosa en jalebi, regio per regio."}
+    },
+    {
+      "title": {"en": "Drink", "fr": "Boire", "nl": "Drinken"},
+      "line": {"en": "Masala chai, sweet lassi and the festival bars.", "fr": "Masala chai, lassi sucré et les bars du festival.", "nl": "Masala chai, zoete lassi en de festivalbars."}
+    },
+    {
+      "title": {"en": "Feel", "fr": "Ressentir", "nl": "Voelen"},
+      "line": {"en": "A hand-decorated temple at the foot of the Atomium.", "fr": "Un temple décoré à la main au pied de l'Atomium.", "nl": "Een met de hand versierde tempel aan de voet van het Atomium."}
+    }
+  ]
+}

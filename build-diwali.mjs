@@ -31,6 +31,7 @@ const P = JSON.parse(readFileSync(join(HERE, 'data/partners.json'), 'utf8'));
 const NEWS = existsSync(join(HERE, 'data/news.json'))
   ? JSON.parse(readFileSync(join(HERE, 'data/news.json'), 'utf8'))
   : [];
+const PR = JSON.parse(readFileSync(join(HERE, 'data/programme.json'), 'utf8'));
 
 /* A partner marked live whose artwork has not landed yet is left off the page
    rather than rendered as an empty link, and says so here, so that a missing
@@ -45,6 +46,28 @@ for (const x of P.partners) {
 const LANGS = ['en', 'fr', 'nl'];
 const PATH_OF = { en: '/', fr: '/fr/', nl: '/nl/' };
 const PARTNERS_OF = { en: '/partners/', fr: '/fr/partners/', nl: '/nl/partners/' };
+
+/* One page per festival day. Separate pages rather than tabs, so the switch
+   works with JavaScript off, each day has a link of its own for an ad or a
+   WhatsApp message, and the two days can never be on screen at once.
+   Saturday is /programme/; there is no /programme/saturday/. */
+const PROGRAMME_OF = Object.fromEntries(PR.days.map(day => [day.id,
+  Object.fromEntries(LANGS.map(l => [l,
+    `${PATH_OF[l]}programme/${day.slug ? day.slug + '/' : ''}`]))]));
+const DAY_BY_ID = Object.fromEntries(PR.days.map(day => [day.id, day]));
+const ACT_BY_ID = Object.fromEntries(PR.acts.map(a => [a.id, a]));
+const OTHER_DAY = day => PR.days.find(x => x.id !== day.id);
+
+/* An act that only one of the two days runs wears that day's badge. Counted
+   here rather than stored, so the badge cannot fall out of step with the
+   running order above it. */
+const DAYS_PER_ACT = (() => {
+  const n = {};
+  for (const day of PR.days) {
+    for (const id of new Set(Object.values(day.chapters).flat())) n[id] = (n[id] || 0) + 1;
+  }
+  return n;
+})();
 
 /* Which logos need a white card behind them, decided by looking at each one
    on the indigo ground rather than by measuring it. Western Union measures as
@@ -107,6 +130,11 @@ const HREFLANG = { en: 'en', fr: 'fr', nl: 'nl-BE' };
 const OG_LOCALE = { en: 'en_GB', fr: 'fr_BE', nl: 'nl_BE' };
 
 const IMG = new Images(join(HERE, 'media'), join(HERE, '.cache/img'));
+/* The programme has its own folder and its own namespace, so a photo called
+   puja.jpg there cannot overwrite one called puja.jpg at the top of media/.
+   Both write into the same ladder directory; only the names differ. */
+const PIMG = new Images(join(HERE, 'media/programme'), join(HERE, '.cache/img'),
+  '/static/img', { namespace: 'pg-' });
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
   .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -136,6 +164,10 @@ const out = join(HERE, 'dist-diwali');
 
 const FLAGS = d.flags || {};
 const PRACTICAL_ON = FLAGS.practical_enabled !== false;
+/* The programme pages are built and deployed whatever this says. The flag
+   decides whether the world is told they exist: robots, the sitemap and the
+   Programme link in the header nav. Ravi flips it. */
+const PROGRAMME_PUBLIC = FLAGS.programme_public === true;
 const HERO_VIDEO_ON = FLAGS.hero_video_enabled === true;
 
 /* Panel photographs live in media/panels/<panel>/01.jpg and are discovered at
@@ -159,7 +191,9 @@ const lamp = (scale = 1) => `<svg class="lamp" viewBox="0 0 32 40" width="${28 *
   <path d="M4 24 h24 c-1 6-6 9-12 9 s-11-3-12-9z" fill="#8A4B2A"/></svg>`;
 
 /* ================================================================ page */
-function render(lang, page = 'home') {
+function render(lang, page = 'home', dayId = null) {
+  const day = page === 'programme' ? DAY_BY_ID[dayId] : null;
+  if (page === 'programme' && !day) throw new Error(`unknown programme day: ${dayId}`);
   /* Picks the language, and refuses to fall back. A missing translation is a
      build failure, not a page that is half English. */
   const t = v => {
@@ -631,10 +665,206 @@ ${newsBlock()}
 </section>`;
   }
 
+
+  /* ---------------------------------------------------------- programme */
+  /* One page per day, four chapters each. Everything here is server
+     rendered: the day switch is a link, not a script, so the page is whole
+     with JavaScript off and each day has an address of its own. */
+
+  /* A programme photo, or nothing at all. A missing picture is the normal
+     state until Ravi has them, so it leaves no gap, no frame and no
+     placeholder: the band falls back to flat colour and the card to text. */
+  const prPhoto = (stem, opts) => (stem && PIMG.entry(stem) ? PIMG.tag(stem, opts) : '');
+
+  function programmeMain(day) {
+    const other = OTHER_DAY(day);
+    const ui = PR.ui;
+
+    /* The two day cards at the top, and the two pills in the day bar. */
+    function dayCard(x) {
+      const here = x.id === day.id;
+      return `<a class="pg-day${here ? ' is-here' : ''}" href="${PROGRAMME_OF[x.id][lang]}"${
+        here ? ' aria-current="page"' : ''}>
+      <span class="pg-day-date">${e(x.date)}</span>
+      <span class="pg-day-pill">${e(here ? ui.now_showing : ui.tap_to_view)}</span>
+      <span class="pg-day-hi" lang="hi">${esc(x.hindi)}</span>
+      <span class="pg-day-word">${e(x.word)}</span>
+      <span class="pg-day-tag">${e(x.tagline)}</span>
+    </a>`;
+    }
+
+    const intro = `<section class="pg-intro">
+  <div class="wrap">
+    <p class="pg-kicker">${e(PR.hero.kicker)}</p>
+    <h1 class="pg-h1">${e(PR.hero.headline)}</h1>
+    <p class="pg-lede">${e(PR.hero.intro)}</p>
+    <p class="pg-choose">${e(PR.hero.choose)}</p>
+    <div class="pg-days">${PR.days.map(dayCard).join('')}</div>
+    <p class="pg-night">${e(PR.hero.night_line)}</p>
+  </div>
+</section>`;
+
+    /* The bar that answers "which day am I looking at" at any scroll depth.
+       Every link that changes day lands on #day rather than the top, so the
+       answer is the first thing on screen after the switch. */
+    const bar = `<div class="pg-bar" id="day">
+  <div class="wrap pg-bar-in">
+    <p class="pg-bar-now"><span class="pg-bar-label">${e(ui.viewing)}</span>
+      <span class="pg-bar-date">${e(day.date)}</span>
+      <span class="pg-bar-word">${e(day.word)}</span></p>
+    <nav class="pg-bar-days" aria-label="${e(ui.viewing)}">${PR.days.map(x => {
+      const here = x.id === day.id;
+      return `<a class="pg-bar-pill${here ? ' is-here' : ''}" href="${
+        PROGRAMME_OF[x.id][lang]}#day"${here ? ' aria-current="page"' : ''}>${e(x.button)}</a>`;
+    }).join('')}</nav>
+  </div>
+</div>`;
+
+    /* The opening band of a chapter: the photograph if there is one, flat
+       colour if there is not, and the chapter's own words over it either way. */
+    function band(opts) {
+      const { photo, alt, ground, label, hindi, title, promise, kicker, pill, tall, eager } = opts;
+      const pic = prPhoto(photo, { alt: t(alt || ''), sizes: '100vw', className: 'pg-band-img', eager: Boolean(eager) });
+      return `<div class="pg-band${tall ? ' is-tall' : ''}${pic ? ' has-photo' : ''}"${
+        pic ? '' : ` style="background:${ground}"`}>
+    ${pic}
+    <div class="wrap pg-band-in">
+      <p class="pg-band-pill">${pill}</p>
+      <p class="pg-band-label">${label}</p>
+      ${kicker ? `<p class="pg-band-kicker">${kicker}</p>` : ''}
+      ${hindi ? `<p class="pg-band-hi" lang="hi">${esc(hindi)}</p>` : ''}
+      <h2 class="pg-band-h">${title}</h2>
+      ${promise ? `<p class="pg-band-promise">${promise}</p>` : ''}
+    </div>
+  </div>`;
+    }
+
+    /* The featured artist, above the act cards of the chapter that holds them.
+       The bio is written later, so the paragraph only exists once it does. */
+    function feature() {
+      const f = PR.feature;
+      const pic = prPhoto(f.photo, { alt: f.name, sizes: '210px', className: 'pg-feat-img' });
+      return `<article class="pg-feat">
+      ${pic}
+      <div class="pg-feat-body">
+        <p class="pg-feat-pills"><span class="pg-pill-gold">${e(f.badge)}</span><span class="pg-pill-ink">${e(day.only)}</span></p>
+        <p class="pg-feat-hi" lang="hi">${esc(f.hindi)}</p>
+        <h3 class="pg-feat-name">${esc(f.name)}</h3>
+        <p class="pg-feat-title">${e(f.title)}</p>
+        <p class="pg-feat-line">${e(f.line)}</p>
+        ${f.bio ? `<p class="pg-feat-bio">${e(f.bio)}</p>` : ''}
+      </div>
+    </article>`;
+    }
+
+    function actCard(id) {
+      const a = ACT_BY_ID[id];
+      if (!a) throw new Error(`programme: ${day.id} lists an act that does not exist: ${id}`);
+      const pic = prPhoto(a.id, { alt: '', sizes: '72px', className: 'pg-act-img' });
+      const solo = DAYS_PER_ACT[a.id] === 1;
+      return `<article class="pg-act">
+      ${pic}
+      <div class="pg-act-body">
+        <p class="pg-act-tag">${e(a.tag)}</p>
+        <h3 class="pg-act-name">${e(a.name)}</h3>
+        <p class="pg-act-line">${e(a.line)}</p>
+        ${solo ? `<p class="pg-act-only">${e(day.only)}</p>` : ''}
+      </div>
+    </article>`;
+    }
+
+    const chapters = PR.chapters.map((ch, i) => {
+      const ids = day.chapters[ch.id] || [];
+      const feat = day.feature && PR.feature.chapter === ch.id ? feature() : '';
+      return `<section class="pg-ch" id="chapter-${esc(ch.id)}">
+  ${band({
+    photo: ch.photo, alt: ch.alt, ground: ch.band, eager: i === 0,
+    pill: e(day.short),
+    label: `${e(ui.chapter)} ${ch.n} · ${e(ch.when)}`,
+    hindi: ch.hindi, title: e(ch.title), promise: e(ch.promise),
+  })}
+  <div class="pg-body" style="background:${ch.ground}">
+    <div class="wrap">
+      ${feat}
+      <div class="pg-acts">${ids.map(actCard).join('')}</div>
+    </div>
+  </div>
+</section>`;
+    }).join('');
+
+    /* Chapter four. The same on both days by design: whichever day someone
+       picks, the night is the night. */
+    const t2b = PR.t2b;
+    const t2bCards = t2b.items.map((it, i) => {
+      const pic = prPhoto(it.id, { alt: '', sizes: '(max-width:760px) 100vw, 300px', className: 'pg-t2b-img' });
+      return `<article class="pg-t2b-card${it.headline ? ' is-headline' : ''}">
+        ${pic}
+        <div class="pg-t2b-body">
+          <p class="pg-t2b-step">${i + 1} · ${e(it.step)}</p>
+          <h3 class="pg-t2b-name">${e(it.name)}</h3>
+          <p class="pg-t2b-sub">${e(it.sub)}</p>
+          <p class="pg-t2b-line">${e(it.line)}</p>
+        </div>
+      </article>`;
+    }).join('');
+
+    const finale = `<section class="pg-ch pg-t2b" id="chapter-t2b">
+  ${band({
+    photo: t2b.photo, alt: t2b.alt, ground: '#0B0E24', tall: true,
+    pill: e(ui.both_days),
+    label: `${e(ui.chapter)} 4 · ${e(t2b.when)}`,
+    kicker: e(t2b.kicker),
+    title: esc(t2b.title),
+  })}
+  <div class="pg-body pg-t2b-body-wrap">
+    <div class="wrap">
+      <p class="pg-t2b-intro">${e(t2b.intro)}</p>
+      <div class="pg-t2b-cards">${t2bCards}</div>
+      <div class="pg-swap">
+        <p class="pg-swap-was">${e(day.that_was)}</p>
+        <a class="pg-swap-cta" href="${PROGRAMME_OF[other.id][lang]}#day">${e(other.see)}</a>
+      </div>
+    </div>
+  </div>
+</section>`;
+
+    /* The price is never written here. It is read from the same place the
+       landing page reads it, so the two cannot drift apart. */
+    const ticket = `<section class="pg-ticket">
+  <div class="wrap">
+    <h2 class="pg-ticket-h">${e(ui.ticket_heading)}</h2>
+    <p class="pg-ticket-note">${e(d.tickets.notes[0])}</p>
+    <p><a class="pg-ticket-cta" data-buy href="${esc(buyHref('programme', lang))}"${
+      CTA_EXTERNAL ? ' rel="noopener"' : ''}>${e(d.tickets.cta_live)}</a></p>
+  </div>
+</section>`;
+
+    const between = `<section class="pg-between">
+  <div class="wrap">
+    <p class="pg-between-h">${e(ui.between)}</p>
+    <div class="pg-between-row">${PR.between.map(b => `
+      <div class="pg-between-item">
+        <p class="pg-between-t">${e(b.title)}</p>
+        <p class="pg-between-l">${e(b.line)}</p>
+      </div>`).join('')}</div>
+  </div>
+</section>`;
+
+    return `<main id="programme-main">
+${intro}
+${bar}
+${chapters}
+${finale}
+${ticket}
+${between}
+</main>`;
+  }
+
   /* ------------------------------------------------------- head bits */
   /* Every page points at its own siblings, so /fr/partners offers
      /nl/partners rather than the Dutch landing page. */
-  const pathsFor = page === 'partners' ? PARTNERS_OF : PATH_OF;
+  const pathsFor = page === 'programme' ? PROGRAMME_OF[day.id]
+    : page === 'partners' ? PARTNERS_OF : PATH_OF;
   const selfPath = pathsFor[lang];
   const alternates = LANGS.map(l =>
     `<link rel="alternate" hreflang="${HREFLANG[l]}" href="${SITE}${pathsFor[l]}">`).join('\n') +
@@ -671,6 +901,21 @@ ${newsBlock()}
    for anyone who had once clicked EN: it bounced them home before Dutch could
    paint. The click is recorded from a delegated listener in the head rather
    than a handler at the foot of the body, so a fast click cannot outrun it. */
+  /* The sniff sends a first-time visitor to their language, but it only knows
+     the three landing pages, so on any other page it would cost the reader the
+     page as well as the language. Programme pages therefore keep the half that
+     records a deliberate click and drop the half that redirects.
+
+     /partners/ has the same hole and still redirects to /fr/ rather than
+     /fr/partners/. It is left alone here because this brief freezes the
+     partners pages; the fix is to widen this condition to page !== 'home'. */
+  const LANG_REDIRECT = page !== 'programme';
+  const langClickOnly = `(function(){var K='ai_lang';
+document.addEventListener('click',function(e){
+  var a=e.target&&e.target.closest&&e.target.closest('#langsw a[data-lang]');
+  if(a){try{localStorage.setItem(K,a.getAttribute('data-lang'));}catch(_){}}
+},true);
+try{localStorage.setItem(K,${JSON.stringify(lang)});}catch(_){}})();`;
   const langScript = `(function(){var K='ai_lang',P={en:'/',fr:'/fr/',nl:'/nl/'},
 here=${JSON.stringify(lang)};
 document.addEventListener('click',function(e){
@@ -697,8 +942,9 @@ if(want!=='en')location.replace(P[want]);})();`;
 
   /* The landing page keeps its layout exactly as it was. The partners page
      is its own main, with no hero and no Atomium photograph. */
-  const heroBlock = page === 'partners' ? '' : hero();
-  const mainBlock = page === 'partners' ? partnersMain() : `<main>
+  const heroBlock = page === 'home' ? hero() : '';
+  const mainBlock = page === 'programme' ? programmeMain(day)
+    : page === 'partners' ? partnersMain() : `<main>
 ${atomiumStrip()}
 ${awaits()}
 ${timeline()}
@@ -716,14 +962,16 @@ ${register()}
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${page === 'partners' ? e(pc('title')) : e(d.meta.title)}</title>
-<meta name="description" content="${page === 'partners' ? e(pc('intro')) : e(d.meta.description)}">
+<title>${page === 'programme' ? e(PR.meta.title) : page === 'partners' ? e(pc('title')) : e(d.meta.title)}</title>
+<meta name="description" content="${page === 'programme' ? e(PR.meta.description) : page === 'partners' ? e(pc('intro')) : e(d.meta.description)}">${
+  page === 'programme' && !PROGRAMME_PUBLIC
+    ? '\n<meta name="robots" content="noindex, nofollow">' : ''}
 <link rel="canonical" href="${SITE}${selfPath}">
 ${alternates}
 <meta property="og:type" content="website">
 <meta property="og:locale" content="${OG_LOCALE[lang]}">
-<meta property="og:title" content="${page === 'partners' ? e(pc('headline')) : e(d.meta.og_title)}">
-<meta property="og:description" content="${page === 'partners' ? e(pc('intro')) : e(d.meta.og_description)}">
+<meta property="og:title" content="${page === 'programme' ? e(PR.hero.headline) : page === 'partners' ? e(pc('headline')) : e(d.meta.og_title)}">
+<meta property="og:description" content="${page === 'programme' ? e(PR.meta.description) : page === 'partners' ? e(pc('intro')) : e(d.meta.og_description)}">
 <meta property="og:url" content="${SITE}${selfPath}">
 <meta property="og:image" content="${SITE}${ogImage}">
 <meta name="twitter:card" content="summary_large_image">
@@ -734,11 +982,12 @@ ${alternates}
 <link rel="stylesheet" href="/diwali.css?v=${CSSV}">
 <!-- Web Analytics is injected by Cloudflare Pages itself, cookie free, which
      is why this site needs no consent banner. Nothing to add here. -->
-<script>${langScript}</script>
+<script>${LANG_REDIRECT ? langScript : langClickOnly}</script>
 <script type="application/ld+json">${jsonld}</script>
 </head>
-<body>
-<a class="skip" href="${page === 'partners' ? '#partners-main' : '#awaits'}">${e(d.ui.skip)}</a>
+<body${page === 'programme' ? ' class="page-programme"' : ''}>
+<a class="skip" href="${
+  page === 'programme' ? '#programme-main' : page === 'partners' ? '#partners-main' : '#awaits'}">${e(d.ui.skip)}</a>
 <nav class="topbar">
   <div class="wrap bar">
     <div class="bar-left">
@@ -762,14 +1011,23 @@ ${alternates}
     <span class="pill-name">Brussels Diwali</span>
     <span class="pill-rule"></span>
     ${d.nav.filter(n => PRACTICAL_ON || n.href !== '#practical')
-        .map((n, i) => `<a href="${esc(page === 'partners' ? PATH_OF[lang] + n.href : n.href)}"${
-          i === 0 && page !== 'partners' ? ' class="on"' : ''}>${e(n.label)}</a>`).join('')}
+        .map((n, i) => {
+          /* Programme is the one nav item with somewhere else to go. While the
+             page is hidden it keeps pointing at the landing section it has
+             always pointed at, and only the flag moves it. */
+          const toProgramme = n.href === '#awaits' && PROGRAMME_PUBLIC;
+          const href = toProgramme ? PROGRAMME_OF.saturday[lang]
+            : page === 'home' ? n.href : PATH_OF[lang] + n.href;
+          const here = page === 'programme' && n.href === '#awaits';
+          return `<a href="${esc(href)}"${here ? ' class="on" aria-current="page"'
+            : i === 0 && page === 'home' ? ' class="on"' : ''}>${e(n.label)}</a>`;
+        }).join('')}
     <a href="${PARTNERS_OF[lang]}"${page === 'partners' ? ' class="on" aria-current="page"' : ''}>${e(pc('nav'))}</a>
   </div>
 </div>
 ${heroBlock}
 ${mainBlock}
-${page === 'partners' ? '' : partnerStrip()}
+${page === 'home' ? partnerStrip() : ''}
 ${footer()}
 <div class="stickybar" id="stickybar"${LIVE ? '' : ' style="display:none"'}>
   <div class="wrap sb-in">
@@ -1123,6 +1381,33 @@ for (const stem of ['diwali-hero', 'atomium-night']) {
 }
 IMG.save();
 
+/* The programme's own ladder. Only the stems the pages actually name are
+   prepared, so dropping an unrelated photograph into media/programme/ costs
+   nothing until something references it.
+
+   A stem with no file is the normal state while Ravi is still collecting, so
+   it is a line in the log rather than a failure, and the page simply renders
+   without that picture. */
+{
+  const wanted = [
+    ...PR.chapters.map(c => c.photo),
+    PR.t2b.photo,
+    PR.feature.photo,
+    ...PR.acts.map(a => a.id),
+    ...PR.t2b.items.map(i => i.id),
+  ].filter(Boolean);
+
+  const missing = [];
+  for (const stem of [...new Set(wanted)]) {
+    if (PIMG.has(stem)) await PIMG.prepare(stem);
+    else missing.push(stem);
+  }
+  PIMG.save();
+  if (missing.length) {
+    console.log(`  Programme photos not in media/programme/ yet (${missing.length}): ${missing.join(', ')}`);
+  }
+}
+
 const css = readFileSync(join(HERE, 'static/diwali.css'), 'utf8');
 const CSSV = createHash('sha1').update(css).digest('hex').slice(0, 8);
 
@@ -1136,6 +1421,14 @@ for (const lang of LANGS) {
   const pdir = join(dir, 'partners');
   mkdirSync(pdir, { recursive: true });
   writeFileSync(join(pdir, 'index.html'), render(lang, 'partners'));
+
+  /* One directory per day. Saturday is /programme/ itself, which is why its
+     slug is empty rather than "saturday". */
+  for (const pday of PR.days) {
+    const gdir = pday.slug ? join(dir, 'programme', pday.slug) : join(dir, 'programme');
+    mkdirSync(gdir, { recursive: true });
+    writeFileSync(join(gdir, 'index.html'), render(lang, 'programme', pday.id));
+  }
 }
 
 /* Partner logos. Normalised to PNG at build time is not enough on its own:
@@ -1243,7 +1536,8 @@ writeFileSync(join(out, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${SITE
 writeFileSync(join(out, 'sitemap.xml'),
   `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
-${[PATH_OF, PARTNERS_OF].map(paths => LANGS.map(l => `<url><loc>${SITE}${paths[l]}</loc>
+${[PATH_OF, PARTNERS_OF, ...(PROGRAMME_PUBLIC ? PR.days.map(x => PROGRAMME_OF[x.id]) : [])]
+  .map(paths => LANGS.map(l => `<url><loc>${SITE}${paths[l]}</loc>
 ${LANGS.map(a => `  <xhtml:link rel="alternate" hreflang="${HREFLANG[a]}" href="${SITE}${paths[a]}"/>`).join('\n')}
   <xhtml:link rel="alternate" hreflang="x-default" href="${SITE}${paths.en}"/>
 </url>`).join('\n')).join('\n')}

@@ -33,6 +33,9 @@ on:
       # Press coverage. The In the news block on /partners is built from this,
       # so adding a cutting is a deploy.
       - data/news.json
+      # The programme pages are generated from this, so editing the running
+      # order is a deploy.
+      - data/programme.json
   workflow_dispatch:
 
 permissions:
