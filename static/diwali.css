@@ -946,9 +946,14 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
 .pg-act-body{min-width:0}
 .pg-act-tag{margin:0 0 8px;font-size:11.5px;font-weight:700;letter-spacing:.14em;
   text-transform:uppercase;color:var(--marigold)}
+/* overflow-wrap because the thumbnail takes 86px out of the card the moment a
+   photograph exists, and the Dutch "Conservatoriumconcert" is twenty one
+   letters with nowhere to break. It fitted while the cards were text only and
+   ran past the edge as soon as the first act photo landed. */
 .pg-act-name{margin:0 0 6px;font-family:var(--display);font-weight:400;font-size:20px;
-  line-height:1.2;color:var(--ink)}
-.pg-act-line{margin:0;font-size:15px;line-height:1.6;color:var(--ink);opacity:.82}
+  line-height:1.2;color:var(--ink);overflow-wrap:anywhere}
+.pg-act-line{margin:0;font-size:15px;line-height:1.6;color:var(--ink);opacity:.82;
+  overflow-wrap:anywhere}
 .pg-act-only{margin:12px 0 0;font-size:11px;font-weight:700;letter-spacing:.12em;
   text-transform:uppercase;color:var(--ink-2)}
 .pg-act-only::before{content:"";display:inline-block;width:6px;height:6px;
