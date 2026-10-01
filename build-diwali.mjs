@@ -693,6 +693,27 @@ ${newsBlock()}
     </a>`;
     }
 
+    /* Four reasons to come, within reach of the first screen. Each tile is one
+       link to somewhere further down the same page, so the party is a tap away
+       rather than six screens of scrolling. */
+    const tiles = (day.highlights || []).map(h => {
+      const pic = prPhoto(h.photo, {
+        alt: '', sizes: '(max-width:720px) 50vw, 25vw', className: 'pg-tile-img',
+      });
+      return `<a class="pg-tile${h.lead ? ' is-lead' : ''}${pic ? ' has-photo' : ''}" href="${esc(h.href)}">
+        ${pic}
+        <span class="pg-tile-in">
+          <span class="pg-tile-kicker">${e(h.kicker)}</span>
+          <span class="pg-tile-title">${e(h.title)}</span>
+          <span class="pg-tile-line">${e(h.line)}</span>
+        </span>
+      </a>`;
+    }).join('');
+
+    const dontMiss = tiles ? `
+    <p class="pg-choose pg-miss-h">${e(PR.ui.dont_miss)}</p>
+    <div class="pg-tiles">${tiles}</div>` : '';
+
     const intro = `<section class="pg-intro">
   <div class="wrap">
     <p class="pg-kicker">${e(PR.hero.kicker)}</p>
@@ -700,18 +721,25 @@ ${newsBlock()}
     <p class="pg-lede">${e(PR.hero.intro)}</p>
     <p class="pg-choose">${e(PR.hero.choose)}</p>
     <div class="pg-days">${PR.days.map(dayCard).join('')}</div>
-    <p class="pg-night">${e(PR.hero.night_line)}</p>
+    <p class="pg-night">${e(PR.hero.night_line)}</p>${dontMiss}
   </div>
 </section>`;
 
     /* The bar that answers "which day am I looking at" at any scroll depth.
        Every link that changes day lands on #day rather than the top, so the
        answer is the first thing on screen after the switch. */
+    /* Shortcuts to the four chapters. Plain anchors: no script decides which
+       one you are in, because the bar already answers the only question that
+       needed answering, and a wrong highlight is worse than none. */
+    const jump = (PR.jump || []).length ? `
+    <nav class="pg-bar-jump" aria-label="${e(ui.chapter)}">${PR.jump.map(j =>
+      `<a href="${esc(j.href)}">${e(j.label)}</a>`).join('')}</nav>` : '';
+
     const bar = `<div class="pg-bar" id="day">
   <div class="wrap pg-bar-in">
     <p class="pg-bar-now"><span class="pg-bar-label">${e(ui.viewing)}</span>
       <span class="pg-bar-date">${e(day.date)}</span>
-      <span class="pg-bar-word">${e(day.word)}</span></p>
+      <span class="pg-bar-word">${e(day.word)}</span></p>${jump}
     <nav class="pg-bar-days" aria-label="${e(ui.viewing)}">${PR.days.map(x => {
       const here = x.id === day.id;
       return `<a class="pg-bar-pill${here ? ' is-here' : ''}" href="${
@@ -839,7 +867,7 @@ ${newsBlock()}
   </div>
 </section>`;
 
-    const between = `<section class="pg-between">
+    const between = `<section class="pg-between" id="between">
   <div class="wrap">
     <p class="pg-between-h">${e(ui.between)}</p>
     <div class="pg-between-row">${PR.between.map(b => `
@@ -1394,6 +1422,7 @@ IMG.save();
     PR.feature.photo,
     ...PR.acts.map(a => a.id),
     ...PR.t2b.items.map(i => i.id),
+    ...PR.days.flatMap(x => (x.highlights || []).map(h => h.photo)),
   ].filter(Boolean);
 
   const missing = [];

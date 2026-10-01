@@ -1,3 +1,90 @@
+# Claude Code brief: programme page, second pass (tone)
+
+Site: diwali.artindia.be. Repo: `~/artindia`. Follows `docs/claude-code-brief-programme-page.md` (commits d9747c2, 556ee65).
+Written 1 Oct 2026. Signed off by Ravi. Everything in the first brief still holds unless this one changes it.
+
+## 1. Why
+
+The first version reads like a religious gathering. After the intro, a visitor meets four devotional acts in a row, under the heading "The Blessing: a spiritual journey to India", and the party sits six phone screens further down. The festival has religious roots but is not a religious event. It is a fun, light, vibrant Indian celebration, open to everyone, and the page has to feel like that from the first screen.
+
+The programme itself does not change. What changes is the wording of the opening, how much room it takes, and where the fun sits.
+
+## 2. Summary of changes
+
+| # | Change | Where |
+|---|---|---|
+| 1 | A "Don't miss" row of four tiles directly under the day cards | new block in the intro |
+| 2 | Chapter 1 becomes "The Welcome", with two act cards instead of four | data only |
+| 3 | New intro line and new day taglines that lead with the fun | data only |
+| 4 | Chapter shortcuts in the day bar, so the party is one tap away | day bar |
+| 5 | `meta.title` removed (unused since the per-day titles) | data only |
+
+Not changing: URLs, the hidden state (`programme_public` stays `false`), the chapter order, chapters 2 and 3, the feature block, Ticket2Bollywood, the ticket band, the landing and partners pages.
+
+## 3. Data
+
+Replace `data/programme.json` with exactly the content in section 8. It was generated from the file currently in the repo, so the per-day `title` you added is kept. Do not rewrite or re-translate any copy.
+
+What is different in the data:
+
+- `meta.title` is gone. `meta.description` stays.
+- `hero.intro` and both `days[].tagline` are rewritten.
+- Chapter 1: `id` is now `welcome` (was `blessing`), with a new `hindi`, `title`, `promise`, `alt`, and photo stem `chapter-welcome`. Its section id therefore becomes `chapter-welcome`.
+- Acts removed: `opening`, `procession`, `puja`, `offering`. Acts added: `lamps`, `parade`. Act `kirtan` is renamed. Each day's `chapters.welcome` now lists two acts.
+- New `ui.dont_miss`, new `days[].highlights` (four tiles per day), new top-level `jump` (four shortcut links).
+
+## 4. The "Don't miss" row
+
+- Place it inside the intro block, under the day cards and the `hero.night_line`.
+- Label: `ui.dont_miss`, styled like the existing "Choose your day" label.
+- Four tiles from the current day's `highlights`, in the given order. Four across on desktop, two by two below 720 px.
+- Each tile is one link to its `href`, an anchor on the same page. Add `id="between"` to the "Between the acts" section so the food tile has a target.
+- Tile content: `kicker` (12 px, 700, uppercase, `#FFB25C`), `title` (Rozha One, 26 px desktop / 20 px phone), `line` (15 px; hidden below 480 px).
+- With a photo: the photo as cover, a dark scrim rising from the bottom, text over the bottom. Reuse the band scrim.
+- Without a photo, which is every tile today: a flat tile. The tile with `lead: true` is filled marigold with indigo text. The others are `#262C5C` with paper text and a 1 px `#4A4F8A` border.
+- Tile shape: radius 16 px, min-height 220 px desktop / 150 px phone.
+- Photos come from `media/programme/` by the `photo` stem, through the same namespace as the other programme images. Several tiles reuse stems that already exist in the list (`chapter-t2b`, `fireworks`, `magic`, `brides`); `food` is new. A missing photo is still normal, not an error.
+
+## 5. Chapter shortcuts in the day bar
+
+- Add the four `jump` links to the day bar, between the date and the day pills on desktop.
+- On a phone they form a second row inside the bar: one line, no wrapping, scrolling sideways if they do not fit. The whole bar stays under 96 px tall at 390 px.
+- Plain anchor links, no JavaScript, no "current chapter" highlighting.
+- Style: Mukta 600, 14 px, `#C9CBE0`; visible keyboard focus.
+- Every anchored section (`chapter-welcome`, `chapter-heritage`, `chapter-colours`, `chapter-t2b`, `between`) needs a `scroll-margin-top` equal to the fixed header plus the day bar, so the chapter title is not hidden under the bar after a jump.
+- `aria-label` for this nav: reuse `ui.chapter`.
+
+## 6. Photos
+
+The list of stems changes with the data:
+
+- Renamed: `chapter-blessing` is now `chapter-welcome`.
+- Gone: `opening`, `procession`, `puja`, `offering`.
+- New: `lamps`, `parade`, `food`.
+
+No photo has been delivered yet, so nothing needs moving.
+
+## 7. Tests and acceptance
+
+Update `test/programme.test.mjs`:
+
+1. Saturday contains "Dr. Suryaprakash", "The Festival Parade" and "Lighting the Lamps", and not "Kirtan Sing-Along" or "Brides of India". Sunday contains "Kirtan Sing-Along", "Brides of India" and "Lighting the Lamps", and not "Dr. Suryaprakash" or "The Festival Parade".
+2. Inside `<main>` of all six pages, none of these appear: "Blessing", "spiritual", "Puja", "puja", "devotion", "dévotion", "devotionele", "prayer", "prière", "gebed", "Shobha Yatra", "Temple Procession". The earlier bans (em dash, "Jashn", "Avenue of Lights", "weekend", clock times) stay.
+3. Each page has exactly four "Don't miss" tiles, and every tile `href` points at an id that exists on that page.
+4. Each page has the four shortcut links in the day bar, and each points at an id that exists on that page.
+5. The Saturday tiles include the magic show and not Brides of India; the Sunday tiles are the reverse.
+6. The first chapter section on every page has `id="chapter-welcome"` and contains exactly two act cards.
+7. The build still passes with an empty or absent `media/programme/`.
+
+Check in a browser at 390 px and 1280 px, in all three languages: the first screen of a phone shows the headline and the day cards, and the "Don't miss" row starts within the second screen; nothing overflows sideways; tapping "Party" in the day bar lands with the Ticket2Bollywood title fully visible.
+
+`npm test` must stay green. Keep the page hidden. Commit and push to `main`.
+
+Report back with the files changed, the list of missing photo stems, and anything you could not do as written.
+
+## 8. `data/programme.json` (full replacement)
+
+```json
 {
   "meta": {
     "description": {"en": "Two days, four chapters: the full programme of the Brussels Diwali Festival, 24 and 25 October 2026 at the Atomium.", "fr": "Deux jours, quatre chapitres : le programme complet du Brussels Diwali Festival, les 24 et 25 octobre 2026 à l'Atomium.", "nl": "Twee dagen, vier hoofdstukken: het volledige programma van het Brussels Diwali Festival, 24 en 25 oktober 2026 aan het Atomium."}
@@ -395,3 +482,4 @@
     }
   ]
 }
+```

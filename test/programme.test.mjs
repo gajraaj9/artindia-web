@@ -73,13 +73,71 @@ test('each day shows its own acts and not the other day\'s', () => {
   const sat = html['en saturday'];
   const sun = html['en sunday'];
 
-  for (const yes of ['Dr. Suryaprakash', 'Shobha Yatra']) {
+  for (const yes of ['Dr. Suryaprakash', 'The Festival Parade']) {
     assert.ok(sat.includes(yes), `Saturday is missing ${yes}`);
     assert.ok(!sun.includes(yes), `Sunday should not carry ${yes}`);
   }
-  for (const yes of ['Kirtan with ISKCON', 'Brides of India']) {
+  for (const yes of ['Kirtan Sing-Along', 'Brides of India']) {
     assert.ok(sun.includes(yes), `Sunday is missing ${yes}`);
     assert.ok(!sat.includes(yes), `Saturday should not carry ${yes}`);
+  }
+  for (const both of ['Lighting the Lamps']) {
+    assert.ok(sat.includes(both), `Saturday is missing ${both}`);
+    assert.ok(sun.includes(both), `Sunday is missing ${both}`);
+  }
+});
+
+test('the first chapter is the welcome, and it is short', () => {
+  for (const [name, h] of Object.entries(html)) {
+    const main = mainOf(h);
+    const first = main.indexOf('<section class="pg-ch"');
+    const second = main.indexOf('<section class="pg-ch"', first + 1);
+    const chapterOne = main.slice(first, second);
+    assert.ok(chapterOne.includes('id="chapter-welcome"'),
+      `${name} does not open on chapter-welcome`);
+    assert.equal((chapterOne.match(/class="pg-act"/g) || []).length, 2,
+      `${name} should open with two acts, not four`);
+  }
+});
+
+test('four Don\'t miss tiles, each pointing somewhere real', () => {
+  for (const [name, h] of Object.entries(html)) {
+    const main = mainOf(h);
+    const day = PR.days.find(x => x.id === name.split(' ')[1]);
+    const tiles = [...main.matchAll(/<a class="pg-tile[^"]*" href="([^"]+)"/g)].map(m => m[1]);
+    assert.equal(tiles.length, 4, `${name} has ${tiles.length} tiles, not four`);
+    assert.deepEqual(tiles, day.highlights.map(x => x.href),
+      `${name} lists its tiles in the wrong order`);
+    for (const href of tiles) {
+      assert.ok(href.startsWith('#'), `${name} tile leaves the page: ${href}`);
+      assert.ok(main.includes(`id="${href.slice(1)}"`),
+        `${name} tile points at ${href}, which is not on the page`);
+    }
+  }
+});
+
+test('the tiles follow the day, not the other day', () => {
+  const titleOf = key => [...mainOf(html[key]).matchAll(
+    /<span class="pg-tile-title">([^<]*)<\/span>/g)].map(m => m[1]);
+  const sat = titleOf('en saturday');
+  const sun = titleOf('en sunday');
+  assert.ok(sat.some(t => t.includes('Magic Show')), 'Saturday is missing the magic show tile');
+  assert.ok(!sat.some(t => t.includes('Brides of India')), 'Saturday should not tile Brides of India');
+  assert.ok(sun.some(t => t.includes('Brides of India')), 'Sunday is missing the Brides of India tile');
+  assert.ok(!sun.some(t => t.includes('Magic Show')), 'Sunday should not tile the magic show');
+});
+
+test('the day bar carries four chapter shortcuts', () => {
+  for (const [name, h] of Object.entries(html)) {
+    const main = mainOf(h);
+    const nav = main.slice(main.indexOf('<nav class="pg-bar-jump"'));
+    const links = [...nav.slice(0, nav.indexOf('</nav>')).matchAll(/href="([^"]+)"/g)].map(m => m[1]);
+    assert.equal(links.length, PR.jump.length, `${name} has ${links.length} shortcuts, not four`);
+    assert.deepEqual(links, PR.jump.map(j => j.href), `${name} shortcuts are in the wrong order`);
+    for (const href of links) {
+      assert.ok(main.includes(`id="${href.slice(1)}"`),
+        `${name} shortcut points at ${href}, which is not on the page`);
+    }
   }
 });
 
@@ -139,7 +197,11 @@ test('the copy rules hold inside main', () => {
     const main = mainOf(h);
     /* Written as an escape so the character itself is nowhere in the repo. */
     assert.ok(!main.includes('\u2014'), `${name} has an em dash`);
-    for (const banned of ['Jashn', 'Avenue of Lights', 'weekend']) {
+    /* The festival has religious roots and is not a religious event. These are
+       the words that made the first version read like one. */
+    const TONE = ['Blessing', 'spiritual', 'Puja', 'puja', 'devotion', 'd\u00e9votion',
+      'devotionele', 'prayer', 'pri\u00e8re', 'gebed', 'Shobha Yatra', 'Temple Procession'];
+    for (const banned of ['Jashn', 'Avenue of Lights', 'weekend', ...TONE]) {
       assert.ok(!new RegExp(banned, 'i').test(main), `${name} says "${banned}"`);
     }
     const clock = main.match(/\b\d{1,2}[:.h]\d{2}\b/);
