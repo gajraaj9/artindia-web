@@ -12,7 +12,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, existsSync, mkdirSync, rmdirSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -293,19 +293,30 @@ test('the price is read from the ticket data, never typed into this page', () =>
   }
 });
 
-test('the build survives an empty media/programme/', () => {
+/* Photographs arrive one at a time, so this has to hold at every stage: with
+   none, with some, with all. The first version of this check demanded an empty
+   folder, which meant the first photo anyone delivered broke the suite. */
+test('a missing photo is normal, whether the folder is empty, part full or full', () => {
   const dir = join(ROOT, 'media/programme');
-  const weMadeIt = !existsSync(dir);
-  if (weMadeIt) mkdirSync(dir, { recursive: true });
-  try {
-    assert.ok(existsSync(dir) && readdirSync(dir).length === 0,
-      'this check wants the folder empty; it has photos in it now');
-    build();
-    assert.ok(existsSync(join(DIST, 'programme/index.html')));
-    const main = mainOf(read('programme/index.html'));
+  const have = new Set(existsSync(dir)
+    ? readdirSync(dir).filter(f => /\.(jpe?g|png|webp|avif)$/i.test(f))
+      .map(f => f.replace(/\.[^.]+$/, '').split('--')[0])
+    : []);
+
+  const main = mainOf(html['en saturday']);
+  assert.ok(main.includes('The Heritage'), 'the page is whole whatever photos exist');
+  if (have.size === 0) {
     assert.ok(!main.includes('<picture'), 'no photos means no picture elements');
-    assert.ok(main.includes('The Heritage'), 'the page is still whole without photos');
-  } finally {
-    if (weMadeIt) rmdirSync(dir);
   }
+
+  /* Every act without a photo is a card without a picture: no placeholder
+     box, no broken image. */
+  const cards = main.split('<article class="pg-act">').slice(1).map(c => c.split('</article>')[0]);
+  const saturday = PR.days.find(x => x.id === 'saturday');
+  const ids = Object.values(saturday.chapters).flat();
+  assert.equal(cards.length, ids.length, 'one card per Saturday act');
+  ids.forEach((id, i) => {
+    assert.equal(cards[i].includes('<picture'), have.has(id),
+      `${id}: the card and the folder disagree about whether a photo exists`);
+  });
 });

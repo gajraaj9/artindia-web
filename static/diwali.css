@@ -798,7 +798,7 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
 .pg-tile-img{position:absolute;inset:0;z-index:-2}
 .pg-tile-img img{width:100%;height:100%;object-fit:cover}
 .pg-tile.has-photo::after{content:"";position:absolute;inset:0;z-index:-1;
-  background:linear-gradient(to top, rgba(11,14,36,.94), rgba(11,14,36,.7) 45%, rgba(11,14,36,0))}
+  background:linear-gradient(to top, rgba(11,14,36,.94), rgba(11,14,36,.6) 42%, rgba(11,14,36,0) 80%)}
 .pg-tile-in{display:block;padding:clamp(14px,2vw,22px)}
 .pg-tile-kicker{display:block;font-size:12px;font-weight:700;letter-spacing:.12em;
   text-transform:uppercase;color:var(--marigold);margin-bottom:8px}
@@ -884,14 +884,30 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
    photograph the heading sits on it, full bleed, the way the Atomium band
    does on the landing page. Without one there is simply no band. */
 .pg-ch{padding-top:clamp(52px,8vw,96px)}
+/* The day still warms as it goes, but as light on the same ground rather than
+   as a change of ground: a pale glow at noon, gold in the afternoon, saffron
+   and magenta by evening. The same radial light the body and the sign-up
+   section use. */
+/* Each ellipse is half the section tall and centred in it, so it has faded to
+   nothing by the top and bottom edges and no seam shows between chapters. */
+#chapter-welcome{background:radial-gradient(ellipse 60% 50% at 6% 50%, rgba(246,223,166,.13), transparent)}
+#chapter-heritage{background:radial-gradient(ellipse 60% 50% at 6% 50%, rgba(232,163,59,.14), transparent)}
+#chapter-colours{background:
+  radial-gradient(ellipse 60% 50% at 6% 50%, rgba(255,153,51,.15), transparent),
+  radial-gradient(ellipse 50% 50% at 96% 50%, rgba(126,44,92,.26), transparent)}
+/* With a photograph the band is the light, so the glow steps aside. */
+.pg-ch:has(> .pg-band.has-photo){background:none}
 .pg-band{position:relative;isolation:isolate}
 .pg-band.has-photo{display:flex;align-items:flex-end;overflow:hidden;
-  min-height:clamp(240px,30vw,360px)}
+  min-height:clamp(260px,34vw,420px)}
 .pg-band-img{position:absolute;inset:0;z-index:-2}
 .pg-band-img img{width:100%;height:100%;object-fit:cover}
 .pg-band.has-photo::after{content:"";position:absolute;inset:0;z-index:-1;
-  background:linear-gradient(to top, rgba(11,14,36,.96), rgba(11,14,36,.72) 45%, rgba(11,14,36,.1))}
-.pg-band.has-photo .pg-band-in{padding-block:clamp(22px,3vw,36px)}
+  /* Dark only where the words are. The first pass dimmed the whole frame and
+     the photograph, which is the point of the band, barely showed. */
+  background:linear-gradient(to top, rgba(11,14,36,.94), rgba(11,14,36,.62) 34%, rgba(11,14,36,0) 72%)}
+.pg-band.has-photo .pg-band-in{padding-block:clamp(22px,3vw,36px);
+  text-shadow:0 1px 3px rgba(6,8,24,.85),0 2px 22px rgba(6,8,24,.7)}
 /* The site's kicker. The day leads it, in ink, so every chapter says which
    day it belongs to without a pill. */
 .pg-band-label{margin:0 0 14px;font-size:12px;font-weight:600;letter-spacing:.24em;
@@ -978,7 +994,7 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
     radial-gradient(800px 520px at 92% 24%, rgba(126,44,92,.34), transparent 62%),
     rgba(11,14,36,.5)}
 .pg-t2b:has(.pg-band.has-photo){padding-top:0}
-.pg-t2b .pg-band.has-photo{min-height:clamp(300px,40vw,480px)}
+.pg-t2b .pg-band.has-photo{min-height:clamp(340px,46vw,560px)}
 .pg-band-kicker{margin:0;font-family:var(--display);font-weight:400;
   font-size:clamp(20px,2.6vw,28px);line-height:1.2;color:var(--marigold)}
 .pg-t2b .pg-band-h{font-size:clamp(1.7rem,8.6vw,4.75rem);line-height:1.04;
