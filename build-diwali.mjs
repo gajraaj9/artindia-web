@@ -83,12 +83,12 @@ function cardPolicy(list) {
 const FEATURE_TIERS = new Set(['presenting']);
 const GRID_TIERS = new Set(['patronage', 'institutional', 'network']);
 
-/* The strip above the landing-page footer is a claim about who stands behind
-   the festival, not a list of everyone on the partners page. Media partners
-   carry the festival, they do not fund it, so they stop at the partners page.
-   Left as a set rather than a slice of the tier order so adding a tier does
-   not silently promote it to the landing page. */
-const STRIP_TIERS = new Set(['patronage', 'presenting', 'institutional']);
+/* The strip above the landing-page footer. Media partners carry the festival,
+   they do not stand behind it, so they stop at the partners page. Everything
+   above them is on the strip, in tier order: patronage, presenting,
+   institutional, network. Left as a set rather than a slice of the tier order
+   so adding a tier does not silently promote it to the landing page. */
+const STRIP_TIERS = new Set(['patronage', 'presenting', 'institutional', 'network']);
 
 /* Months, written out rather than left to Intl. A Node built with small-icu
    formats every locale as English, which is exactly the silent fall back to
@@ -653,7 +653,9 @@ ${newsBlock()}
     location: { '@type': 'Place', name: 'Atomium Esplanade',
       address: { '@type': 'PostalAddress', addressLocality: 'Brussels', addressCountry: 'BE' } },
     organizer: { '@type': 'Organization', name: 'Art India ASBL', url: 'https://artindia.be' },
-    offers: { '@type': 'Offer', price: '10', priceCurrency: 'EUR',
+    /* The online price, which is what a reader can act on from here. The gate
+       price is the other half of the ladder and lives in the ticket section. */
+    offers: { '@type': 'Offer', price: '12', priceCurrency: 'EUR',
       availability: LIVE ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder',
       validFrom: d.event.sale_opens.slice(0, 10),
       url: LIVE ? d.event.ticket_url : SITE + PATH_OF[lang] },

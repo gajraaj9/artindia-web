@@ -68,9 +68,9 @@
       "nl": "Muziek, dans, eten en vuurwerk. Het grootste Diwalifeest van Europa."
     },
     "cta_note_1": {
-      "en": "One ticket from €10, come Saturday or Sunday, or both",
-      "fr": "Un billet dès 10 €, venez le samedi ou le dimanche, ou les deux",
-      "nl": "Eén ticket vanaf € 10, kom op zaterdag of zondag, of allebei"
+      "en": "€12 online, €15 at the gate. Saturday or Sunday, or both",
+      "fr": "12 € en ligne, 15 € sur place. Samedi ou dimanche, ou les deux",
+      "nl": "12 € online, 15 € aan de ingang. Zaterdag of zondag, of allebei"
     },
     "cta_note_2": {
       "en": "Children under 12 free",
@@ -79,9 +79,9 @@
     },
     "sale_opens": "2026-09-03T18:45:00+02:00",
     "price_from": {
-      "en": "€10",
-      "fr": "10 €",
-      "nl": "10 €"
+      "en": "€12",
+      "fr": "12 €",
+      "nl": "12 €"
     },
     "ticket_url": "https://tickets.artindia.be/events/artindia/2392534",
     "widget_url": "",
@@ -90,21 +90,21 @@
   "tickets": {
     "rows": [
       {
-        "id": "presale",
+        "id": "online",
         "label": {
-          "en": "Online presale",
-          "fr": "Prévente en ligne",
-          "nl": "Voorverkoop online"
+          "en": "Online",
+          "fr": "En ligne",
+          "nl": "Online"
         },
         "price": {
-          "en": "€10",
-          "fr": "10 €",
-          "nl": "10 €"
+          "en": "€12",
+          "fr": "12 €",
+          "nl": "12 €"
         },
         "note": {
-          "en": "Until 30 September. Either day, or both.",
-          "fr": "Jusqu'au 30 septembre. L'un ou l'autre jour, ou les deux.",
-          "nl": "Tot 30 september. Eén dag of allebei."
+          "en": "Until 23 October. Either day, or both.",
+          "fr": "Jusqu'au 23 octobre. L'un ou l'autre jour, ou les deux.",
+          "nl": "Tot 23 oktober. Eén dag of allebei."
         }
       },
       {
@@ -157,14 +157,14 @@
       "nl": "Zaterdag, zondag, of allebei"
     },
     "cta_live": {
-      "en": "Select tickets, €10",
-      "fr": "Choisir ses billets, 10 €",
-      "nl": "Kies je tickets, €10"
+      "en": "Select tickets, €12",
+      "fr": "Choisir ses billets, 12 €",
+      "nl": "Kies je tickets, €12"
     },
     "cta_hero": {
-      "en": "Presale Tickets",
-      "fr": "Billets en prévente",
-      "nl": "Voorverkooptickets"
+      "en": "Buy Tickets",
+      "fr": "Acheter vos billets",
+      "nl": "Koop je tickets"
     },
     "cta_presale": {
       "en": "Tickets open Friday 4 September",
@@ -454,9 +454,9 @@
       "nl": "Brussels Diwali Festival 2026, 10e editie, 24 en 25 oktober, Atomium"
     },
     "description": {
-      "en": "The tenth Brussels Diwali Festival, 24 and 25 October 2026 on the esplanade of the Atomium. Music, dance, food and light. Tickets from €10.",
-      "fr": "Le dixième Brussels Diwali Festival, les 24 et 25 octobre 2026 sur l'esplanade de l'Atomium. Musique, danse, cuisine et lumière. Billets dès 10 €.",
-      "nl": "Het tiende Brussels Diwali Festival, op 24 en 25 oktober 2026 op de esplanade van het Atomium. Muziek, dans, eten en licht. Tickets vanaf 10 €."
+      "en": "The tenth Brussels Diwali Festival, 24 and 25 October 2026 on the esplanade of the Atomium. Music, dance, food and light. Tickets €12 online, €15 at the gate.",
+      "fr": "Le dixième Brussels Diwali Festival, les 24 et 25 octobre 2026 sur l'esplanade de l'Atomium. Musique, danse, cuisine et lumière. Billets 12 € en ligne, 15 € sur place.",
+      "nl": "Het tiende Brussels Diwali Festival, op 24 en 25 oktober 2026 op de esplanade van het Atomium. Muziek, dans, eten en licht. Tickets 12 € online, 15 € aan de ingang."
     },
     "og_title": {
       "en": "Brussels Diwali Festival 2026, 10th edition",
@@ -464,9 +464,9 @@
       "nl": "Brussels Diwali Festival 2026, 10e editie"
     },
     "og_description": {
-      "en": "Europe celebrates Diwali. 24 & 25 October 2026, Atomium esplanade. Tickets from €10.",
-      "fr": "L'Europe célèbre Diwali. Les 24 et 25 octobre 2026, esplanade de l'Atomium. Billets dès 10 €.",
-      "nl": "Europa viert Diwali. 24 en 25 oktober 2026, esplanade van het Atomium. Tickets vanaf 10 €."
+      "en": "Europe celebrates Diwali. 24 & 25 October 2026, Atomium esplanade. Tickets €12 online, €15 at the gate.",
+      "fr": "L'Europe célèbre Diwali. Les 24 et 25 octobre 2026, esplanade de l'Atomium. Billets 12 € en ligne, 15 € sur place.",
+      "nl": "Europa viert Diwali. 24 en 25 oktober 2026, esplanade van het Atomium. Tickets 12 € online, 15 € aan de ingang."
     }
   },
   "awaits": {
@@ -782,9 +782,9 @@
       "nl": "Lees verder"
     },
     "sticky_txt": {
-      "en": "Saturday or Sunday, from €10",
-      "fr": "Samedi ou dimanche, dès 10 €",
-      "nl": "Zaterdag of zondag, vanaf 10 €"
+      "en": "Saturday or Sunday, €12 online",
+      "fr": "Samedi ou dimanche, 12 € en ligne",
+      "nl": "Zaterdag of zondag, 12 € online"
     },
     "sticky_cta": {
       "en": "Select tickets",
