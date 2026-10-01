@@ -69,6 +69,32 @@ test('hidden while the flag is off: noindex, out of the sitemap, nothing links i
   }
 });
 
+/* The first build gave this page a palette and a type scale of its own, with
+   the chapter colours written into the markup from the data. It read as a
+   different website. The page now takes its ground and its sizes from the
+   stylesheet the rest of the site uses, and these two checks keep it there. */
+test('the page carries no colours of its own in the markup or the data', () => {
+  for (const [name, h] of Object.entries(html)) {
+    assert.ok(!/style="background/.test(mainOf(h)), `${name} sets a background inline`);
+  }
+  for (const ch of PR.chapters) {
+    assert.equal(ch.ground, undefined, `chapter ${ch.id} still carries a ground colour`);
+    assert.equal(ch.band, undefined, `chapter ${ch.id} still carries a band colour`);
+  }
+});
+
+test('no heading on the page is set larger than the site allows', () => {
+  const css = readFileSync(join(ROOT, 'static/diwali.css'), 'utf8');
+  const block = css.slice(css.indexOf('The programme page'),
+    css.indexOf('the strip above the footer'));
+  /* The largest size any pg- rule may reach: 4.75rem, the party title. The
+     landing page's own h1 is 6.4rem, and nothing here may pass it. */
+  const sizes = [...block.matchAll(/font-size:\s*(?:clamp\([^,]+,[^,]+,\s*)?([\d.]+)(px|rem)/g)]
+    .map(m => (m[2] === 'rem' ? Number(m[1]) * 16 : Number(m[1])));
+  assert.ok(sizes.length > 20, 'the programme block was not found in the stylesheet');
+  assert.ok(Math.max(...sizes) <= 76, `a programme rule reaches ${Math.max(...sizes)}px`);
+});
+
 test('each day shows its own acts and not the other day\'s', () => {
   const sat = html['en saturday'];
   const sun = html['en sunday'];

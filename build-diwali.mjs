@@ -751,14 +751,12 @@ ${newsBlock()}
     /* The opening band of a chapter: the photograph if there is one, flat
        colour if there is not, and the chapter's own words over it either way. */
     function band(opts) {
-      const { photo, alt, ground, label, hindi, title, promise, kicker, pill, tall, eager } = opts;
+      const { photo, alt, label, hindi, title, promise, kicker, pill, eager } = opts;
       const pic = prPhoto(photo, { alt: t(alt || ''), sizes: '100vw', className: 'pg-band-img', eager: Boolean(eager) });
-      return `<div class="pg-band${tall ? ' is-tall' : ''}${pic ? ' has-photo' : ''}"${
-        pic ? '' : ` style="background:${ground}"`}>
+      return `<div class="pg-band${pic ? ' has-photo' : ''}">
     ${pic}
     <div class="wrap pg-band-in">
-      <p class="pg-band-pill">${pill}</p>
-      <p class="pg-band-label">${label}</p>
+      <p class="pg-band-label"><span class="pg-band-day">${pill}</span> · ${label}</p>
       ${kicker ? `<p class="pg-band-kicker">${kicker}</p>` : ''}
       ${hindi ? `<p class="pg-band-hi" lang="hi">${esc(hindi)}</p>` : ''}
       <h2 class="pg-band-h">${title}</h2>
@@ -806,12 +804,12 @@ ${newsBlock()}
       const feat = day.feature && PR.feature.chapter === ch.id ? feature() : '';
       return `<section class="pg-ch" id="chapter-${esc(ch.id)}">
   ${band({
-    photo: ch.photo, alt: ch.alt, ground: ch.band, eager: i === 0,
+    photo: ch.photo, alt: ch.alt, eager: i === 0,
     pill: e(day.short),
     label: `${e(ui.chapter)} ${ch.n} · ${e(ch.when)}`,
     hindi: ch.hindi, title: e(ch.title), promise: e(ch.promise),
   })}
-  <div class="pg-body" style="background:${ch.ground}">
+  <div class="pg-body">
     <div class="wrap">
       ${feat}
       <div class="pg-acts">${ids.map(actCard).join('')}</div>
@@ -838,7 +836,7 @@ ${newsBlock()}
 
     const finale = `<section class="pg-ch pg-t2b" id="chapter-t2b">
   ${band({
-    photo: t2b.photo, alt: t2b.alt, ground: '#0B0E24', tall: true,
+    photo: t2b.photo, alt: t2b.alt,
     pill: e(ui.both_days),
     label: `${e(ui.chapter)} 4 · ${e(t2b.when)}`,
     kicker: e(t2b.kicker),
