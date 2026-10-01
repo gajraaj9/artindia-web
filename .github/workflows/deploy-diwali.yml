@@ -30,6 +30,9 @@ on:
       - diwali-web/**
       - diwali-admin/**
       - data/partners.json
+      # Press coverage. The In the news block on /partners is built from this,
+      # so adding a cutting is a deploy.
+      - data/news.json
   workflow_dispatch:
 
 permissions:
