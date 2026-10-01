@@ -154,6 +154,46 @@ test('the day is translated, not left in English', () => {
   assert.ok(html['nl sunday'].includes('Ontmoetingen'), '/nl/programme/sunday/ is missing Ontmoetingen');
 });
 
+test('each day names itself in the tab and in a share card', () => {
+  for (const [name, h] of Object.entries(html)) {
+    const day = PR.days.find(x => x.id === name.split(' ')[1]);
+    const want = day.title[LANG_OF(name)];
+    assert.ok(h.includes(`<title>${want}</title>`), `${name} has the wrong title`);
+    assert.ok(h.includes(`<meta property="og:title" content="${want}">`),
+      `${name} has the wrong og:title`);
+  }
+  /* Two days open in two tabs have to be telling apart, which is the whole
+     point of a per-day title. */
+  const titles = Object.keys(PAGES).map(k =>
+    html[k].match(/<title>([^<]*)<\/title>/)[1]);
+  assert.equal(new Set(titles).size, titles.length, 'two pages share a title');
+});
+
+/* Not strictly the programme's business, but this is the suite that has a
+   built dist-diwali to look at, and the programme pages are half of what the
+   rule protects. */
+test('only the home page redirects on language', () => {
+  const HOME = ['index.html', 'fr/index.html', 'nl/index.html'];
+  const ELSEWHERE = [
+    'partners/index.html', 'fr/partners/index.html', 'nl/partners/index.html',
+    ...Object.values(PAGES),
+  ];
+
+  for (const rel of HOME) {
+    assert.ok(read(rel).includes('location.replace'),
+      `${rel} should still send a first-time visitor to their language`);
+  }
+  for (const rel of ELSEWHERE) {
+    assert.ok(!read(rel).includes('location.replace'),
+      `${rel} would carry a visitor off the page they asked for`);
+  }
+  /* Every page still remembers a deliberate click on the language switch,
+     which is the half that was never the problem. */
+  for (const rel of [...HOME, ...ELSEWHERE]) {
+    assert.ok(read(rel).includes('ai_lang'), `${rel} forgets the language choice`);
+  }
+});
+
 test('the price is read from the ticket data, never typed into this page', () => {
   const d = JSON.parse(readFileSync(join(ROOT, 'data/diwali.json'), 'utf8'));
   for (const [name, h] of Object.entries(html)) {

@@ -901,15 +901,14 @@ ${between}
    for anyone who had once clicked EN: it bounced them home before Dutch could
    paint. The click is recorded from a delegated listener in the head rather
    than a handler at the foot of the body, so a fast click cannot outrun it. */
-  /* The sniff sends a first-time visitor to their language, but it only knows
-     the three landing pages, so on any other page it would cost the reader the
-     page as well as the language. Programme pages therefore keep the half that
-     records a deliberate click and drop the half that redirects.
-
-     /partners/ has the same hole and still redirects to /fr/ rather than
-     /fr/partners/. It is left alone here because this brief freezes the
-     partners pages; the fix is to widen this condition to page !== 'home'. */
-  const LANG_REDIRECT = page !== 'programme';
+  /* The sniff sends a first-time visitor to their language, but the only
+     addresses it knows are the three landing pages. Anywhere else it costs the
+     reader the page as well as the language: an English speaker on /partners/
+     whose browser asks for French used to land on /fr/, the French landing
+     page, with the partners page gone. Every page keeps the half that records
+     a deliberate click on the language switch; only the home page keeps the
+     half that redirects. */
+  const LANG_REDIRECT = page === 'home';
   const langClickOnly = `(function(){var K='ai_lang';
 document.addEventListener('click',function(e){
   var a=e.target&&e.target.closest&&e.target.closest('#langsw a[data-lang]');
@@ -962,7 +961,7 @@ ${register()}
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${page === 'programme' ? e(PR.meta.title) : page === 'partners' ? e(pc('title')) : e(d.meta.title)}</title>
+<title>${page === 'programme' ? e(day.title) : page === 'partners' ? e(pc('title')) : e(d.meta.title)}</title>
 <meta name="description" content="${page === 'programme' ? e(PR.meta.description) : page === 'partners' ? e(pc('intro')) : e(d.meta.description)}">${
   page === 'programme' && !PROGRAMME_PUBLIC
     ? '\n<meta name="robots" content="noindex, nofollow">' : ''}
@@ -970,7 +969,7 @@ ${register()}
 ${alternates}
 <meta property="og:type" content="website">
 <meta property="og:locale" content="${OG_LOCALE[lang]}">
-<meta property="og:title" content="${page === 'programme' ? e(PR.hero.headline) : page === 'partners' ? e(pc('headline')) : e(d.meta.og_title)}">
+<meta property="og:title" content="${page === 'programme' ? e(day.title) : page === 'partners' ? e(pc('headline')) : e(d.meta.og_title)}">
 <meta property="og:description" content="${page === 'programme' ? e(PR.meta.description) : page === 'partners' ? e(pc('intro')) : e(d.meta.og_description)}">
 <meta property="og:url" content="${SITE}${selfPath}">
 <meta property="og:image" content="${SITE}${ogImage}">
