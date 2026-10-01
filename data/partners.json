@@ -18,7 +18,10 @@
         "nl":"De Ambassade van India in Brussel staat sinds de eerste editie achter het festival. Haar patronage plaatst Diwali aan het Atomium tussen de grote vieringen van de Indiase cultuur in Europa."
       } },
     { "id":"city-of-brussels", "tier":"patronage", "live":true,
-      "name":"City of Brussels", "url":"https://www.brussels.be",
+      "name":"City of Brussels",
+      "url":"https://www.brussel.be/brussels-diwali-festival-2026",
+      "url_en":"https://www.brussels.be/brussels-diwali-festival-2026",
+      "url_fr":"https://www.bruxelles.be/brussels-diwali-festival-2026",
       "logo":"media/partners/city-of-brussels",
       "text":{
         "en":"The City of Brussels welcomes the festival on the Atomium Esplanade and supports it as one of the city's major cultural events of the autumn.",
@@ -56,6 +59,12 @@
         "en":"BICA fosters cultural exchange and creative collaboration between Belgium and India, supporting emerging talent and building a community around it. A natural partner for a festival built on artists.",
         "fr":"La BICA favorise les échanges culturels et la collaboration créative entre la Belgique et l'Inde, soutient les talents émergents et construit une communauté autour d'eux. Un partenaire naturel pour un festival porté par ses artistes.",
         "nl":"BICA bevordert culturele uitwisseling en creatieve samenwerking tussen België en India, steunt opkomend talent en bouwt er een gemeenschap rond. Een vanzelfsprekende partner voor een festival dat op artiesten is gebouwd."
-      } }
+      } },
+    { "id":"inside-brussels", "tier":"media", "live":true,
+      "name":"Inside Brussels", "url":"https://www.insidebrussels.be",
+      "logo":"media/partners/inside-brussels" },
+    { "id":"visit-brussels", "tier":"media", "live":true,
+      "name":"visit.brussels", "url":"https://www.visit.brussels",
+      "logo":"media/partners/visit-brussels" }
   ]
 }

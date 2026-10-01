@@ -1,0 +1,26 @@
+[
+  { "outlet":"Inside Brussels",
+    "title":{"en":"What to do in Brussels in October 2026",
+             "fr":"Que faire à Bruxelles en octobre 2026",
+             "nl":"Wat te doen in Brussel in oktober 2026"},
+    "date":"2026-09",
+    "url":"https://www.insidebrussels.be/V2/bruxelles/que-faire-a-bruxelles-en-octobre-2026-notre-selection-pour-ne-rien-rater/" },
+
+  { "outlet":"visit.brussels",
+    "title":{"en":"Brussels Diwali Festival, official agenda listing",
+             "fr":"Brussels Diwali Festival, agenda officiel",
+             "nl":"Brussels Diwali Festival, officiële agenda"},
+    "date":"2026-09",
+    "url":"https://www.visit.brussels/en/visitors/agenda/event-detail.Brussels-Diwali-Festival.5700026274",
+    "url_fr":"https://www.visit.brussels/fr/visiteurs/agenda/event-detail.Brussels-Diwali-Festival.5700026274",
+    "url_nl":"https://www.visit.brussels/nl/bezoekers/agenda/event-detail.Brussels-Diwali-Festival.5700026274" },
+
+  { "outlet":"City of Brussels",
+    "title":{"en":"Brussels Diwali Festival 2026 on brussels.be",
+             "fr":"Brussels Diwali Festival 2026 sur bruxelles.be",
+             "nl":"Brussels Diwali Festival 2026 op brussel.be"},
+    "date":"2026-09",
+    "url":"https://www.brussel.be/brussels-diwali-festival-2026",
+    "url_en":"https://www.brussels.be/brussels-diwali-festival-2026",
+    "url_fr":"https://www.bruxelles.be/brussels-diwali-festival-2026" }
+]

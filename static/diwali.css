@@ -656,11 +656,13 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
 
 /* Community, media, suppliers: a logo grid, name on hover. */
 .p-logos{list-style:none;margin:0;padding:0;
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
 .p-logos a{display:block;text-decoration:none;position:relative}
+/* Under the mark, not inside it: a carded logo would otherwise print this in
+   near white on the white card. */
 .p-name{display:block;text-align:center;margin-top:8px;font-size:13px;color:var(--ink);
   opacity:0;transition:opacity .18s ease}
-.p-logos a:hover .p-name,.p-logos a:focus-visible .p-name{opacity:.8}
+.p-logos li:hover .p-name,.p-logos a:focus-visible + .p-name{opacity:.8}
 
 .p-become{max-width:760px;padding-block:8px 72px}
 .p-become h2{font-family:'Rozha One',serif;font-weight:400;font-size:clamp(26px,4.4vw,40px);
@@ -676,8 +678,37 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
   .p-feature .p-mark{justify-content:flex-start}
   .p-feature .p-mark.is-card{justify-content:center}
   .p-grid{grid-template-columns:1fr}
-  .p-logos{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+  .p-logos{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
   .p-name{opacity:.7}
+}
+
+/* ------- in the news ------- */
+/* A list of links, nothing more: no thumbnails and no excerpts, so the row
+   is the three facts that matter. It shares .wrap and .p-sec with the tier
+   sections above it, which is what keeps the left edge flush with the cards.
+
+   The outlet column is sized to hold the longest name on one line and the
+   date column to its own content, so the titles all start and the months all
+   end on the same vertical. */
+.n-list{list-style:none;margin:0;padding:0}
+.n-item{display:grid;grid-template-columns:minmax(120px,170px) 1fr auto;
+  column-gap:24px;align-items:baseline;padding-block:15px}
+.n-item + .n-item{border-top:1px solid var(--line)}
+.n-outlet{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--marigold)}
+.n-title{font-size:16.5px;line-height:1.5;color:var(--ink);text-decoration:none;
+  border-bottom:1px solid transparent}
+.n-title:hover,.n-title:focus-visible{border-bottom-color:var(--marigold)}
+/* ink-2 rather than ink-3. The month is small body text, and ink-3 measures
+   4.4:1 against the darkest part of the ground behind this block, under the
+   4.5:1 floor. ink-2 is still clearly the quiet third of the row. */
+.n-date{font-size:13.5px;color:var(--ink-2);white-space:nowrap}
+
+@media(max-width:760px){
+  /* One column. The outlet leads, the title carries the tap target, and the
+     month closes the row. */
+  .n-item{grid-template-columns:1fr;row-gap:5px;padding-block:17px}
+  .n-title{font-size:17px}
 }
 
 /* ------- the strip above the footer on the landing page ------- */
@@ -699,6 +730,6 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
   .p-strip-mark.is-card{padding:5px 8px}
 }
 @media(prefers-reduced-motion:reduce){
-  .p-mark,.p-strip-mark,.p-name{transition:none}
+  .p-mark,.p-strip-mark,.p-name,.n-title{transition:none}
   .p-mark:hover{transform:none}
 }

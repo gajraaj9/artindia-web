@@ -26,6 +26,21 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SITE = 'https://diwali.artindia.be';
 const d = JSON.parse(readFileSync(join(HERE, 'data/diwali.json'), 'utf8'));
 const P = JSON.parse(readFileSync(join(HERE, 'data/partners.json'), 'utf8'));
+/* Press coverage. Optional: no file, or an empty one, and the block on the
+   partners page simply does not render. */
+const NEWS = existsSync(join(HERE, 'data/news.json'))
+  ? JSON.parse(readFileSync(join(HERE, 'data/news.json'), 'utf8'))
+  : [];
+
+/* A partner marked live whose artwork has not landed yet is left off the page
+   rather than rendered as an empty link, and says so here, so that a missing
+   file is a line in the build log instead of a silent gap in a row. */
+for (const x of P.partners) {
+  if (!x.live || !x.logo) continue;
+  const found = ['-white.svg', '-white.png', '.svg', '.png']
+    .some(ext => existsSync(join(HERE, x.logo + ext)));
+  if (!found) console.warn(`  ! no artwork for ${x.id}: ${x.logo}.svg|.png is missing, left off the page`);
+}
 
 const LANGS = ['en', 'fr', 'nl'];
 const PATH_OF = { en: '/', fr: '/fr/', nl: '/nl/' };
@@ -39,7 +54,12 @@ const PARTNERS_OF = { en: '/partners/', fr: '/fr/partners/', nl: '/nl/partners/'
    NEVER_CARD is the other half of the problem: the City of Brussels and ICCR
    marks are white line art drawn for dark grounds, so a card does not rescue
    them, it erases them. */
-const NEEDS_CARD = new Set(['embassy-of-india', 'western-union', 'bicci', 'bica']);
+const NEEDS_CARD = new Set(['embassy-of-india', 'western-union', 'bicci', 'bica',
+  /* Inside Brussels is a grey wordmark under a green mark: the green survives
+     indigo, the word "Brussels.be" and the tagline under it do not. One logo
+     needing a card is enough to card the tier, which is what carries
+     visit.brussels with it. */
+  'inside-brussels', 'visit-brussels']);
 const NEVER_CARD = new Set(['city-of-brussels', 'iccr']);
 
 /**
@@ -62,6 +82,25 @@ function cardPolicy(list) {
 /* Which layout a tier gets. */
 const FEATURE_TIERS = new Set(['presenting']);
 const GRID_TIERS = new Set(['patronage', 'institutional', 'network']);
+
+/* The strip above the landing-page footer is a claim about who stands behind
+   the festival, not a list of everyone on the partners page. Media partners
+   carry the festival, they do not fund it, so they stop at the partners page.
+   Left as a set rather than a slice of the tier order so adding a tier does
+   not silently promote it to the landing page. */
+const STRIP_TIERS = new Set(['patronage', 'presenting', 'institutional']);
+
+/* Months, written out rather than left to Intl. A Node built with small-icu
+   formats every locale as English, which is exactly the silent fall back to
+   English the rest of this build refuses to make. */
+const MONTHS = {
+  en: ['January', 'February', 'March', 'April', 'May', 'June',
+       'July', 'August', 'September', 'October', 'November', 'December'],
+  fr: ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+       'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'],
+  nl: ['januari', 'februari', 'maart', 'april', 'mei', 'juni',
+       'juli', 'augustus', 'september', 'oktober', 'november', 'december'],
+};
 /* Dutch is region tagged: the copy is Flemish, and a Dutch reader in the
    Netherlands should not be told this is written for them. */
 const HREFLANG = { en: 'en', fr: 'fr', nl: 'nl-BE' };
@@ -441,6 +480,7 @@ function render(lang, page = 'home') {
       nl: 'De tiende editie wordt nu gebouwd, en er is plaats voor bedrijven en verenigingen die er deel van willen uitmaken. Vertel ons wie u bent en wat u zou willen doen, en wij nemen contact op.',
     },
     becomeCta: { en: 'Write to outreach@artindia.be', fr: 'Écrivez à outreach@artindia.be', nl: 'Mail naar outreach@artindia.be' },
+    news: { en: 'In the news', fr: 'Dans la presse', nl: 'In de pers' },
     strip: { en: 'With the support of', fr: 'Avec le soutien de', nl: 'Met de steun van' },
     nav: { en: 'Partners', fr: 'Partenaires', nl: 'Partners' },
     title: {
@@ -462,7 +502,20 @@ function render(lang, page = 'home') {
     return '';
   }
 
-  const livePartners = tier => P.partners.filter(x => x.live && x.tier === tier.id);
+  /* Where a link goes in this language. The City of Brussels publishes the
+     same page on three domains, one per language, and visit.brussels does the
+     same with three paths; url_<lang> names it and url is the fall back.
+
+     Reachability is not checked here. Every URL in data/ was confirmed to
+     answer 200 when it was written, and a build that calls out to the network
+     is a build that fails when a partner's site is down. */
+  const href = x => esc(x[`url_${lang}`] || x.url);
+
+  /* Live, and with artwork on disk. A partner listed as live whose logo has
+     not landed yet would otherwise render as an empty link: a tab stop, an
+     announced name, and nothing to see. */
+  const livePartners = tier => P.partners.filter(
+    x => x.live && x.tier === tier.id && logoFile(x.logo, true));
 
   function partnerLogo(x, onDark, cls) {
     const src = logoFile(x.logo, onDark);
@@ -477,7 +530,7 @@ function render(lang, page = 'home') {
       const carded = cardPolicy(list);
       const mark = x => {
         const card = carded(x);
-        return `<a class="p-mark${card ? ' is-card' : ''}" href="${esc(x.url)}" target="_blank" rel="noopener" aria-label="${e(x.name)}">${partnerLogo(x, !card, 'p-img')}</a>`;
+        return `<a class="p-mark${card ? ' is-card' : ''}" href="${href(x)}" target="_blank" rel="noopener" aria-label="${e(x.name)}">${partnerLogo(x, !card, 'p-img')}</a>`;
       };
       const label = `<h2 class="p-tier">${e(t(tier.label))}</h2>`;
 
@@ -488,7 +541,7 @@ function render(lang, page = 'home') {
     <div class="p-body">
       <h3>${e(x.name)}</h3>
       <p>${e(t(x.text))}</p>
-      <a class="p-link" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url.replace(/^https?:\/\//, ''))}</a>
+      <a class="p-link" href="${href(x)}" target="_blank" rel="noopener">${esc((x[`url_${lang}`] || x.url).replace(/^https?:\/\//, ''))}</a>
     </div>
   </article>`).join('')}</section>`;
       }
@@ -503,9 +556,13 @@ function render(lang, page = 'home') {
     </article>`).join('')}</div></section>`;
       }
 
+      /* The name sits outside the mark rather than inside it. Inside, a carded
+         logo put near white text on the white card and the name disappeared,
+         which only showed once a logo grid tier had a carded logo in it. The
+         link keeps its name through aria-label and the logo's alt text. */
       return `<section class="wrap p-sec">${label}
   <ul class="p-logos">${list.map(x => `
-    <li><a class="p-mark${carded(x) ? ' is-card' : ''}" href="${esc(x.url)}" target="_blank" rel="noopener">${partnerLogo(x, !carded(x), 'p-img')}<span class="p-name">${e(x.name)}</span></a></li>`).join('')}</ul></section>`;
+    <li><a class="p-mark${carded(x) ? ' is-card' : ''}" href="${href(x)}" target="_blank" rel="noopener" aria-label="${e(x.name)}">${partnerLogo(x, !carded(x), 'p-img')}</a><span class="p-name">${e(x.name)}</span></li>`).join('')}</ul></section>`;
     }).join('');
 
     return `<main class="partners" id="partners-main">
@@ -514,6 +571,7 @@ function render(lang, page = 'home') {
     <p>${e(pc('intro'))}</p>
   </section>
 ${blocks}
+${newsBlock()}
   <section class="wrap p-become">
     <h2>${e(pc('become'))}</h2>
     <p>${e(pc('becomeText'))}</p>
@@ -522,10 +580,43 @@ ${blocks}
 </main>`;
   }
 
+  /* ---------------------------------------------------------- in the news */
+  /* Where the festival has been written about. Links out and nothing else:
+     no thumbnails, no excerpt, nothing fetched from the outlet at build time
+     or in the browser. The outlets keep their own house style in the outlet
+     name, so visit.brussels stays lower case.
+
+     Hidden entirely when data/news.json is missing or empty, which is why it
+     is built separately from the tier loop above. */
+  function newsBlock() {
+    if (!NEWS.length) return '';
+
+    /* Newest first. The sort is stable, so entries sharing a month keep the
+       order they were written in. */
+    const items = NEWS.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+
+    const month = v => {
+      const m = /^(\d{4})-(\d{2})$/.exec(String(v));
+      if (!m) throw new Error(`news date must be YYYY-MM, got: ${v}`);
+      const name = MONTHS[lang][Number(m[2]) - 1];
+      if (!name) throw new Error(`news date has no month ${m[2]}: ${v}`);
+      return `${name} ${m[1]}`;
+    };
+
+    return `<section class="wrap p-sec p-news">
+  <h2 class="p-tier">${e(pc('news'))}</h2>
+  <ul class="n-list">${items.map(x => `
+    <li class="n-item">
+      <span class="n-outlet">${esc(x.outlet)}</span>
+      <a class="n-title" href="${href(x)}" target="_blank" rel="noopener">${e(x.title)}</a>
+      <span class="n-date">${esc(month(x.date))}</span>
+    </li>`).join('')}</ul></section>`;
+  }
+
   /* The slim strip above the footer on the landing page. Greyscale until
      hovered, and the whole strip is one link to the partners page. */
   function partnerStrip() {
-    const live = P.tiers.flatMap(livePartners);
+    const live = P.tiers.filter(tier => STRIP_TIERS.has(tier.id)).flatMap(livePartners);
     if (!live.length) return '';
     return `<section class="p-strip" id="partner-strip">
   <a class="wrap p-strip-in" href="${PARTNERS_OF[lang]}">
