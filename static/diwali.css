@@ -936,13 +936,25 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
 /* auto-fill, not auto-fit: a chapter with two acts keeps the same card width
    as a chapter with eight, instead of two cards stretched across the page. */
 .pg-acts{display:grid;gap:clamp(12px,1.6vw,18px);
-  grid-template-columns:repeat(auto-fill,minmax(min(270px,100%),1fr))}
+  grid-template-columns:repeat(auto-fill,minmax(min(250px,100%),1fr))}
 .pg-act,.pg-t2b-card{min-width:0}
 /* The partners card. */
-.pg-act{display:flex;gap:14px;background:rgba(255,255,255,.035);border:1px solid var(--line);
-  border-radius:18px;padding:clamp(16px,2vw,22px)}
-.pg-act-img{flex:none;width:72px;height:72px;border-radius:12px;overflow:hidden}
+.pg-act{display:flex;flex-direction:column;background:rgba(255,255,255,.035);
+  border:1px solid var(--line);border-radius:18px;padding:14px 14px 18px}
+/* The photograph leads the card, as it does on the party cards below: wide,
+   on top, the same shape on every card so a row reads as a row. */
+.pg-act-img,.pg-act-ph{flex:none;width:100%;aspect-ratio:16/10;border-radius:12px;
+  overflow:hidden;margin-bottom:14px}
 .pg-act-img img{width:100%;height:100%;object-fit:cover}
+/* No photograph yet: a lamp on a warm ground, so the card keeps its shape and
+   the gap reads as a choice rather than a hole. */
+.pg-act-ph{display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse 70% 80% at 50% 62%, rgba(232,163,59,.22), transparent 70%),
+    rgba(255,255,255,.03);border:1px solid var(--line)}
+.pg-act-ph svg{width:44px;height:44px;opacity:.9}
+/* On a phone the cards stack one per row, so a card with no photograph is
+   simply a shorter card. */
+@media(max-width:600px){.pg-act-ph{display:none}}
 .pg-act-body{min-width:0}
 .pg-act-tag{margin:0 0 8px;font-size:11.5px;font-weight:700;letter-spacing:.14em;
   text-transform:uppercase;color:var(--marigold)}
@@ -1013,6 +1025,9 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
 .pg-t2b-card{background:rgba(255,255,255,.045);border:1px solid var(--line);
   border-radius:18px;overflow:hidden}
 .pg-t2b-card.is-headline{border-color:var(--marigold);background:rgba(232,163,59,.11)}
+/* The party cards carry their photo edge to edge, so the stand-in does too. */
+.pg-t2b-ph .pg-act-ph{aspect-ratio:auto;height:150px;margin:0;border-radius:0;
+  border-width:0 0 1px}
 .pg-t2b-img{height:150px}
 .pg-t2b-img img{width:100%;height:150px;object-fit:cover}
 .pg-t2b-body{padding:clamp(16px,2vw,24px)}

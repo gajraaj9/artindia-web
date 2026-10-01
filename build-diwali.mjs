@@ -783,10 +783,17 @@ ${newsBlock()}
     </article>`;
     }
 
+    /* The stand-in for a photograph that has not arrived: a lamp on a warm
+       ground, the same shape as the photo it is waiting for. Decorative, so
+       it is hidden from assistive technology, and hidden on phones too, where
+       a column of lamps would only add scrolling. */
+    const lampPanel = () => `<div class="pg-act-ph" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="#E8A33B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M24 6c3 4 5 7 5 10a5 5 0 0 1-10 0c0-3 2-6 5-10z" fill="#E8A33B" stroke="none"/><path d="M8 26H40c0 9-7 14-16 14S8 35 8 26z"/><path d="M4 26H44"/></svg></div>`;
+
     function actCard(id) {
       const a = ACT_BY_ID[id];
       if (!a) throw new Error(`programme: ${day.id} lists an act that does not exist: ${id}`);
-      const pic = prPhoto(a.id, { alt: '', sizes: '72px', className: 'pg-act-img' });
+      const pic = prPhoto(a.id, { alt: '', sizes: '(max-width:600px) 100vw, 300px', className: 'pg-act-img' })
+        || lampPanel();
       const solo = DAYS_PER_ACT[a.id] === 1;
       return `<article class="pg-act">
       ${pic}
@@ -822,7 +829,8 @@ ${newsBlock()}
        picks, the night is the night. */
     const t2b = PR.t2b;
     const t2bCards = t2b.items.map((it, i) => {
-      const pic = prPhoto(it.id, { alt: '', sizes: '(max-width:760px) 100vw, 300px', className: 'pg-t2b-img' });
+      const pic = prPhoto(it.id, { alt: '', sizes: '(max-width:760px) 100vw, 300px', className: 'pg-t2b-img' })
+        || `<div class="pg-t2b-ph">${lampPanel()}</div>`;
       return `<article class="pg-t2b-card${it.headline ? ' is-headline' : ''}">
         ${pic}
         <div class="pg-t2b-body">
