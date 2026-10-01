@@ -236,8 +236,13 @@ test('the copy rules hold inside main', () => {
 });
 
 test('the day is translated, not left in English', () => {
-  assert.ok(html['fr saturday'].includes('Racines'), '/fr/programme/ is missing Racines');
-  assert.ok(html['nl saturday'].includes('Wortels'), '/nl/programme/ is missing Wortels');
+  /* "Traditions" is the same word in English and French, so the French page is
+     checked on its date instead. */
+  assert.ok(html['fr saturday'].includes('24 octobre'), '/fr/programme/ is missing its French date');
+  assert.ok(html['nl saturday'].includes('Tradities'), '/nl/programme/ is missing Tradities');
+  for (const name of Object.keys(html)) {
+    assert.ok(!/Roots|Racines|Wortels/.test(mainOf(html[name])), `${name} still calls Saturday by its old name`);
+  }
   assert.ok(html['fr sunday'].includes('Rencontres'), '/fr/programme/sunday/ is missing Rencontres');
   assert.ok(html['nl sunday'].includes('Ontmoetingen'), '/nl/programme/sunday/ is missing Ontmoetingen');
 });

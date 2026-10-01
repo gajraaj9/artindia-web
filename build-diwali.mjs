@@ -683,13 +683,21 @@ ${newsBlock()}
     /* The two day cards at the top, and the two pills in the day bar. */
     function dayCard(x) {
       const here = x.id === day.id;
+      /* The day and the date lead the card: that is the decision being made
+         here. The theme word is the second line, not the first. Each day has
+         a photograph of its own behind the words, when one has been supplied. */
+      const pic = prPhoto(x.photo, {
+        alt: '', sizes: '(max-width:720px) 50vw, 620px', className: 'pg-day-img', eager: true,
+      });
       return `<a class="pg-day${here ? ' is-here' : ''}" href="${PROGRAMME_OF[x.id][lang]}"${
         here ? ' aria-current="page"' : ''}>
-      <span class="pg-day-date">${e(x.date)}</span>
-      <span class="pg-day-pill">${e(here ? ui.now_showing : ui.tap_to_view)}</span>
-      <span class="pg-day-hi" lang="hi">${esc(x.hindi)}</span>
-      <span class="pg-day-word">${e(x.word)}</span>
+      ${pic}
+      <span class="pg-day-name">${e(x.button)}</span>
+      <span class="pg-day-date">${e(x.daynum)}</span>
+      <span class="pg-day-theme"><span class="pg-day-hi" lang="hi">${esc(x.hindi)}</span>
+        <span class="pg-day-word">${e(x.word)}</span></span>
       <span class="pg-day-tag">${e(x.tagline)}</span>
+      <span class="pg-day-pill">${e(here ? ui.now_showing : ui.tap_to_view)}</span>
     </a>`;
     }
 
@@ -1429,6 +1437,7 @@ IMG.save();
     ...PR.acts.map(a => a.id),
     ...PR.t2b.items.map(i => i.id),
     ...PR.days.flatMap(x => (x.highlights || []).map(h => h.photo)),
+    ...PR.days.map(x => x.photo),
   ].filter(Boolean);
 
   const missing = [];

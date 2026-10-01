@@ -1,0 +1,191 @@
+diff --git a/build-diwali.mjs b/build-diwali.mjs
+index 774e703..bd82255 100644
+--- a/build-diwali.mjs
++++ b/build-diwali.mjs
+@@ -683,13 +683,21 @@ ${newsBlock()}
+     /* The two day cards at the top, and the two pills in the day bar. */
+     function dayCard(x) {
+       const here = x.id === day.id;
++      /* The day and the date lead the card: that is the decision being made
++         here. The theme word is the second line, not the first. Each day has
++         a photograph of its own behind the words, when one has been supplied. */
++      const pic = prPhoto(x.photo, {
++        alt: '', sizes: '(max-width:720px) 50vw, 620px', className: 'pg-day-img', eager: true,
++      });
+       return `<a class="pg-day${here ? ' is-here' : ''}" href="${PROGRAMME_OF[x.id][lang]}"${
+         here ? ' aria-current="page"' : ''}>
+-      <span class="pg-day-date">${e(x.date)}</span>
+-      <span class="pg-day-pill">${e(here ? ui.now_showing : ui.tap_to_view)}</span>
+-      <span class="pg-day-hi" lang="hi">${esc(x.hindi)}</span>
+-      <span class="pg-day-word">${e(x.word)}</span>
++      ${pic}
++      <span class="pg-day-name">${e(x.button)}</span>
++      <span class="pg-day-date">${e(x.daynum)}</span>
++      <span class="pg-day-theme"><span class="pg-day-hi" lang="hi">${esc(x.hindi)}</span>
++        <span class="pg-day-word">${e(x.word)}</span></span>
+       <span class="pg-day-tag">${e(x.tagline)}</span>
++      <span class="pg-day-pill">${e(here ? ui.now_showing : ui.tap_to_view)}</span>
+     </a>`;
+     }
+ 
+@@ -1429,6 +1437,7 @@ IMG.save();
+     ...PR.acts.map(a => a.id),
+     ...PR.t2b.items.map(i => i.id),
+     ...PR.days.flatMap(x => (x.highlights || []).map(h => h.photo)),
++    ...PR.days.map(x => x.photo),
+   ].filter(Boolean);
+ 
+   const missing = [];
+diff --git a/data/programme.json b/data/programme.json
+index e72884c..403d6cb 100644
+--- a/data/programme.json
++++ b/data/programme.json
+@@ -42,15 +42,17 @@
+       "id": "saturday",
+       "slug": "",
+       "date": {"en": "Saturday 24 October", "fr": "Samedi 24 octobre", "nl": "Zaterdag 24 oktober"},
++      "daynum": {"en": "24 October", "fr": "24 octobre", "nl": "24 oktober"},
++      "photo": "day-saturday",
+       "short": {"en": "Saturday 24 Oct", "fr": "Samedi 24 oct.", "nl": "Zaterdag 24 okt"},
+       "button": {"en": "Saturday", "fr": "Samedi", "nl": "Zaterdag"},
+       "hindi": "परंपरा",
+-      "word": {"en": "Roots", "fr": "Racines", "nl": "Wortels"},
+-      "title": {"en": "Saturday programme: Roots | Brussels Diwali Festival 2026", "fr": "Programme du samedi : Racines | Brussels Diwali Festival 2026", "nl": "Programma zaterdag: Wortels | Brussels Diwali Festival 2026"},
++      "word": {"en": "Traditions", "fr": "Traditions", "nl": "Tradities"},
++      "title": {"en": "Saturday programme: Traditions | Brussels Diwali Festival 2026", "fr": "Programme du samedi : Traditions | Brussels Diwali Festival 2026", "nl": "Programma zaterdag: Tradities | Brussels Diwali Festival 2026"},
+       "tagline": {"en": "Magic, children on stage and a guest maestro, then the party.", "fr": "Magie, enfants sur scène et un maître invité, puis la fête.", "nl": "Magie, kinderen op het podium en een gastmaestro, daarna het feest."},
+       "only": {"en": "Only on Saturday", "fr": "Uniquement le samedi", "nl": "Alleen op zaterdag"},
+       "that_was": {"en": "That was Saturday. Sunday has its own programme.", "fr": "Voilà pour le samedi. Le dimanche a son propre programme.", "nl": "Dat was zaterdag. Zondag heeft zijn eigen programma."},
+-      "see": {"en": "See Saturday: Roots", "fr": "Voir le samedi : Racines", "nl": "Bekijk zaterdag: Wortels"},
++      "see": {"en": "See Saturday: Traditions", "fr": "Voir le samedi : Traditions", "nl": "Bekijk zaterdag: Tradities"},
+       "feature": "suryaprakash",
+       "chapters": {
+         "welcome": ["lamps", "parade"],
+@@ -96,6 +98,8 @@
+       "id": "sunday",
+       "slug": "sunday",
+       "date": {"en": "Sunday 25 October", "fr": "Dimanche 25 octobre", "nl": "Zondag 25 oktober"},
++      "daynum": {"en": "25 October", "fr": "25 octobre", "nl": "25 oktober"},
++      "photo": "day-sunday",
+       "short": {"en": "Sunday 25 Oct", "fr": "Dimanche 25 oct.", "nl": "Zondag 25 okt"},
+       "button": {"en": "Sunday", "fr": "Dimanche", "nl": "Zondag"},
+       "hindi": "संगम",
+diff --git a/static/diwali.css b/static/diwali.css
+index 618470e..4ee2265 100644
+--- a/static/diwali.css
++++ b/static/diwali.css
+@@ -747,40 +747,60 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
+ .pg-days{display:grid;grid-template-columns:1fr 1fr;gap:clamp(10px,1.6vw,18px)}
+ /* min-width:0 because a grid item defaults to min-width:auto, so its longest
+    unbreakable word sets the track width and pushes the page sideways. */
+-.pg-day{min-width:0;display:flex;flex-direction:column;text-decoration:none;
+-  background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:18px;
++.pg-day{min-width:0;position:relative;isolation:isolate;overflow:hidden;
++  display:flex;flex-direction:column;justify-content:flex-end;text-decoration:none;
++  background:rgba(255,255,255,.035);border:2px solid var(--line);border-radius:18px;
+   padding:clamp(14px,2.6vw,28px);color:var(--ink);
+-  transition:transform .18s ease,border-color .18s ease}
+-.pg-day:hover{transform:translateY(-2px);border-color:rgba(232,163,59,.5)}
+-/* The day you are on is outlined and tinted, not flooded. Marigold as a fill
+-   belongs to buttons on this site. */
+-.pg-day.is-here{border-color:var(--marigold);background:rgba(232,163,59,.09)}
+-.pg-day-date{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+-  color:var(--ink-2)}
+-.pg-day-hi{font-family:var(--display);font-weight:400;font-size:20px;line-height:1.35;
+-  color:var(--marigold);margin-top:12px}
++  transition:transform .18s ease,border-color .18s ease,opacity .18s ease,box-shadow .18s ease}
++/* Each day has its own photograph. With one, the card is a picture with the
++   words on its lower half; without one it is the plain card it always was. */
++.pg-day:has(.pg-day-img){min-height:clamp(200px,27vw,330px)}
++.pg-day-img{position:absolute;inset:0;z-index:-2;transition:filter .18s ease}
++.pg-day-img img{width:100%;height:100%;object-fit:cover}
++.pg-day:has(.pg-day-img)::after{content:"";position:absolute;inset:0;z-index:-1;
++  background:linear-gradient(to top, rgba(11,14,36,.95), rgba(11,14,36,.72) 46%, rgba(11,14,36,.12))}
++.pg-day:has(.pg-day-img) > span{text-shadow:0 1px 3px rgba(6,8,24,.85),0 2px 18px rgba(6,8,24,.6)}
++
++/* The day you are on: a marigold frame, a glow under it and a filled status
++   chip. The other day steps back, and comes forward again under a pointer or
++   a keyboard, so it still reads as something to press. */
++.pg-day.is-here{border-color:var(--marigold);background:rgba(232,163,59,.12);
++  box-shadow:0 0 0 1px var(--marigold),0 18px 48px -20px rgba(232,163,59,.7)}
++.pg-day:not(.is-here){opacity:.6}
++.pg-day:not(.is-here) .pg-day-img{filter:grayscale(.75) brightness(.8)}
++.pg-day:not(.is-here):hover,.pg-day:not(.is-here):focus-visible{opacity:1;
++  transform:translateY(-2px);border-color:rgba(232,163,59,.6)}
++.pg-day:not(.is-here):hover .pg-day-img,
++.pg-day:not(.is-here):focus-visible .pg-day-img{filter:none}
++
++/* Day, then date, then everything else. */
++.pg-day-name{font-family:var(--display);font-weight:400;line-height:1.02;
++  font-size:clamp(19px,5.6vw,46px);overflow-wrap:anywhere}
++.pg-day-date{margin-top:4px;font-size:clamp(12.5px,1.9vw,19px);font-weight:700;
++  letter-spacing:.1em;text-transform:uppercase;color:var(--marigold)}
++.pg-day-theme{display:flex;align-items:baseline;flex-wrap:wrap;gap:0 .5em;
++  margin-top:clamp(10px,1.6vw,18px)}
++.pg-day-hi{font-family:var(--display);font-weight:400;font-size:clamp(14px,1.9vw,20px);
++  line-height:1.35;color:var(--marigold)}
+ /* Sized against the card, which is half the viewport: the Dutch
+    "Ontmoetingen" is twelve characters and has to fit at 320px. */
+-.pg-day-word{font-family:var(--display);font-weight:400;line-height:1.12;
+-  font-size:clamp(15px,4.7vw,30px);overflow-wrap:anywhere}
+-.pg-day-tag{font-size:15.5px;line-height:1.6;opacity:.82;margin-top:8px}
+-/* Last in the card whatever the source order: it is the card's status line. */
+-.pg-day-pill{order:9;margin-top:14px;font-size:11.5px;font-weight:700;letter-spacing:.14em;
+-  text-transform:uppercase;color:var(--marigold)}
+-.pg-day.is-here .pg-day-pill{color:var(--ink-2)}
+-.pg-day.is-here .pg-day-pill::before{content:"";display:inline-block;width:7px;height:7px;
+-  border-radius:50%;background:var(--marigold);margin-right:8px;vertical-align:1px}
++.pg-day-word{font-family:var(--display);font-weight:400;line-height:1.2;
++  font-size:clamp(15px,2.4vw,24px);overflow-wrap:anywhere}
++.pg-day-tag{font-size:15px;line-height:1.55;opacity:.86;margin-top:4px}
++.pg-day-pill{align-self:flex-start;margin-top:14px;font-size:11.5px;font-weight:700;
++  letter-spacing:.12em;text-transform:uppercase;color:var(--marigold)}
++.pg-day.is-here .pg-day-pill{background:var(--marigold);color:#1A1000;border-radius:100px;
++  padding:4px 12px;text-shadow:none}
+ .pg-day:not(.is-here) .pg-day-pill::after{content:" \2192"}
+ .pg-night{margin:18px 0 0;font-size:14.5px;line-height:1.6;color:var(--ink-2)}
+ 
+ @media(max-width:480px){
+   .pg-day{border-radius:14px}
+-  .pg-day-date{font-size:11px;letter-spacing:.08em}
+-  .pg-day-hi{font-size:17px;margin-top:8px}
+-  /* The tagline is the first thing to go: at this width the date, the word
+-     and the status are the whole decision. */
++  .pg-day:has(.pg-day-img){min-height:190px}
++  /* The tagline is the first thing to go: at this width the day, the date,
++     the word and the status are the whole decision. */
+   .pg-day-tag{display:none}
+-  .pg-day-pill{margin-top:10px;font-size:10.5px;letter-spacing:.1em}
++  .pg-day-pill{margin-top:10px;font-size:10.5px;letter-spacing:.08em;padding-inline:9px}
+ }
+ 
+ /* ---------------- don't miss ---------------- */
+@@ -1071,7 +1091,7 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
+ @media(max-width:560px){.pg-between-row{grid-template-columns:1fr 1fr}}
+ 
+ @media(prefers-reduced-motion:reduce){
+-  .pg-day,.pg-tile{transition:none}
++  .pg-day,.pg-day-img,.pg-tile{transition:none}
+   .pg-day:hover,.pg-tile:hover{transform:none}
+ }
+ 
+diff --git a/test/programme.test.mjs b/test/programme.test.mjs
+index 8892a27..bafd67e 100644
+--- a/test/programme.test.mjs
++++ b/test/programme.test.mjs
+@@ -236,8 +236,13 @@ test('the copy rules hold inside main', () => {
+ });
+ 
+ test('the day is translated, not left in English', () => {
+-  assert.ok(html['fr saturday'].includes('Racines'), '/fr/programme/ is missing Racines');
+-  assert.ok(html['nl saturday'].includes('Wortels'), '/nl/programme/ is missing Wortels');
++  /* "Traditions" is the same word in English and French, so the French page is
++     checked on its date instead. */
++  assert.ok(html['fr saturday'].includes('24 octobre'), '/fr/programme/ is missing its French date');
++  assert.ok(html['nl saturday'].includes('Tradities'), '/nl/programme/ is missing Tradities');
++  for (const name of Object.keys(html)) {
++    assert.ok(!/Roots|Racines|Wortels/.test(mainOf(html[name])), `${name} still calls Saturday by its old name`);
++  }
+   assert.ok(html['fr sunday'].includes('Rencontres'), '/fr/programme/sunday/ is missing Rencontres');
+   assert.ok(html['nl sunday'].includes('Ontmoetingen'), '/nl/programme/sunday/ is missing Ontmoetingen');
+ });
