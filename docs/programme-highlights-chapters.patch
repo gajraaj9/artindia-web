@@ -1,0 +1,878 @@
+diff --git a/build-diwali.mjs b/build-diwali.mjs
+index bd82255..9668768 100644
+--- a/build-diwali.mjs
++++ b/build-diwali.mjs
+@@ -471,7 +471,7 @@ function render(lang, page = 'home', dayId = null) {
+   function footer() {
+     const f = d.footer;
+     const social = (f.social || []).filter(x => x.url).map(x =>
+-      `<a href="${esc(x.url)}" rel="noopener">${esc(x.name)}</a>`).join('');
++      `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.name)}</a>`).join('');
+     const org = parent;
+     return `<footer>
+   <div class="wrap foot-top">
+@@ -694,22 +694,31 @@ ${newsBlock()}
+       ${pic}
+       <span class="pg-day-name">${e(x.button)}</span>
+       <span class="pg-day-date">${e(x.daynum)}</span>
+-      <span class="pg-day-theme"><span class="pg-day-hi" lang="hi">${esc(x.hindi)}</span>
+-        <span class="pg-day-word">${e(x.word)}</span></span>
++      <span class="pg-day-theme"><span class="pg-day-word">${e(x.word)}</span>
++        <span class="pg-day-hi" lang="hi">${esc(x.hindi)}</span></span>
+       <span class="pg-day-tag">${e(x.tagline)}</span>
+       <span class="pg-day-pill">${e(here ? ui.now_showing : ui.tap_to_view)}</span>
+     </a>`;
+     }
+ 
+-    /* Four reasons to come, within reach of the first screen. Each tile is one
+-       link to somewhere further down the same page, so the party is a tap away
+-       rather than six screens of scrolling. */
+-    const tiles = (day.highlights || []).map(h => {
++    /* The highlights, above the day cards: reasons to come before the choice
++       of day. One list for the whole festival, in the order the data gives, so
++       Ravi decides what is shown by editing programme.json and nothing else.
++       A highlight that belongs to one day says so, and links to that day's
++       page. The row is a plain sideways scroller with scroll snap, so it is
++       whole with JavaScript off; the script below turns it into one slow,
++       continuous roll. */
++    const BY_ID = Object.fromEntries(PR.days.map(x => [x.id, x]));
++    const tiles = (PR.highlights || []).map(h => {
+       const pic = prPhoto(h.photo, {
+-        alt: '', sizes: '(max-width:720px) 50vw, 25vw', className: 'pg-tile-img',
++        alt: '', sizes: '(max-width:560px) 78vw, (max-width:900px) 46vw, 400px', className: 'pg-tile-img',
+       });
+-      return `<a class="pg-tile${h.lead ? ' is-lead' : ''}${pic ? ' has-photo' : ''}" href="${esc(h.href)}">
++      const own = h.day ? BY_ID[h.day] : null;
++      if (h.day && !own) throw new Error(`programme: a highlight names a day that does not exist: ${h.day}`);
++      const href = own && own.id !== day.id ? `${PROGRAMME_OF[own.id][lang]}${h.href}` : h.href;
++      return `<a class="pg-tile${pic ? ' has-photo' : ''}" href="${esc(href)}">
+         ${pic}
++        <span class="pg-tile-when">${e(own ? own.only : ui.both_days)}</span>
+         <span class="pg-tile-in">
+           <span class="pg-tile-kicker">${e(h.kicker)}</span>
+           <span class="pg-tile-title">${e(h.title)}</span>
+@@ -718,18 +727,170 @@ ${newsBlock()}
+       </a>`;
+     }).join('');
+ 
++    /* The arrows are hidden until the script has something to move, so a
++       visitor without JavaScript never meets a button that does nothing. */
+     const dontMiss = tiles ? `
+-    <p class="pg-choose pg-miss-h">${e(PR.ui.dont_miss)}</p>
+-    <div class="pg-tiles">${tiles}</div>` : '';
++    <div class="pg-miss" data-carousel>
++      <div class="pg-miss-top">
++        <p class="pg-miss-h">${e(ui.dont_miss)}</p>
++        <div class="pg-miss-nav" hidden>
++          <button type="button" data-dir="-1" aria-label="${e(ui.prev)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
++          <button type="button" data-dir="1" aria-label="${e(ui.next)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
++        </div>
++      </div>
++      <div class="pg-tiles">${tiles}</div>
++    </div>
++    <script>
++    (function () {
++      var box = document.querySelector('[data-carousel]');
++      if (!box) return;
++      var track = box.querySelector('.pg-tiles');
++      var nav = box.querySelector('.pg-miss-nav');
++      var real = [].slice.call(track.querySelectorAll('.pg-tile'));
++      if (real.length < 2 || track.scrollWidth <= track.clientWidth + 4) return;
++      nav.hidden = false;
++      function cardStep() {
++        return real[1].getBoundingClientRect().left - real[0].getBoundingClientRect().left;
++      }
++
++      /* Someone who has asked for less motion keeps the plain row: it scrolls
++         by hand, and the arrows move it one card at a time. */
++      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
++        nav.addEventListener('click', function (ev) {
++          var b = ev.target.closest('button');
++          if (b) track.scrollBy({ left: Number(b.getAttribute('data-dir')) * cardStep(), behavior: 'auto' });
++        });
++        return;
++      }
++
++      /* Everyone else gets one slow, even roll. The cards are laid out twice in
++         a strip and the strip is moved by a transform, a fraction of a pixel a
++         frame, so there is no stepping, no snapping and no seam where the row
++         starts again. The second set is hidden from screen readers and from
++         the keyboard. */
++      var strip = document.createElement('div');
++      strip.className = 'pg-roll';
++      real.forEach(function (n) { strip.appendChild(n); });
++      real.forEach(function (n) {
++        var c = n.cloneNode(true);
++        c.setAttribute('aria-hidden', 'true');
++        c.tabIndex = -1;
++        strip.appendChild(c);
++      });
++      [].forEach.call(strip.querySelectorAll('img'), function (im) {
++        im.loading = 'eager';
++        im.draggable = false;
++      });
++      track.scrollLeft = 0;
++      track.appendChild(strip);
++      track.classList.add('is-rolling');
++
++      var SPEED = 42;            /* pixels a second */
++      var x = 0, loop = 0, last = 0, rest = 0, glide = null;
++      var over = false, focus = false, drag = null, seen = true;
++      function measure() {
++        loop = strip.children[real.length].offsetLeft - strip.children[0].offsetLeft;
++      }
++      function draw() {
++        if (!loop) return;
++        x = ((x % loop) + loop) % loop;
++        strip.style.transform = 'translate3d(' + (-x) + 'px,0,0)';
++      }
++      function glideBy(by, ms) {
++        glide = { from: x, by: by, t0: performance.now(), ms: ms };
++        rest = glide.t0 + ms + 2600;
++      }
++      function frame(t) {
++        var dt = Math.min(t - last, 50);
++        last = t;
++        if (glide) {
++          var k = Math.min((t - glide.t0) / glide.ms, 1);
++          x = glide.from + glide.by * (1 - Math.pow(1 - k, 3));
++          if (k === 1) glide = null;
++          draw();
++        } else if (!drag && !over && !focus && seen && !document.hidden && t > rest) {
++          x += dt * SPEED / 1000;
++          draw();
++        }
++        requestAnimationFrame(frame);
++      }
++      measure();
++      window.addEventListener('resize', function () { measure(); draw(); });
++      window.addEventListener('load', measure);
++      if ('IntersectionObserver' in window) {
++        new IntersectionObserver(function (en) { seen = en[0].isIntersecting; }).observe(box);
++      }
++
++      /* A pointer resting on the row holds it still, so a card can be read
++         and clicked. Leaving lets it roll on. */
++      track.addEventListener('pointerenter', function (ev) { if (ev.pointerType === 'mouse') over = true; });
++      track.addEventListener('pointerleave', function () { over = false; });
++
++      /* A finger or a mouse can also pull the row along. Sideways only: an
++         up and down swipe still scrolls the page. */
++      track.addEventListener('pointerdown', function (ev) {
++        if (ev.pointerType === 'mouse' && ev.button !== 0) return;
++        glide = null;
++        drag = { id: ev.pointerId, sx: ev.clientX, from: x, moved: false };
++      });
++      track.addEventListener('pointermove', function (ev) {
++        if (!drag || ev.pointerId !== drag.id) return;
++        var dx = ev.clientX - drag.sx;
++        if (!drag.moved && Math.abs(dx) > 6) {
++          drag.moved = true;
++          try { track.setPointerCapture(drag.id); } catch (err) {}
++        }
++        if (drag.moved) { x = drag.from - dx; draw(); }
++      });
++      function drop(ev) {
++        if (!drag || ev.pointerId !== drag.id) return;
++        if (drag.moved) {
++          rest = performance.now() + 2600;
++          /* The click that ends a drag is not a click on a card. */
++          var stop = function (c) { c.preventDefault(); c.stopPropagation(); };
++          track.addEventListener('click', stop, { capture: true, once: true });
++          setTimeout(function () { track.removeEventListener('click', stop, { capture: true }); }, 60);
++        }
++        drag = null;
++      }
++      track.addEventListener('pointerup', drop);
++      track.addEventListener('pointercancel', drop);
++      track.addEventListener('dragstart', function (ev) { ev.preventDefault(); });
++
++      /* The keyboard: the row waits while a card has focus, and brings that
++         card into view if it had rolled out of it. */
++      track.addEventListener('focusin', function (ev) {
++        focus = true;
++        var card = ev.target.closest('.pg-tile');
++        if (!card) return;
++        var at = card.offsetLeft - strip.children[0].offsetLeft;
++        var gone = ((at - x) % loop + loop) % loop;
++        if (gone > track.clientWidth - card.offsetWidth) glideBy(gone, 420);
++      });
++      track.addEventListener('focusout', function () { focus = false; });
++
++      nav.addEventListener('click', function (ev) {
++        var b = ev.target.closest('button');
++        if (!b) return;
++        var dir = Number(b.getAttribute('data-dir'));
++        var w = cardStep();
++        /* Land on a card edge, so an arrow always squares the row up. */
++        var to = dir > 0 ? (Math.floor(x / w + 0.001) + 1) * w : (Math.ceil(x / w - 0.001) - 1) * w;
++        glideBy(to - x, 520);
++      });
++
++      requestAnimationFrame(function (t) { last = t; requestAnimationFrame(frame); });
++    })();
++    </script>` : '';
+ 
+     const intro = `<section class="pg-intro">
+   <div class="wrap">
+     <p class="pg-kicker">${e(PR.hero.kicker)}</p>
+     <h1 class="pg-h1">${e(PR.hero.headline)}</h1>
+-    <p class="pg-lede">${e(PR.hero.intro)}</p>
++    <p class="pg-lede">${e(PR.hero.intro)}</p>${dontMiss}
+     <p class="pg-choose">${e(PR.hero.choose)}</p>
+     <div class="pg-days">${PR.days.map(dayCard).join('')}</div>
+-    <p class="pg-night">${e(PR.hero.night_line)}</p>${dontMiss}
++    <p class="pg-night">${e(PR.hero.night_line)}</p>
+   </div>
+ </section>`;
+ 
+@@ -766,8 +927,8 @@ ${newsBlock()}
+     <div class="wrap pg-band-in">
+       <p class="pg-band-label"><span class="pg-band-day">${pill}</span> · ${label}</p>
+       ${kicker ? `<p class="pg-band-kicker">${kicker}</p>` : ''}
+-      ${hindi ? `<p class="pg-band-hi" lang="hi">${esc(hindi)}</p>` : ''}
+       <h2 class="pg-band-h">${title}</h2>
++      ${hindi ? `<p class="pg-band-hi" lang="hi">${esc(hindi)}</p>` : ''}
+       ${promise ? `<p class="pg-band-promise">${promise}</p>` : ''}
+     </div>
+   </div>`;
+@@ -782,9 +943,8 @@ ${newsBlock()}
+       ${pic}
+       <div class="pg-feat-body">
+         <p class="pg-feat-pills"><span class="pg-pill-gold">${e(f.badge)}</span><span class="pg-pill-ink">${e(day.only)}</span></p>
+-        <p class="pg-feat-hi" lang="hi">${esc(f.hindi)}</p>
+         <h3 class="pg-feat-name">${esc(f.name)}</h3>
+-        <p class="pg-feat-title">${e(f.title)}</p>
++        <p class="pg-feat-title">${e(f.title)} <span class="pg-feat-hi" lang="hi">${esc(f.hindi)}</span></p>
+         <p class="pg-feat-line">${e(f.line)}</p>
+         ${f.bio ? `<p class="pg-feat-bio">${e(f.bio)}</p>` : ''}
+       </div>
+@@ -821,7 +981,7 @@ ${newsBlock()}
+   ${band({
+     photo: ch.photo, alt: ch.alt, eager: i === 0,
+     pill: e(day.short),
+-    label: `${e(ui.chapter)} ${ch.n} · ${e(ch.when)}`,
++    label: e(ch.when),
+     hindi: ch.hindi, title: e(ch.title), promise: e(ch.promise),
+   })}
+   <div class="pg-body">
+@@ -854,7 +1014,7 @@ ${newsBlock()}
+   ${band({
+     photo: t2b.photo, alt: t2b.alt,
+     pill: e(ui.both_days),
+-    label: `${e(ui.chapter)} 4 · ${e(t2b.when)}`,
++    label: e(t2b.when),
+     kicker: e(t2b.kicker),
+     title: esc(t2b.title),
+   })}
+@@ -889,6 +1049,7 @@ ${newsBlock()}
+         <p class="pg-between-t">${e(b.title)}</p>
+         <p class="pg-between-l">${e(b.line)}</p>
+       </div>`).join('')}</div>
++    <p class="pg-fine">${e(ui.disclaimer)}</p>
+   </div>
+ </section>`;
+ 
+@@ -1436,7 +1597,7 @@ IMG.save();
+     PR.feature.photo,
+     ...PR.acts.map(a => a.id),
+     ...PR.t2b.items.map(i => i.id),
+-    ...PR.days.flatMap(x => (x.highlights || []).map(h => h.photo)),
++    ...(PR.highlights || []).map(h => h.photo),
+     ...PR.days.map(x => x.photo),
+   ].filter(Boolean);
+ 
+diff --git a/data/diwali.json b/data/diwali.json
+index 56f1a25..0c0dbba 100644
+--- a/data/diwali.json
++++ b/data/diwali.json
+@@ -312,7 +312,7 @@
+     "social": [
+       {
+         "name": "Instagram",
+-        "url": "https://instagram.com/artindiabelgium"
++        "url": "https://www.instagram.com/artindia_brussels/"
+       },
+       {
+         "name": "Facebook",
+diff --git a/data/programme.json b/data/programme.json
+index 403d6cb..1179acb 100644
+--- a/data/programme.json
++++ b/data/programme.json
+@@ -17,7 +17,10 @@
+     "both_days": {"en": "Saturday and Sunday", "fr": "Samedi et dimanche", "nl": "Zaterdag en zondag"},
+     "between": {"en": "Between the acts", "fr": "Entre les spectacles", "nl": "Tussen de optredens"},
+     "ticket_heading": {"en": "One ticket. Come Saturday or Sunday, or both.", "fr": "Un billet. Venez samedi ou dimanche, ou les deux.", "nl": "Eén ticket. Kom zaterdag of zondag, of allebei."},
+-    "dont_miss": {"en": "Don't miss", "fr": "À ne pas manquer", "nl": "Niet te missen"}
++    "dont_miss": {"en": "Don't miss", "fr": "À ne pas manquer", "nl": "Niet te missen"},
++    "disclaimer": {"en": "This programme is subject to change and modification.", "fr": "Ce programme est susceptible d'être modifié.", "nl": "Dit programma kan nog wijzigen."},
++    "prev": {"en": "Previous", "fr": "Précédent", "nl": "Vorige"},
++    "next": {"en": "Next", "fr": "Suivant", "nl": "Volgende"}
+   },
+   "jump": [
+     {
+@@ -37,6 +40,59 @@
+       "label": {"en": "Party", "fr": "Fête", "nl": "Feest"}
+     }
+   ],
++  "highlights": [
++    {
++      "kicker": {"en": "The party", "fr": "La fête", "nl": "Het feest"},
++      "title": {"en": "Ticket2Bollywood", "fr": "Ticket2Bollywood", "nl": "Ticket2Bollywood"},
++      "line": {"en": "The Bollywood night returns, with DJ Nitro and DJ Param.", "fr": "La soirée Bollywood revient, avec DJ Nitro et DJ Param.", "nl": "De Bollywoodnacht is terug, met DJ Nitro en DJ Param."},
++      "photo": "t2b-bollywood",
++      "href": "#chapter-t2b"
++    },
++    {
++      "kicker": {"en": "The fireworks", "fr": "Le feu d'artifice", "nl": "Het vuurwerk"},
++      "title": {"en": "Diwali in the Sky", "fr": "Diwali dans le ciel", "nl": "Diwali in de lucht"},
++      "line": {"en": "Above the Atomium, both nights.", "fr": "Au-dessus de l'Atomium, les deux soirs.", "nl": "Boven het Atomium, beide avonden."},
++      "photo": "fireworks",
++      "href": "#chapter-t2b"
++    },
++    {
++      "kicker": {"en": "Exclusive concert", "fr": "Concert exclusif", "nl": "Exclusief concert"},
++      "title": {"en": "Dr. Suryaprakash", "fr": "Dr. Suryaprakash", "nl": "Dr. Suryaprakash"},
++      "line": {"en": "Vidwan of the Festival", "fr": "Vidwan du Festival", "nl": "Vidwan van het Festival"},
++      "photo": "suryaprakash",
++      "href": "#chapter-heritage",
++      "day": "saturday"
++    },
++    {
++      "kicker": {"en": "Glamour", "fr": "Glamour", "nl": "Glamour"},
++      "title": {"en": "Brides of India", "fr": "Brides of India", "nl": "Brides of India"},
++      "line": {"en": "One country, many weddings: a bridal journey.", "fr": "Un pays, tant de mariages : un voyage nuptial.", "nl": "Eén land, vele bruiloften: een reis langs de bruidstradities."},
++      "photo": "brides",
++      "href": "#chapter-colours",
++      "day": "sunday"
++    },
++    {
++      "kicker": {"en": "Headliner", "fr": "Tête d'affiche", "nl": "Headliner"},
++      "title": {"en": "DJ Param", "fr": "DJ Param", "nl": "DJ Param"},
++      "line": {"en": "The best Indian DJ in Europe", "fr": "Le meilleur DJ indien d'Europe", "nl": "De beste Indiase dj van Europa"},
++      "photo": "dj-param",
++      "href": "#chapter-t2b"
++    },
++    {
++      "kicker": {"en": "Punjab", "fr": "Pendjab", "nl": "Punjab"},
++      "title": {"en": "Pind: a Journey to the Punjabi Village", "fr": "Pind : un voyage au village pendjabi", "nl": "Pind: een reis naar het Punjabi dorp"},
++      "line": {"en": "The beat and the joy of rural Punjab.", "fr": "Le rythme et la joie du Pendjab rural.", "nl": "Het ritme en de vreugde van het landelijke Punjab."},
++      "photo": "pind",
++      "href": "#chapter-colours"
++    },
++    {
++      "kicker": {"en": "South India", "fr": "Inde du Sud", "nl": "Zuid-India"},
++      "title": {"en": "Tollywood Fire", "fr": "Tollywood Fire", "nl": "Tollywood Fire"},
++      "line": {"en": "The pulse of Telugu cinema.", "fr": "Le pouls du cinéma télougou.", "nl": "De hartslag van de Telugu-cinema."},
++      "photo": "tollywood",
++      "href": "#chapter-colours"
++    }
++  ],
+   "days": [
+     {
+       "id": "saturday",
+@@ -55,44 +111,10 @@
+       "see": {"en": "See Saturday: Traditions", "fr": "Voir le samedi : Traditions", "nl": "Bekijk zaterdag: Tradities"},
+       "feature": "suryaprakash",
+       "chapters": {
+-        "welcome": ["lamps", "parade"],
++        "welcome": ["lamps", "procession", "pooja", "offering"],
+         "heritage": ["vandana", "ganesha", "spice-route", "little-india", "ramayana", "magic", "saree", "conservatory"],
+         "colours": ["tollywood", "ghoomar", "hiphop", "kathak", "dakshin", "devi", "address", "pind"]
+-      },
+-      "highlights": [
+-        {
+-          "kicker": {"en": "The party", "fr": "La fête", "nl": "Het feest"},
+-          "title": {"en": "Ticket2Bollywood", "fr": "Ticket2Bollywood", "nl": "Ticket2Bollywood"},
+-          "line": {"en": "The Bollywood night returns, with DJ Nitro and DJ Param.", "fr": "La soirée Bollywood revient, avec DJ Nitro et DJ Param.", "nl": "De Bollywoodnacht is terug, met DJ Nitro en DJ Param."},
+-          "photo": "chapter-t2b",
+-          "href": "#chapter-t2b",
+-          "lead": true
+-        },
+-        {
+-          "kicker": {"en": "The fireworks", "fr": "Le feu d'artifice", "nl": "Het vuurwerk"},
+-          "title": {"en": "Diwali in the Sky", "fr": "Diwali dans le ciel", "nl": "Diwali in de lucht"},
+-          "line": {"en": "Above the Atomium, both nights.", "fr": "Au-dessus de l'Atomium, les deux soirs.", "nl": "Boven het Atomium, beide avonden."},
+-          "photo": "fireworks",
+-          "href": "#chapter-t2b",
+-          "lead": false
+-        },
+-        {
+-          "kicker": {"en": "For families", "fr": "En famille", "nl": "Voor families"},
+-          "title": {"en": "Jadoo: the Indian Magic Show", "fr": "Jadoo : le spectacle de magie indien", "nl": "Jadoo: de Indiase goochelshow"},
+-          "line": {"en": "Wonder for children of every age.", "fr": "De l'émerveillement pour les enfants de tous les âges.", "nl": "Verwondering voor kinderen van alle leeftijden."},
+-          "photo": "magic",
+-          "href": "#chapter-heritage",
+-          "lead": false
+-        },
+-        {
+-          "kicker": {"en": "The food", "fr": "La cuisine", "nl": "Het eten"},
+-          "title": {"en": "A Taste of Every Region", "fr": "Les saveurs de toutes les régions", "nl": "De smaken van elke regio"},
+-          "line": {"en": "Chaat, dosa and jalebi, region by region.", "fr": "Chaat, dosa et jalebi, région par région.", "nl": "Chaat, dosa en jalebi, regio per regio."},
+-          "photo": "food",
+-          "href": "#between",
+-          "lead": false
+-        }
+-      ]
++      }
+     },
+     {
+       "id": "sunday",
+@@ -111,44 +133,10 @@
+       "see": {"en": "See Sunday: Encounters", "fr": "Voir le dimanche : Rencontres", "nl": "Bekijk zondag: Ontmoetingen"},
+       "feature": null,
+       "chapters": {
+-        "welcome": ["lamps", "kirtan"],
++        "welcome": ["lamps", "pooja", "offering", "kirtan"],
+         "heritage": ["ramayana", "odissi", "saree", "hiphop", "conservatory", "devi", "collaborations"],
+         "colours": ["dakshin", "tollywood", "kathak", "brides", "ganesha", "pind", "ghoomar"]
+-      },
+-      "highlights": [
+-        {
+-          "kicker": {"en": "The party", "fr": "La fête", "nl": "Het feest"},
+-          "title": {"en": "Ticket2Bollywood", "fr": "Ticket2Bollywood", "nl": "Ticket2Bollywood"},
+-          "line": {"en": "The Bollywood night returns, with DJ Nitro and DJ Param.", "fr": "La soirée Bollywood revient, avec DJ Nitro et DJ Param.", "nl": "De Bollywoodnacht is terug, met DJ Nitro en DJ Param."},
+-          "photo": "chapter-t2b",
+-          "href": "#chapter-t2b",
+-          "lead": true
+-        },
+-        {
+-          "kicker": {"en": "The fireworks", "fr": "Le feu d'artifice", "nl": "Het vuurwerk"},
+-          "title": {"en": "Diwali in the Sky", "fr": "Diwali dans le ciel", "nl": "Diwali in de lucht"},
+-          "line": {"en": "Above the Atomium, both nights.", "fr": "Au-dessus de l'Atomium, les deux soirs.", "nl": "Boven het Atomium, beide avonden."},
+-          "photo": "fireworks",
+-          "href": "#chapter-t2b",
+-          "lead": false
+-        },
+-        {
+-          "kicker": {"en": "Glamour", "fr": "Glamour", "nl": "Glamour"},
+-          "title": {"en": "Brides of India", "fr": "Brides of India", "nl": "Brides of India"},
+-          "line": {"en": "One country, many weddings: a bridal journey.", "fr": "Un pays, tant de mariages : un voyage nuptial.", "nl": "Eén land, vele bruiloften: een reis langs de bruidstradities."},
+-          "photo": "brides",
+-          "href": "#chapter-colours",
+-          "lead": false
+-        },
+-        {
+-          "kicker": {"en": "The food", "fr": "La cuisine", "nl": "Het eten"},
+-          "title": {"en": "A Taste of Every Region", "fr": "Les saveurs de toutes les régions", "nl": "De smaken van elke regio"},
+-          "line": {"en": "Chaat, dosa and jalebi, region by region.", "fr": "Chaat, dosa et jalebi, région par région.", "nl": "Chaat, dosa en jalebi, regio per regio."},
+-          "photo": "food",
+-          "href": "#between",
+-          "lead": false
+-        }
+-      ]
++      }
+     }
+   ],
+   "chapters": [
+@@ -159,7 +147,7 @@
+       "when": {"en": "From noon", "fr": "Dès midi", "nl": "Vanaf de middag"},
+       "hindi": "स्वागत",
+       "title": {"en": "The Welcome", "fr": "La Bienvenue", "nl": "Het Welkom"},
+-      "promise": {"en": "Lamps, colour and music to open the day.", "fr": "Des lampes, des couleurs et de la musique pour ouvrir la journée.", "nl": "Lampen, kleur en muziek om de dag te openen."},
++      "promise": {"en": "Lamps, music and the pooja for world peace and harmony.", "fr": "Des lampes, de la musique et la pooja pour la paix et l'harmonie dans le monde.", "nl": "Lampen, muziek en de pooja voor wereldvrede en harmonie."},
+       "alt": {"en": "Lamps being lit at the opening of the festival", "fr": "L'allumage des lampes à l'ouverture du festival", "nl": "Lampen worden aangestoken bij de opening van het festival"}
+     },
+     {
+@@ -199,13 +187,25 @@
+       "id": "lamps",
+       "tag": {"en": "Opening", "fr": "Ouverture", "nl": "Opening"},
+       "name": {"en": "Lighting the Lamps", "fr": "L'allumage des lampes", "nl": "Het aansteken van de lampen"},
+-      "line": {"en": "The traditional opening of Diwali. Everyone is welcome.", "fr": "L'ouverture traditionnelle de Diwali. Tout le monde est le bienvenu.", "nl": "De traditionele opening van Diwali. Iedereen is welkom."}
++      "line": {"en": "The story of Diwali, told as the festival opens.", "fr": "L'histoire de Diwali, racontée à l'ouverture du festival.", "nl": "Het verhaal van Diwali, verteld bij de opening van het festival."}
++    },
++    {
++      "id": "procession",
++      "tag": {"en": "Procession", "fr": "Procession", "nl": "Processie"},
++      "name": {"en": "The Procession", "fr": "La procession", "nl": "De processie"},
++      "line": {"en": "To the festival temple, in music and colour.", "fr": "Vers le temple du festival, en musique et en couleurs.", "nl": "Naar de festivaltempel, met muziek en kleur."}
+     },
+     {
+-      "id": "parade",
+-      "tag": {"en": "Parade", "fr": "Parade", "nl": "Optocht"},
+-      "name": {"en": "The Festival Parade", "fr": "La parade du festival", "nl": "De festivaloptocht"},
+-      "line": {"en": "Through the festival, in music and colour.", "fr": "À travers le festival, en musique et en couleurs.", "nl": "Door het festival, met muziek en kleur."}
++      "id": "pooja",
++      "tag": {"en": "Ceremony", "fr": "Cérémonie", "nl": "Ceremonie"},
++      "name": {"en": "Pooja for World Peace and Harmony", "fr": "Pooja pour la paix et l'harmonie dans le monde", "nl": "Pooja voor wereldvrede en harmonie"},
++      "line": {"en": "The heart of the festival. Everyone is welcome.", "fr": "Le cœur du festival. Tout le monde est le bienvenu.", "nl": "Het hart van het festival. Iedereen is welkom."}
++    },
++    {
++      "id": "offering",
++      "tag": {"en": "Classical dance", "fr": "Danse classique", "nl": "Klassieke dans"},
++      "name": {"en": "An Offering in Dance", "fr": "Une offrande dansée", "nl": "Een offer in dans"},
++      "line": {"en": "Classical dance, offered as the day begins.", "fr": "La danse classique, offerte en ouverture de la journée.", "nl": "Klassieke dans, opgedragen bij het begin van de dag."}
+     },
+     {
+       "id": "kirtan",
+diff --git a/static/diwali.css b/static/diwali.css
+index 4ee2265..28d2106 100644
+--- a/static/diwali.css
++++ b/static/diwali.css
+@@ -737,7 +737,7 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
+ .pg-h1{font-family:var(--display);font-weight:400;line-height:1.06;
+   font-size:clamp(34px,5.2vw,64px);color:var(--ink);margin:0 0 16px;letter-spacing:.005em}
+ .pg-lede{font-size:clamp(16px,2.1vw,19px);line-height:1.62;color:var(--ink);opacity:.86;
+-  margin:0 0 36px;max-width:62ch}
++  margin:0 0 30px;max-width:62ch}
+ /* The tier label from the partners page: small, tracked, on a hairline. */
+ .pg-choose{font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+   color:var(--marigold);margin:0 0 20px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+@@ -778,14 +778,14 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
+   font-size:clamp(19px,5.6vw,46px);overflow-wrap:anywhere}
+ .pg-day-date{margin-top:4px;font-size:clamp(12.5px,1.9vw,19px);font-weight:700;
+   letter-spacing:.1em;text-transform:uppercase;color:var(--marigold)}
+-.pg-day-theme{display:flex;align-items:baseline;flex-wrap:wrap;gap:0 .5em;
+-  margin-top:clamp(10px,1.6vw,18px)}
++/* The theme word, then its Hindi under it as a subheading. */
++.pg-day-theme{display:flex;flex-direction:column;margin-top:clamp(10px,1.6vw,18px)}
+ .pg-day-hi{font-family:var(--display);font-weight:400;font-size:clamp(14px,1.9vw,20px);
+   line-height:1.35;color:var(--marigold)}
+ /* Sized against the card, which is half the viewport: the Dutch
+    "Ontmoetingen" is twelve characters and has to fit at 320px. */
+-.pg-day-word{font-family:var(--display);font-weight:400;line-height:1.2;
+-  font-size:clamp(15px,2.4vw,24px);overflow-wrap:anywhere}
++.pg-day-word{font-family:var(--display);font-weight:400;line-height:1.15;
++  font-size:clamp(15px,4.4vw,34px);overflow-wrap:anywhere}
+ .pg-day-tag{font-size:15px;line-height:1.55;opacity:.86;margin-top:4px}
+ .pg-day-pill{align-self:flex-start;margin-top:14px;font-size:11.5px;font-weight:700;
+   letter-spacing:.12em;text-transform:uppercase;color:var(--marigold)}
+@@ -800,44 +800,71 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
+   /* The tagline is the first thing to go: at this width the day, the date,
+      the word and the status are the whole decision. */
+   .pg-day-tag{display:none}
+-  .pg-day-pill{margin-top:10px;font-size:10.5px;letter-spacing:.08em;padding-inline:9px}
++  /* "Programme affiché" has to stay on one line in half a phone. */
++  .pg-day-pill{margin-top:10px;font-size:10px;letter-spacing:.04em;padding-inline:8px;white-space:nowrap}
+ }
+ 
+ /* ---------------- don't miss ---------------- */
+-/* Four reasons to come, each a link further down the page. The same hairline
+-   card as everything else; a photograph, when there is one, fills it. */
+-.pg-miss-h{margin-top:40px}
+-.pg-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(10px,1.6vw,18px)}
+-.pg-tile{min-width:0;position:relative;display:flex;align-items:flex-end;
+-  border-radius:18px;overflow:hidden;text-decoration:none;isolation:isolate;
++/* The highlights, above the day cards. A sideways row that snaps card by
++   card: three in view on a desktop, two on a tablet, one and the edge of the
++   next on a phone, which is what says "there is more". It scrolls by hand
++   with no script at all; with the script it rolls slowly on its own. */
++.pg-miss{margin:0 0 clamp(30px,4.4vw,48px)}
++.pg-miss-top{display:flex;align-items:center;justify-content:space-between;gap:12px;
++  margin:0 0 18px;padding-bottom:10px;border-bottom:1px solid var(--line)}
++.pg-miss-h{margin:0;font-size:12.5px;font-weight:700;letter-spacing:.14em;
++  text-transform:uppercase;color:var(--marigold)}
++.pg-miss-nav{display:flex;gap:8px}
++.pg-miss-nav[hidden]{display:none}
++.pg-miss-nav button{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);
++  background:none;color:var(--ink);cursor:pointer;display:grid;place-items:center;padding:0}
++.pg-miss-nav button:hover{border-color:var(--marigold);color:var(--marigold)}
++.pg-miss-nav button:focus-visible{outline:2px solid var(--marigold);outline-offset:2px}
++.pg-miss-nav svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;
++  stroke-linecap:round;stroke-linejoin:round}
++.pg-tiles{--gap:clamp(10px,1.6vw,18px);display:flex;gap:var(--gap);overflow-x:auto;
++  scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;
++  /* Room for the lift on hover, which the scroller would otherwise clip. */
++  padding-block:4px;margin-block:-4px}
++.pg-tiles::-webkit-scrollbar{display:none}
++/* With the script running the row rolls instead of scrolling: the cards sit
++   in a strip that is moved by a transform, so the motion is even and stays on
++   the compositor. Sideways drags belong to the row, up and down to the page. */
++.pg-tiles.is-rolling{display:block;overflow:hidden;scroll-snap-type:none;touch-action:pan-y;
++  cursor:grab;-webkit-user-select:none;user-select:none}
++.pg-tiles.is-rolling:active{cursor:grabbing}
++.pg-roll{display:flex;gap:var(--gap);will-change:transform}
++.pg-roll .pg-tile{-webkit-user-drag:none}
++.pg-tile{flex:0 0 calc((100% - 2 * var(--gap)) / 3);scroll-snap-align:start;
++  min-width:0;min-height:clamp(210px,25vw,310px);position:relative;display:flex;
++  align-items:flex-end;border-radius:18px;overflow:hidden;text-decoration:none;isolation:isolate;
+   background:rgba(255,255,255,.035);border:1px solid var(--line);color:var(--ink);
+   transition:transform .18s ease,border-color .18s ease}
+ .pg-tile:hover{transform:translateY(-2px);border-color:rgba(232,163,59,.5)}
+-.pg-tile.is-lead{border-color:rgba(232,163,59,.6);background:rgba(232,163,59,.09)}
+-.pg-tile.has-photo{min-height:220px;background:var(--night)}
++.pg-tile:focus-visible{outline:2px solid var(--marigold);outline-offset:-2px}
++.pg-tile.has-photo{background:var(--night)}
+ .pg-tile-img{position:absolute;inset:0;z-index:-2}
+ .pg-tile-img img{width:100%;height:100%;object-fit:cover}
+ .pg-tile.has-photo::after{content:"";position:absolute;inset:0;z-index:-1;
+-  background:linear-gradient(to top, rgba(11,14,36,.94), rgba(11,14,36,.6) 42%, rgba(11,14,36,0) 80%)}
+-.pg-tile-in{display:block;padding:clamp(14px,2vw,22px)}
++  background:linear-gradient(to top, rgba(11,14,36,.95), rgba(11,14,36,.62) 40%, rgba(11,14,36,0) 78%)}
++/* Which day it is on, since the row sits above the choice of day. */
++.pg-tile-when{position:absolute;top:12px;left:12px;font-size:10.5px;font-weight:700;
++  letter-spacing:.1em;text-transform:uppercase;color:var(--ink);
++  background:rgba(11,14,36,.72);border:1px solid var(--line);border-radius:100px;padding:4px 10px}
++.pg-tile-in{display:block;padding:clamp(14px,2vw,22px);
++  text-shadow:0 1px 3px rgba(6,8,24,.85),0 2px 18px rgba(6,8,24,.6)}
+ .pg-tile-kicker{display:block;font-size:12px;font-weight:700;letter-spacing:.12em;
+   text-transform:uppercase;color:var(--marigold);margin-bottom:8px}
+ .pg-tile-title{display:block;font-family:var(--display);font-weight:400;
+-  font-size:clamp(17px,1.9vw,21px);line-height:1.18;margin-bottom:6px;overflow-wrap:anywhere}
+-.pg-tile-line{display:block;font-size:14.5px;line-height:1.55;opacity:.82}
+-/* Two by two below 900px. "Ticket2Bollywood" is one 16-character word, and a
+-   brand name broken mid-word reads as a fault, so four across only starts
+-   where it fits and the title eases down with the tile on a phone. */
++  font-size:clamp(19px,2.2vw,25px);line-height:1.16;margin-bottom:6px;overflow-wrap:anywhere}
++.pg-tile-line{display:block;font-size:14.5px;line-height:1.5;opacity:.86}
+ @media(max-width:900px){
+-  .pg-tiles{grid-template-columns:1fr 1fr}
+-  .pg-tile-title{font-size:clamp(11.5px,3.6vw,21px)}
+-}
+-@media(max-width:720px){
+-  .pg-tile.has-photo{min-height:150px}
++  .pg-tile{flex-basis:calc((100% - var(--gap)) / 2.15)}
+ }
+-@media(max-width:480px){
+-  .pg-tile-line{display:none}
++@media(max-width:560px){
++  .pg-tile{flex-basis:78%;min-height:200px}
+   .pg-tile-kicker{font-size:11px;margin-bottom:6px}
++  .pg-tile-line{font-size:14px}
+ }
+ 
+ /* ---------------- the day bar ---------------- */
+@@ -903,20 +930,18 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
+    a heading at the site's h2 size, a line under it, then cards. With a
+    photograph the heading sits on it, full bleed, the way the Atomium band
+    does on the landing page. Without one there is simply no band. */
+-.pg-ch{padding-top:clamp(52px,8vw,96px)}
+-/* The day still warms as it goes, but as light on the same ground rather than
+-   as a change of ground: a pale glow at noon, gold in the afternoon, saffron
+-   and magenta by evening. The same radial light the body and the sign-up
+-   section use. */
+-/* Each ellipse is half the section tall and centred in it, so it has faded to
+-   nothing by the top and bottom edges and no seam shows between chapters. */
+-#chapter-welcome{background:radial-gradient(ellipse 60% 50% at 6% 50%, rgba(246,223,166,.13), transparent)}
+-#chapter-heritage{background:radial-gradient(ellipse 60% 50% at 6% 50%, rgba(232,163,59,.14), transparent)}
+-#chapter-colours{background:
+-  radial-gradient(ellipse 60% 50% at 6% 50%, rgba(255,153,51,.15), transparent),
+-  radial-gradient(ellipse 50% 50% at 96% 50%, rgba(126,44,92,.26), transparent)}
+-/* With a photograph the band is the light, so the glow steps aside. */
+-.pg-ch:has(> .pg-band.has-photo){background:none}
++/* Each chapter has a ground of its own, taken from its photograph: the blue
++   of the daytime sky, the red of the stage, the gold of the evening haze. All
++   three are kept as dark as the night ground, so the cards and the type stay
++   exactly what they are everywhere else on the site and only the hue turns.
++   The colour lives here and nowhere else: none of it is in the markup or the
++   data. --ch is also what the photograph fades into at the foot of the band. */
++.pg-ch{--ch:var(--night);padding-top:clamp(52px,8vw,96px);padding-bottom:clamp(44px,6.5vw,80px);
++  background:linear-gradient(180deg, var(--ch), var(--ch2,var(--ch)))}
++.pg-ch:has(> .pg-band.has-photo){padding-top:0}
++#chapter-welcome{--ch:#0E2B40;--ch2:#0B1F33}
++#chapter-heritage{--ch:#3A0C18;--ch2:#260A19}
++#chapter-colours{--ch:#30260A;--ch2:#211A0B}
+ .pg-band{position:relative;isolation:isolate}
+ .pg-band.has-photo{display:flex;align-items:flex-end;overflow:hidden;
+   min-height:clamp(260px,34vw,420px)}
+@@ -926,6 +951,18 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
+   /* Dark only where the words are. The first pass dimmed the whole frame and
+      the photograph, which is the point of the band, barely showed. */
+   background:linear-gradient(to top, rgba(11,14,36,.94), rgba(11,14,36,.62) 34%, rgba(11,14,36,0) 72%)}
++/* The same fade, into the chapter's own ground instead of the night. */
++@supports (background:color-mix(in srgb, red 50%, transparent)){
++  .pg-ch .pg-band.has-photo::after{background:linear-gradient(to top, var(--ch),
++    color-mix(in srgb, var(--ch) 64%, transparent) 34%, transparent 72%)}
++}
++/* On a phone the words climb higher up the photograph, so the fade does too. */
++@media(max-width:760px){
++  @supports (background:color-mix(in srgb, red 50%, transparent)){
++    .pg-ch .pg-band.has-photo::after{background:linear-gradient(to top, var(--ch),
++      color-mix(in srgb, var(--ch) 72%, transparent) 46%, transparent 88%)}
++  }
++}
+ .pg-band.has-photo .pg-band-in{padding-block:clamp(22px,3vw,36px);
+   text-shadow:0 1px 3px rgba(6,8,24,.85),0 2px 22px rgba(6,8,24,.7)}
+ /* The site's kicker. The day leads it, in ink, so every chapter says which
+@@ -934,7 +971,7 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
+   text-transform:uppercase;color:var(--marigold)}
+ .pg-band-day{color:var(--ink)}
+ .pg-band-hi{font-family:var(--display);font-weight:400;font-size:22px;line-height:1.35;
+-  color:var(--marigold);margin:0}
++  color:var(--marigold);margin:6px 0 0}
+ /* The site's h2, to the pixel. */
+ .pg-band-h{font-family:var(--display);font-weight:400;line-height:1.08;letter-spacing:-.01em;
+   font-size:clamp(1.9rem,4.6vw,3.2rem);color:var(--ink);margin:0}
+@@ -1004,8 +1041,8 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
+ .pg-pill-gold{color:var(--marigold)}
+ .pg-pill-ink{color:var(--ink-2)}
+ .pg-pill-ink::before{content:"\00B7";margin:0 .6em}
+-.pg-feat-hi{font-family:var(--display);font-weight:400;font-size:20px;line-height:1.35;
+-  color:var(--marigold);margin:0}
++.pg-feat-hi{font-family:var(--display);font-weight:400;font-size:20px;line-height:1;
++  color:var(--marigold);margin-left:.35em}
+ .pg-feat-name{font-family:var(--display);font-weight:400;line-height:1.1;
+   font-size:clamp(26px,3.6vw,38px);color:var(--ink);margin:0 0 6px}
+ .pg-feat-title{margin:0 0 12px;font-size:16.5px;font-weight:600;color:var(--ember)}
+@@ -1024,7 +1061,7 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
+    rest of the site: a marigold rule, a pool of warm light of the kind the
+    sign-up section has, and a title one step above the other chapters. It
+    still stays under the landing page's own h1. */
+-.pg-t2b{margin-top:clamp(52px,8vw,96px);padding-block:clamp(52px,8vw,96px);
++.pg-t2b{--ch:var(--night);padding-block:clamp(52px,8vw,96px);
+   border-top:1px solid rgba(232,163,59,.4);border-bottom:1px solid var(--line);
+   background:
+     radial-gradient(900px 460px at 16% 0%, rgba(232,163,59,.17), transparent 66%),
+@@ -1089,6 +1126,9 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
+   line-height:1.18;color:var(--marigold)}
+ .pg-between-l{margin:0;font-size:15px;line-height:1.6;color:var(--ink);opacity:.82}
+ @media(max-width:560px){.pg-between-row{grid-template-columns:1fr 1fr}}
++/* The small print: the programme can still move. */
++.pg-fine{margin:clamp(28px,4vw,44px) 0 0;font-size:12.5px;line-height:1.6;color:var(--ink-3);
++  text-align:center}
+ 
+ @media(prefers-reduced-motion:reduce){
+   .pg-day,.pg-day-img,.pg-tile{transition:none}
+diff --git a/test/programme.test.mjs b/test/programme.test.mjs
+index bafd67e..8fe200c 100644
+--- a/test/programme.test.mjs
++++ b/test/programme.test.mjs
+@@ -99,21 +99,25 @@ test('each day shows its own acts and not the other day\'s', () => {
+   const sat = html['en saturday'];
+   const sun = html['en sunday'];
+ 
+-  for (const yes of ['Dr. Suryaprakash', 'The Festival Parade']) {
+-    assert.ok(sat.includes(yes), `Saturday is missing ${yes}`);
+-    assert.ok(!sun.includes(yes), `Sunday should not carry ${yes}`);
++  /* Checked on the act cards: the highlights row above the day cards is the
++     same on both days by design, and names acts from either. */
++  const cardsOf = h => [...mainOf(h).matchAll(/<h3 class="pg-(?:act|feat)-name">([^<]*)<\/h3>/g)].map(m => m[1]).join('\n');
++  const [satC, sunC] = [cardsOf(sat), cardsOf(sun)];
++  for (const yes of ['Dr. Suryaprakash', 'The Procession']) {
++    assert.ok(satC.includes(yes), `Saturday is missing ${yes}`);
++    assert.ok(!sunC.includes(yes), `Sunday should not carry ${yes}`);
+   }
+   for (const yes of ['Kirtan Sing-Along', 'Brides of India']) {
+-    assert.ok(sun.includes(yes), `Sunday is missing ${yes}`);
+-    assert.ok(!sat.includes(yes), `Saturday should not carry ${yes}`);
++    assert.ok(sunC.includes(yes), `Sunday is missing ${yes}`);
++    assert.ok(!satC.includes(yes), `Saturday should not carry ${yes}`);
+   }
+-  for (const both of ['Lighting the Lamps']) {
++  for (const both of ['Lighting the Lamps', 'Pooja for World Peace and Harmony', 'An Offering in Dance']) {
+     assert.ok(sat.includes(both), `Saturday is missing ${both}`);
+     assert.ok(sun.includes(both), `Sunday is missing ${both}`);
+   }
+ });
+ 
+-test('the first chapter is the welcome, and it is short', () => {
++test('the first chapter is the welcome, with its four items', () => {
+   for (const [name, h] of Object.entries(html)) {
+     const main = mainOf(h);
+     const first = main.indexOf('<section class="pg-ch"');
+@@ -121,36 +125,52 @@ test('the first chapter is the welcome, and it is short', () => {
+     const chapterOne = main.slice(first, second);
+     assert.ok(chapterOne.includes('id="chapter-welcome"'),
+       `${name} does not open on chapter-welcome`);
+-    assert.equal((chapterOne.match(/class="pg-act"/g) || []).length, 2,
+-      `${name} should open with two acts, not four`);
++    assert.equal((chapterOne.match(/class="pg-act"/g) || []).length, 4,
++      `${name} should open with the four items of the welcome`);
+   }
+ });
+ 
+-test('four Don\'t miss tiles, each pointing somewhere real', () => {
++/* The highlights sit above the day cards, so they are one list for the whole
++   festival: the same tiles, in the same order, on all six pages. A highlight
++   that belongs to one day links to that day's page; everything else stays on
++   the page it is on. */
++test('the highlights are the list in the data, each pointing somewhere real', () => {
++  assert.ok(PR.highlights.length >= 3, 'a carousel wants at least three highlights');
++  for (const day of PR.days) {
++    assert.equal(day.highlights, undefined, `${day.id} still carries highlights of its own`);
++  }
+   for (const [name, h] of Object.entries(html)) {
++    const lang = LANG_OF(name);
++    const dayId = name.split(' ')[1];
+     const main = mainOf(h);
+-    const day = PR.days.find(x => x.id === name.split(' ')[1]);
++    const root = lang === 'en' ? '' : `/${lang}`;
++    const pathOf = id => {
++      const slug = PR.days.find(x => x.id === id).slug;
++      return slug ? `${root}/programme/${slug}/` : `${root}/programme/`;
++    };
+     const tiles = [...main.matchAll(/<a class="pg-tile[^"]*" href="([^"]+)"/g)].map(m => m[1]);
+-    assert.equal(tiles.length, 4, `${name} has ${tiles.length} tiles, not four`);
+-    assert.deepEqual(tiles, day.highlights.map(x => x.href),
+-      `${name} lists its tiles in the wrong order`);
+-    for (const href of tiles) {
+-      assert.ok(href.startsWith('#'), `${name} tile leaves the page: ${href}`);
+-      assert.ok(main.includes(`id="${href.slice(1)}"`),
+-        `${name} tile points at ${href}, which is not on the page`);
++    const want = PR.highlights.map(x =>
++      (x.day && x.day !== dayId ? pathOf(x.day) : '') + x.href);
++    assert.deepEqual(tiles, want, `${name} lists its highlights wrongly`);
++    for (const x of PR.highlights) {
++      assert.ok(x.href.startsWith('#'), `a highlight leaves the programme: ${x.href}`);
++      const target = html[`${lang} ${x.day || dayId}`];
++      assert.ok(mainOf(target).includes(`id="${x.href.slice(1)}"`),
++        `${name}: a highlight points at ${x.href}, which is not on its page`);
+     }
+   }
+ });
+ 
+-test('the tiles follow the day, not the other day', () => {
+-  const titleOf = key => [...mainOf(html[key]).matchAll(
+-    /<span class="pg-tile-title">([^<]*)<\/span>/g)].map(m => m[1]);
+-  const sat = titleOf('en saturday');
+-  const sun = titleOf('en sunday');
+-  assert.ok(sat.some(t => t.includes('Magic Show')), 'Saturday is missing the magic show tile');
+-  assert.ok(!sat.some(t => t.includes('Brides of India')), 'Saturday should not tile Brides of India');
+-  assert.ok(sun.some(t => t.includes('Brides of India')), 'Sunday is missing the Brides of India tile');
+-  assert.ok(!sun.some(t => t.includes('Magic Show')), 'Sunday should not tile the magic show');
++test('the highlights come before the choice of day, and scroll without a script', () => {
++  const css = readFileSync(join(ROOT, 'static/diwali.css'), 'utf8');
++  assert.match(css, /\.pg-tiles\{[^}]*overflow-x:auto[^}]*scroll-snap-type:x/,
++    'the row must scroll by hand when JavaScript is off');
++  for (const [name, h] of Object.entries(html)) {
++    const main = mainOf(h);
++    assert.ok(main.indexOf('class="pg-tiles"') < main.indexOf('class="pg-days"'),
++      `${name} puts the day cards above the highlights`);
++    assert.match(main, /class="pg-miss-nav" hidden/, `${name} shows arrows that need a script`);
++  }
+ });
+ 
+ test('the day bar carries four chapter shortcuts', () => {
+@@ -225,8 +245,10 @@ test('the copy rules hold inside main', () => {
+     assert.ok(!main.includes('\u2014'), `${name} has an em dash`);
+     /* The festival has religious roots and is not a religious event. These are
+        the words that made the first version read like one. */
+-    const TONE = ['Blessing', 'spiritual', 'Puja', 'puja', 'devotion', 'd\u00e9votion',
+-      'devotionele', 'prayer', 'pri\u00e8re', 'gebed', 'Shobha Yatra', 'Temple Procession'];
++    /* The pooja and the procession are named plainly: Ravi's call, 2 Oct. The
++       pooja is the centre of the festival and is called what it is. */
++    const TONE = ['Blessing', 'spiritual', 'devotion', 'd\u00e9votion',
++      'devotionele', 'prayer', 'pri\u00e8re', 'gebed', 'Shobha Yatra'];
+     for (const banned of ['Jashn', 'Avenue of Lights', 'weekend', ...TONE]) {
+       assert.ok(!new RegExp(banned, 'i').test(main), `${name} says "${banned}"`);
+     }
+@@ -235,6 +257,29 @@ test('the copy rules hold inside main', () => {
+   }
+ });
+ 
++test('no chapter is numbered, and the small print is there', () => {
++  for (const [name, h] of Object.entries(html)) {
++    const lang = LANG_OF(name);
++    const main = mainOf(h);
++    const labels = [...main.matchAll(/<p class="pg-band-label">([\s\S]*?)<\/p>/g)].map(m => m[1]);
++    assert.equal(labels.length, 4, `${name} should have four chapter bands`);
++    for (const l of labels) {
++      assert.ok(!l.includes(PR.ui.chapter[lang]), `${name} still numbers a chapter: ${l}`);
++    }
++    assert.ok(main.includes(`<p class="pg-fine">${PR.ui.disclaimer[lang]}</p>`),
++      `${name} is missing the subject-to-change line`);
++  }
++});
++
++test('the social links are the right ones and open in a tab of their own', () => {
++  const foot = html['en saturday'].slice(html['en saturday'].indexOf('<footer'));
++  const links = [...foot.matchAll(/<div class="foot-social">([\s\S]*?)<\/div>/g)][0][1];
++  assert.ok(links.includes('https://www.instagram.com/artindia_brussels/'), 'the Instagram link is not the live account');
++  for (const a of links.match(/<a [^>]*>/g)) {
++    assert.match(a, /target="_blank" rel="noopener"/, `a social link opens in the same tab: ${a}`);
++  }
++});
++
+ test('the day is translated, not left in English', () => {
+   /* "Traditions" is the same word in English and French, so the French page is
+      checked on its date instead. */

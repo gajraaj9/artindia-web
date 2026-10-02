@@ -99,21 +99,25 @@ test('each day shows its own acts and not the other day\'s', () => {
   const sat = html['en saturday'];
   const sun = html['en sunday'];
 
-  for (const yes of ['Dr. Suryaprakash', 'The Festival Parade']) {
-    assert.ok(sat.includes(yes), `Saturday is missing ${yes}`);
-    assert.ok(!sun.includes(yes), `Sunday should not carry ${yes}`);
+  /* Checked on the act cards: the highlights row above the day cards is the
+     same on both days by design, and names acts from either. */
+  const cardsOf = h => [...mainOf(h).matchAll(/<h3 class="pg-(?:act|feat)-name">([^<]*)<\/h3>/g)].map(m => m[1]).join('\n');
+  const [satC, sunC] = [cardsOf(sat), cardsOf(sun)];
+  for (const yes of ['Dr. Suryaprakash', 'The Procession']) {
+    assert.ok(satC.includes(yes), `Saturday is missing ${yes}`);
+    assert.ok(!sunC.includes(yes), `Sunday should not carry ${yes}`);
   }
   for (const yes of ['Kirtan Sing-Along', 'Brides of India']) {
-    assert.ok(sun.includes(yes), `Sunday is missing ${yes}`);
-    assert.ok(!sat.includes(yes), `Saturday should not carry ${yes}`);
+    assert.ok(sunC.includes(yes), `Sunday is missing ${yes}`);
+    assert.ok(!satC.includes(yes), `Saturday should not carry ${yes}`);
   }
-  for (const both of ['Lighting the Lamps']) {
+  for (const both of ['Lighting the Lamps', 'Pooja for World Peace and Harmony', 'An Offering in Dance']) {
     assert.ok(sat.includes(both), `Saturday is missing ${both}`);
     assert.ok(sun.includes(both), `Sunday is missing ${both}`);
   }
 });
 
-test('the first chapter is the welcome, and it is short', () => {
+test('the first chapter is the welcome, with its four items', () => {
   for (const [name, h] of Object.entries(html)) {
     const main = mainOf(h);
     const first = main.indexOf('<section class="pg-ch"');
@@ -121,36 +125,52 @@ test('the first chapter is the welcome, and it is short', () => {
     const chapterOne = main.slice(first, second);
     assert.ok(chapterOne.includes('id="chapter-welcome"'),
       `${name} does not open on chapter-welcome`);
-    assert.equal((chapterOne.match(/class="pg-act"/g) || []).length, 2,
-      `${name} should open with two acts, not four`);
+    assert.equal((chapterOne.match(/class="pg-act"/g) || []).length, 4,
+      `${name} should open with the four items of the welcome`);
   }
 });
 
-test('four Don\'t miss tiles, each pointing somewhere real', () => {
+/* The highlights sit above the day cards, so they are one list for the whole
+   festival: the same tiles, in the same order, on all six pages. A highlight
+   that belongs to one day links to that day's page; everything else stays on
+   the page it is on. */
+test('the highlights are the list in the data, each pointing somewhere real', () => {
+  assert.ok(PR.highlights.length >= 3, 'a carousel wants at least three highlights');
+  for (const day of PR.days) {
+    assert.equal(day.highlights, undefined, `${day.id} still carries highlights of its own`);
+  }
   for (const [name, h] of Object.entries(html)) {
+    const lang = LANG_OF(name);
+    const dayId = name.split(' ')[1];
     const main = mainOf(h);
-    const day = PR.days.find(x => x.id === name.split(' ')[1]);
+    const root = lang === 'en' ? '' : `/${lang}`;
+    const pathOf = id => {
+      const slug = PR.days.find(x => x.id === id).slug;
+      return slug ? `${root}/programme/${slug}/` : `${root}/programme/`;
+    };
     const tiles = [...main.matchAll(/<a class="pg-tile[^"]*" href="([^"]+)"/g)].map(m => m[1]);
-    assert.equal(tiles.length, 4, `${name} has ${tiles.length} tiles, not four`);
-    assert.deepEqual(tiles, day.highlights.map(x => x.href),
-      `${name} lists its tiles in the wrong order`);
-    for (const href of tiles) {
-      assert.ok(href.startsWith('#'), `${name} tile leaves the page: ${href}`);
-      assert.ok(main.includes(`id="${href.slice(1)}"`),
-        `${name} tile points at ${href}, which is not on the page`);
+    const want = PR.highlights.map(x =>
+      (x.day && x.day !== dayId ? pathOf(x.day) : '') + x.href);
+    assert.deepEqual(tiles, want, `${name} lists its highlights wrongly`);
+    for (const x of PR.highlights) {
+      assert.ok(x.href.startsWith('#'), `a highlight leaves the programme: ${x.href}`);
+      const target = html[`${lang} ${x.day || dayId}`];
+      assert.ok(mainOf(target).includes(`id="${x.href.slice(1)}"`),
+        `${name}: a highlight points at ${x.href}, which is not on its page`);
     }
   }
 });
 
-test('the tiles follow the day, not the other day', () => {
-  const titleOf = key => [...mainOf(html[key]).matchAll(
-    /<span class="pg-tile-title">([^<]*)<\/span>/g)].map(m => m[1]);
-  const sat = titleOf('en saturday');
-  const sun = titleOf('en sunday');
-  assert.ok(sat.some(t => t.includes('Magic Show')), 'Saturday is missing the magic show tile');
-  assert.ok(!sat.some(t => t.includes('Brides of India')), 'Saturday should not tile Brides of India');
-  assert.ok(sun.some(t => t.includes('Brides of India')), 'Sunday is missing the Brides of India tile');
-  assert.ok(!sun.some(t => t.includes('Magic Show')), 'Sunday should not tile the magic show');
+test('the highlights come before the choice of day, and scroll without a script', () => {
+  const css = readFileSync(join(ROOT, 'static/diwali.css'), 'utf8');
+  assert.match(css, /\.pg-tiles\{[^}]*overflow-x:auto[^}]*scroll-snap-type:x/,
+    'the row must scroll by hand when JavaScript is off');
+  for (const [name, h] of Object.entries(html)) {
+    const main = mainOf(h);
+    assert.ok(main.indexOf('class="pg-tiles"') < main.indexOf('class="pg-days"'),
+      `${name} puts the day cards above the highlights`);
+    assert.match(main, /class="pg-miss-nav" hidden/, `${name} shows arrows that need a script`);
+  }
 });
 
 test('the day bar carries four chapter shortcuts', () => {
@@ -225,13 +245,38 @@ test('the copy rules hold inside main', () => {
     assert.ok(!main.includes('\u2014'), `${name} has an em dash`);
     /* The festival has religious roots and is not a religious event. These are
        the words that made the first version read like one. */
-    const TONE = ['Blessing', 'spiritual', 'Puja', 'puja', 'devotion', 'd\u00e9votion',
-      'devotionele', 'prayer', 'pri\u00e8re', 'gebed', 'Shobha Yatra', 'Temple Procession'];
+    /* The pooja and the procession are named plainly: Ravi's call, 2 Oct. The
+       pooja is the centre of the festival and is called what it is. */
+    const TONE = ['Blessing', 'spiritual', 'devotion', 'd\u00e9votion',
+      'devotionele', 'prayer', 'pri\u00e8re', 'gebed', 'Shobha Yatra'];
     for (const banned of ['Jashn', 'Avenue of Lights', 'weekend', ...TONE]) {
       assert.ok(!new RegExp(banned, 'i').test(main), `${name} says "${banned}"`);
     }
     const clock = main.match(/\b\d{1,2}[:.h]\d{2}\b/);
     assert.equal(clock, null, `${name} prints a clock time: ${clock && clock[0]}`);
+  }
+});
+
+test('no chapter is numbered, and the small print is there', () => {
+  for (const [name, h] of Object.entries(html)) {
+    const lang = LANG_OF(name);
+    const main = mainOf(h);
+    const labels = [...main.matchAll(/<p class="pg-band-label">([\s\S]*?)<\/p>/g)].map(m => m[1]);
+    assert.equal(labels.length, 4, `${name} should have four chapter bands`);
+    for (const l of labels) {
+      assert.ok(!l.includes(PR.ui.chapter[lang]), `${name} still numbers a chapter: ${l}`);
+    }
+    assert.ok(main.includes(`<p class="pg-fine">${PR.ui.disclaimer[lang]}</p>`),
+      `${name} is missing the subject-to-change line`);
+  }
+});
+
+test('the social links are the right ones and open in a tab of their own', () => {
+  const foot = html['en saturday'].slice(html['en saturday'].indexOf('<footer'));
+  const links = [...foot.matchAll(/<div class="foot-social">([\s\S]*?)<\/div>/g)][0][1];
+  assert.ok(links.includes('https://www.instagram.com/artindia_brussels/'), 'the Instagram link is not the live account');
+  for (const a of links.match(/<a [^>]*>/g)) {
+    assert.match(a, /target="_blank" rel="noopener"/, `a social link opens in the same tab: ${a}`);
   }
 });
 

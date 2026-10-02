@@ -471,7 +471,7 @@ function render(lang, page = 'home', dayId = null) {
   function footer() {
     const f = d.footer;
     const social = (f.social || []).filter(x => x.url).map(x =>
-      `<a href="${esc(x.url)}" rel="noopener">${esc(x.name)}</a>`).join('');
+      `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.name)}</a>`).join('');
     const org = parent;
     return `<footer>
   <div class="wrap foot-top">
@@ -694,22 +694,31 @@ ${newsBlock()}
       ${pic}
       <span class="pg-day-name">${e(x.button)}</span>
       <span class="pg-day-date">${e(x.daynum)}</span>
-      <span class="pg-day-theme"><span class="pg-day-hi" lang="hi">${esc(x.hindi)}</span>
-        <span class="pg-day-word">${e(x.word)}</span></span>
+      <span class="pg-day-theme"><span class="pg-day-word">${e(x.word)}</span>
+        <span class="pg-day-hi" lang="hi">${esc(x.hindi)}</span></span>
       <span class="pg-day-tag">${e(x.tagline)}</span>
       <span class="pg-day-pill">${e(here ? ui.now_showing : ui.tap_to_view)}</span>
     </a>`;
     }
 
-    /* Four reasons to come, within reach of the first screen. Each tile is one
-       link to somewhere further down the same page, so the party is a tap away
-       rather than six screens of scrolling. */
-    const tiles = (day.highlights || []).map(h => {
+    /* The highlights, above the day cards: reasons to come before the choice
+       of day. One list for the whole festival, in the order the data gives, so
+       Ravi decides what is shown by editing programme.json and nothing else.
+       A highlight that belongs to one day says so, and links to that day's
+       page. The row is a plain sideways scroller with scroll snap, so it is
+       whole with JavaScript off; the script below turns it into one slow,
+       continuous roll. */
+    const BY_ID = Object.fromEntries(PR.days.map(x => [x.id, x]));
+    const tiles = (PR.highlights || []).map(h => {
       const pic = prPhoto(h.photo, {
-        alt: '', sizes: '(max-width:720px) 50vw, 25vw', className: 'pg-tile-img',
+        alt: '', sizes: '(max-width:560px) 78vw, (max-width:900px) 46vw, 400px', className: 'pg-tile-img',
       });
-      return `<a class="pg-tile${h.lead ? ' is-lead' : ''}${pic ? ' has-photo' : ''}" href="${esc(h.href)}">
+      const own = h.day ? BY_ID[h.day] : null;
+      if (h.day && !own) throw new Error(`programme: a highlight names a day that does not exist: ${h.day}`);
+      const href = own && own.id !== day.id ? `${PROGRAMME_OF[own.id][lang]}${h.href}` : h.href;
+      return `<a class="pg-tile${pic ? ' has-photo' : ''}" href="${esc(href)}">
         ${pic}
+        <span class="pg-tile-when">${e(own ? own.only : ui.both_days)}</span>
         <span class="pg-tile-in">
           <span class="pg-tile-kicker">${e(h.kicker)}</span>
           <span class="pg-tile-title">${e(h.title)}</span>
@@ -718,18 +727,170 @@ ${newsBlock()}
       </a>`;
     }).join('');
 
+    /* The arrows are hidden until the script has something to move, so a
+       visitor without JavaScript never meets a button that does nothing. */
     const dontMiss = tiles ? `
-    <p class="pg-choose pg-miss-h">${e(PR.ui.dont_miss)}</p>
-    <div class="pg-tiles">${tiles}</div>` : '';
+    <div class="pg-miss" data-carousel>
+      <div class="pg-miss-top">
+        <p class="pg-miss-h">${e(ui.dont_miss)}</p>
+        <div class="pg-miss-nav" hidden>
+          <button type="button" data-dir="-1" aria-label="${e(ui.prev)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <button type="button" data-dir="1" aria-label="${e(ui.next)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        </div>
+      </div>
+      <div class="pg-tiles">${tiles}</div>
+    </div>
+    <script>
+    (function () {
+      var box = document.querySelector('[data-carousel]');
+      if (!box) return;
+      var track = box.querySelector('.pg-tiles');
+      var nav = box.querySelector('.pg-miss-nav');
+      var real = [].slice.call(track.querySelectorAll('.pg-tile'));
+      if (real.length < 2 || track.scrollWidth <= track.clientWidth + 4) return;
+      nav.hidden = false;
+      function cardStep() {
+        return real[1].getBoundingClientRect().left - real[0].getBoundingClientRect().left;
+      }
+
+      /* Someone who has asked for less motion keeps the plain row: it scrolls
+         by hand, and the arrows move it one card at a time. */
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        nav.addEventListener('click', function (ev) {
+          var b = ev.target.closest('button');
+          if (b) track.scrollBy({ left: Number(b.getAttribute('data-dir')) * cardStep(), behavior: 'auto' });
+        });
+        return;
+      }
+
+      /* Everyone else gets one slow, even roll. The cards are laid out twice in
+         a strip and the strip is moved by a transform, a fraction of a pixel a
+         frame, so there is no stepping, no snapping and no seam where the row
+         starts again. The second set is hidden from screen readers and from
+         the keyboard. */
+      var strip = document.createElement('div');
+      strip.className = 'pg-roll';
+      real.forEach(function (n) { strip.appendChild(n); });
+      real.forEach(function (n) {
+        var c = n.cloneNode(true);
+        c.setAttribute('aria-hidden', 'true');
+        c.tabIndex = -1;
+        strip.appendChild(c);
+      });
+      [].forEach.call(strip.querySelectorAll('img'), function (im) {
+        im.loading = 'eager';
+        im.draggable = false;
+      });
+      track.scrollLeft = 0;
+      track.appendChild(strip);
+      track.classList.add('is-rolling');
+
+      var SPEED = 42;            /* pixels a second */
+      var x = 0, loop = 0, last = 0, rest = 0, glide = null;
+      var over = false, focus = false, drag = null, seen = true;
+      function measure() {
+        loop = strip.children[real.length].offsetLeft - strip.children[0].offsetLeft;
+      }
+      function draw() {
+        if (!loop) return;
+        x = ((x % loop) + loop) % loop;
+        strip.style.transform = 'translate3d(' + (-x) + 'px,0,0)';
+      }
+      function glideBy(by, ms) {
+        glide = { from: x, by: by, t0: performance.now(), ms: ms };
+        rest = glide.t0 + ms + 2600;
+      }
+      function frame(t) {
+        var dt = Math.min(t - last, 50);
+        last = t;
+        if (glide) {
+          var k = Math.min((t - glide.t0) / glide.ms, 1);
+          x = glide.from + glide.by * (1 - Math.pow(1 - k, 3));
+          if (k === 1) glide = null;
+          draw();
+        } else if (!drag && !over && !focus && seen && !document.hidden && t > rest) {
+          x += dt * SPEED / 1000;
+          draw();
+        }
+        requestAnimationFrame(frame);
+      }
+      measure();
+      window.addEventListener('resize', function () { measure(); draw(); });
+      window.addEventListener('load', measure);
+      if ('IntersectionObserver' in window) {
+        new IntersectionObserver(function (en) { seen = en[0].isIntersecting; }).observe(box);
+      }
+
+      /* A pointer resting on the row holds it still, so a card can be read
+         and clicked. Leaving lets it roll on. */
+      track.addEventListener('pointerenter', function (ev) { if (ev.pointerType === 'mouse') over = true; });
+      track.addEventListener('pointerleave', function () { over = false; });
+
+      /* A finger or a mouse can also pull the row along. Sideways only: an
+         up and down swipe still scrolls the page. */
+      track.addEventListener('pointerdown', function (ev) {
+        if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+        glide = null;
+        drag = { id: ev.pointerId, sx: ev.clientX, from: x, moved: false };
+      });
+      track.addEventListener('pointermove', function (ev) {
+        if (!drag || ev.pointerId !== drag.id) return;
+        var dx = ev.clientX - drag.sx;
+        if (!drag.moved && Math.abs(dx) > 6) {
+          drag.moved = true;
+          try { track.setPointerCapture(drag.id); } catch (err) {}
+        }
+        if (drag.moved) { x = drag.from - dx; draw(); }
+      });
+      function drop(ev) {
+        if (!drag || ev.pointerId !== drag.id) return;
+        if (drag.moved) {
+          rest = performance.now() + 2600;
+          /* The click that ends a drag is not a click on a card. */
+          var stop = function (c) { c.preventDefault(); c.stopPropagation(); };
+          track.addEventListener('click', stop, { capture: true, once: true });
+          setTimeout(function () { track.removeEventListener('click', stop, { capture: true }); }, 60);
+        }
+        drag = null;
+      }
+      track.addEventListener('pointerup', drop);
+      track.addEventListener('pointercancel', drop);
+      track.addEventListener('dragstart', function (ev) { ev.preventDefault(); });
+
+      /* The keyboard: the row waits while a card has focus, and brings that
+         card into view if it had rolled out of it. */
+      track.addEventListener('focusin', function (ev) {
+        focus = true;
+        var card = ev.target.closest('.pg-tile');
+        if (!card) return;
+        var at = card.offsetLeft - strip.children[0].offsetLeft;
+        var gone = ((at - x) % loop + loop) % loop;
+        if (gone > track.clientWidth - card.offsetWidth) glideBy(gone, 420);
+      });
+      track.addEventListener('focusout', function () { focus = false; });
+
+      nav.addEventListener('click', function (ev) {
+        var b = ev.target.closest('button');
+        if (!b) return;
+        var dir = Number(b.getAttribute('data-dir'));
+        var w = cardStep();
+        /* Land on a card edge, so an arrow always squares the row up. */
+        var to = dir > 0 ? (Math.floor(x / w + 0.001) + 1) * w : (Math.ceil(x / w - 0.001) - 1) * w;
+        glideBy(to - x, 520);
+      });
+
+      requestAnimationFrame(function (t) { last = t; requestAnimationFrame(frame); });
+    })();
+    </script>` : '';
 
     const intro = `<section class="pg-intro">
   <div class="wrap">
     <p class="pg-kicker">${e(PR.hero.kicker)}</p>
     <h1 class="pg-h1">${e(PR.hero.headline)}</h1>
-    <p class="pg-lede">${e(PR.hero.intro)}</p>
+    <p class="pg-lede">${e(PR.hero.intro)}</p>${dontMiss}
     <p class="pg-choose">${e(PR.hero.choose)}</p>
     <div class="pg-days">${PR.days.map(dayCard).join('')}</div>
-    <p class="pg-night">${e(PR.hero.night_line)}</p>${dontMiss}
+    <p class="pg-night">${e(PR.hero.night_line)}</p>
   </div>
 </section>`;
 
@@ -766,8 +927,8 @@ ${newsBlock()}
     <div class="wrap pg-band-in">
       <p class="pg-band-label"><span class="pg-band-day">${pill}</span> · ${label}</p>
       ${kicker ? `<p class="pg-band-kicker">${kicker}</p>` : ''}
-      ${hindi ? `<p class="pg-band-hi" lang="hi">${esc(hindi)}</p>` : ''}
       <h2 class="pg-band-h">${title}</h2>
+      ${hindi ? `<p class="pg-band-hi" lang="hi">${esc(hindi)}</p>` : ''}
       ${promise ? `<p class="pg-band-promise">${promise}</p>` : ''}
     </div>
   </div>`;
@@ -782,9 +943,8 @@ ${newsBlock()}
       ${pic}
       <div class="pg-feat-body">
         <p class="pg-feat-pills"><span class="pg-pill-gold">${e(f.badge)}</span><span class="pg-pill-ink">${e(day.only)}</span></p>
-        <p class="pg-feat-hi" lang="hi">${esc(f.hindi)}</p>
         <h3 class="pg-feat-name">${esc(f.name)}</h3>
-        <p class="pg-feat-title">${e(f.title)}</p>
+        <p class="pg-feat-title">${e(f.title)} <span class="pg-feat-hi" lang="hi">${esc(f.hindi)}</span></p>
         <p class="pg-feat-line">${e(f.line)}</p>
         ${f.bio ? `<p class="pg-feat-bio">${e(f.bio)}</p>` : ''}
       </div>
@@ -821,7 +981,7 @@ ${newsBlock()}
   ${band({
     photo: ch.photo, alt: ch.alt, eager: i === 0,
     pill: e(day.short),
-    label: `${e(ui.chapter)} ${ch.n} · ${e(ch.when)}`,
+    label: e(ch.when),
     hindi: ch.hindi, title: e(ch.title), promise: e(ch.promise),
   })}
   <div class="pg-body">
@@ -854,7 +1014,7 @@ ${newsBlock()}
   ${band({
     photo: t2b.photo, alt: t2b.alt,
     pill: e(ui.both_days),
-    label: `${e(ui.chapter)} 4 · ${e(t2b.when)}`,
+    label: e(t2b.when),
     kicker: e(t2b.kicker),
     title: esc(t2b.title),
   })}
@@ -889,6 +1049,7 @@ ${newsBlock()}
         <p class="pg-between-t">${e(b.title)}</p>
         <p class="pg-between-l">${e(b.line)}</p>
       </div>`).join('')}</div>
+    <p class="pg-fine">${e(ui.disclaimer)}</p>
   </div>
 </section>`;
 
@@ -1436,7 +1597,7 @@ IMG.save();
     PR.feature.photo,
     ...PR.acts.map(a => a.id),
     ...PR.t2b.items.map(i => i.id),
-    ...PR.days.flatMap(x => (x.highlights || []).map(h => h.photo)),
+    ...(PR.highlights || []).map(h => h.photo),
     ...PR.days.map(x => x.photo),
   ].filter(Boolean);
 

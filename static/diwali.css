@@ -737,7 +737,7 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
 .pg-h1{font-family:var(--display);font-weight:400;line-height:1.06;
   font-size:clamp(34px,5.2vw,64px);color:var(--ink);margin:0 0 16px;letter-spacing:.005em}
 .pg-lede{font-size:clamp(16px,2.1vw,19px);line-height:1.62;color:var(--ink);opacity:.86;
-  margin:0 0 36px;max-width:62ch}
+  margin:0 0 30px;max-width:62ch}
 /* The tier label from the partners page: small, tracked, on a hairline. */
 .pg-choose{font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
   color:var(--marigold);margin:0 0 20px;padding-bottom:10px;border-bottom:1px solid var(--line)}
@@ -778,14 +778,14 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
   font-size:clamp(19px,5.6vw,46px);overflow-wrap:anywhere}
 .pg-day-date{margin-top:4px;font-size:clamp(12.5px,1.9vw,19px);font-weight:700;
   letter-spacing:.1em;text-transform:uppercase;color:var(--marigold)}
-.pg-day-theme{display:flex;align-items:baseline;flex-wrap:wrap;gap:0 .5em;
-  margin-top:clamp(10px,1.6vw,18px)}
+/* The theme word, then its Hindi under it as a subheading. */
+.pg-day-theme{display:flex;flex-direction:column;margin-top:clamp(10px,1.6vw,18px)}
 .pg-day-hi{font-family:var(--display);font-weight:400;font-size:clamp(14px,1.9vw,20px);
   line-height:1.35;color:var(--marigold)}
 /* Sized against the card, which is half the viewport: the Dutch
    "Ontmoetingen" is twelve characters and has to fit at 320px. */
-.pg-day-word{font-family:var(--display);font-weight:400;line-height:1.2;
-  font-size:clamp(15px,2.4vw,24px);overflow-wrap:anywhere}
+.pg-day-word{font-family:var(--display);font-weight:400;line-height:1.15;
+  font-size:clamp(15px,4.4vw,34px);overflow-wrap:anywhere}
 .pg-day-tag{font-size:15px;line-height:1.55;opacity:.86;margin-top:4px}
 .pg-day-pill{align-self:flex-start;margin-top:14px;font-size:11.5px;font-weight:700;
   letter-spacing:.12em;text-transform:uppercase;color:var(--marigold)}
@@ -800,44 +800,71 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
   /* The tagline is the first thing to go: at this width the day, the date,
      the word and the status are the whole decision. */
   .pg-day-tag{display:none}
-  .pg-day-pill{margin-top:10px;font-size:10.5px;letter-spacing:.08em;padding-inline:9px}
+  /* "Programme affiché" has to stay on one line in half a phone. */
+  .pg-day-pill{margin-top:10px;font-size:10px;letter-spacing:.04em;padding-inline:8px;white-space:nowrap}
 }
 
 /* ---------------- don't miss ---------------- */
-/* Four reasons to come, each a link further down the page. The same hairline
-   card as everything else; a photograph, when there is one, fills it. */
-.pg-miss-h{margin-top:40px}
-.pg-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(10px,1.6vw,18px)}
-.pg-tile{min-width:0;position:relative;display:flex;align-items:flex-end;
-  border-radius:18px;overflow:hidden;text-decoration:none;isolation:isolate;
+/* The highlights, above the day cards. A sideways row that snaps card by
+   card: three in view on a desktop, two on a tablet, one and the edge of the
+   next on a phone, which is what says "there is more". It scrolls by hand
+   with no script at all; with the script it rolls slowly on its own. */
+.pg-miss{margin:0 0 clamp(30px,4.4vw,48px)}
+.pg-miss-top{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin:0 0 18px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.pg-miss-h{margin:0;font-size:12.5px;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--marigold)}
+.pg-miss-nav{display:flex;gap:8px}
+.pg-miss-nav[hidden]{display:none}
+.pg-miss-nav button{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);
+  background:none;color:var(--ink);cursor:pointer;display:grid;place-items:center;padding:0}
+.pg-miss-nav button:hover{border-color:var(--marigold);color:var(--marigold)}
+.pg-miss-nav button:focus-visible{outline:2px solid var(--marigold);outline-offset:2px}
+.pg-miss-nav svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.pg-tiles{--gap:clamp(10px,1.6vw,18px);display:flex;gap:var(--gap);overflow-x:auto;
+  scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;
+  /* Room for the lift on hover, which the scroller would otherwise clip. */
+  padding-block:4px;margin-block:-4px}
+.pg-tiles::-webkit-scrollbar{display:none}
+/* With the script running the row rolls instead of scrolling: the cards sit
+   in a strip that is moved by a transform, so the motion is even and stays on
+   the compositor. Sideways drags belong to the row, up and down to the page. */
+.pg-tiles.is-rolling{display:block;overflow:hidden;scroll-snap-type:none;touch-action:pan-y;
+  cursor:grab;-webkit-user-select:none;user-select:none}
+.pg-tiles.is-rolling:active{cursor:grabbing}
+.pg-roll{display:flex;gap:var(--gap);will-change:transform}
+.pg-roll .pg-tile{-webkit-user-drag:none}
+.pg-tile{flex:0 0 calc((100% - 2 * var(--gap)) / 3);scroll-snap-align:start;
+  min-width:0;min-height:clamp(210px,25vw,310px);position:relative;display:flex;
+  align-items:flex-end;border-radius:18px;overflow:hidden;text-decoration:none;isolation:isolate;
   background:rgba(255,255,255,.035);border:1px solid var(--line);color:var(--ink);
   transition:transform .18s ease,border-color .18s ease}
 .pg-tile:hover{transform:translateY(-2px);border-color:rgba(232,163,59,.5)}
-.pg-tile.is-lead{border-color:rgba(232,163,59,.6);background:rgba(232,163,59,.09)}
-.pg-tile.has-photo{min-height:220px;background:var(--night)}
+.pg-tile:focus-visible{outline:2px solid var(--marigold);outline-offset:-2px}
+.pg-tile.has-photo{background:var(--night)}
 .pg-tile-img{position:absolute;inset:0;z-index:-2}
 .pg-tile-img img{width:100%;height:100%;object-fit:cover}
 .pg-tile.has-photo::after{content:"";position:absolute;inset:0;z-index:-1;
-  background:linear-gradient(to top, rgba(11,14,36,.94), rgba(11,14,36,.6) 42%, rgba(11,14,36,0) 80%)}
-.pg-tile-in{display:block;padding:clamp(14px,2vw,22px)}
+  background:linear-gradient(to top, rgba(11,14,36,.95), rgba(11,14,36,.62) 40%, rgba(11,14,36,0) 78%)}
+/* Which day it is on, since the row sits above the choice of day. */
+.pg-tile-when{position:absolute;top:12px;left:12px;font-size:10.5px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink);
+  background:rgba(11,14,36,.72);border:1px solid var(--line);border-radius:100px;padding:4px 10px}
+.pg-tile-in{display:block;padding:clamp(14px,2vw,22px);
+  text-shadow:0 1px 3px rgba(6,8,24,.85),0 2px 18px rgba(6,8,24,.6)}
 .pg-tile-kicker{display:block;font-size:12px;font-weight:700;letter-spacing:.12em;
   text-transform:uppercase;color:var(--marigold);margin-bottom:8px}
 .pg-tile-title{display:block;font-family:var(--display);font-weight:400;
-  font-size:clamp(17px,1.9vw,21px);line-height:1.18;margin-bottom:6px;overflow-wrap:anywhere}
-.pg-tile-line{display:block;font-size:14.5px;line-height:1.55;opacity:.82}
-/* Two by two below 900px. "Ticket2Bollywood" is one 16-character word, and a
-   brand name broken mid-word reads as a fault, so four across only starts
-   where it fits and the title eases down with the tile on a phone. */
+  font-size:clamp(19px,2.2vw,25px);line-height:1.16;margin-bottom:6px;overflow-wrap:anywhere}
+.pg-tile-line{display:block;font-size:14.5px;line-height:1.5;opacity:.86}
 @media(max-width:900px){
-  .pg-tiles{grid-template-columns:1fr 1fr}
-  .pg-tile-title{font-size:clamp(11.5px,3.6vw,21px)}
+  .pg-tile{flex-basis:calc((100% - var(--gap)) / 2.15)}
 }
-@media(max-width:720px){
-  .pg-tile.has-photo{min-height:150px}
-}
-@media(max-width:480px){
-  .pg-tile-line{display:none}
+@media(max-width:560px){
+  .pg-tile{flex-basis:78%;min-height:200px}
   .pg-tile-kicker{font-size:11px;margin-bottom:6px}
+  .pg-tile-line{font-size:14px}
 }
 
 /* ---------------- the day bar ---------------- */
@@ -903,20 +930,18 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
    a heading at the site's h2 size, a line under it, then cards. With a
    photograph the heading sits on it, full bleed, the way the Atomium band
    does on the landing page. Without one there is simply no band. */
-.pg-ch{padding-top:clamp(52px,8vw,96px)}
-/* The day still warms as it goes, but as light on the same ground rather than
-   as a change of ground: a pale glow at noon, gold in the afternoon, saffron
-   and magenta by evening. The same radial light the body and the sign-up
-   section use. */
-/* Each ellipse is half the section tall and centred in it, so it has faded to
-   nothing by the top and bottom edges and no seam shows between chapters. */
-#chapter-welcome{background:radial-gradient(ellipse 60% 50% at 6% 50%, rgba(246,223,166,.13), transparent)}
-#chapter-heritage{background:radial-gradient(ellipse 60% 50% at 6% 50%, rgba(232,163,59,.14), transparent)}
-#chapter-colours{background:
-  radial-gradient(ellipse 60% 50% at 6% 50%, rgba(255,153,51,.15), transparent),
-  radial-gradient(ellipse 50% 50% at 96% 50%, rgba(126,44,92,.26), transparent)}
-/* With a photograph the band is the light, so the glow steps aside. */
-.pg-ch:has(> .pg-band.has-photo){background:none}
+/* Each chapter has a ground of its own, taken from its photograph: the blue
+   of the daytime sky, the red of the stage, the gold of the evening haze. All
+   three are kept as dark as the night ground, so the cards and the type stay
+   exactly what they are everywhere else on the site and only the hue turns.
+   The colour lives here and nowhere else: none of it is in the markup or the
+   data. --ch is also what the photograph fades into at the foot of the band. */
+.pg-ch{--ch:var(--night);padding-top:clamp(52px,8vw,96px);padding-bottom:clamp(44px,6.5vw,80px);
+  background:linear-gradient(180deg, var(--ch), var(--ch2,var(--ch)))}
+.pg-ch:has(> .pg-band.has-photo){padding-top:0}
+#chapter-welcome{--ch:#0E2B40;--ch2:#0B1F33}
+#chapter-heritage{--ch:#3A0C18;--ch2:#260A19}
+#chapter-colours{--ch:#30260A;--ch2:#211A0B}
 .pg-band{position:relative;isolation:isolate}
 .pg-band.has-photo{display:flex;align-items:flex-end;overflow:hidden;
   min-height:clamp(260px,34vw,420px)}
@@ -926,6 +951,18 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
   /* Dark only where the words are. The first pass dimmed the whole frame and
      the photograph, which is the point of the band, barely showed. */
   background:linear-gradient(to top, rgba(11,14,36,.94), rgba(11,14,36,.62) 34%, rgba(11,14,36,0) 72%)}
+/* The same fade, into the chapter's own ground instead of the night. */
+@supports (background:color-mix(in srgb, red 50%, transparent)){
+  .pg-ch .pg-band.has-photo::after{background:linear-gradient(to top, var(--ch),
+    color-mix(in srgb, var(--ch) 64%, transparent) 34%, transparent 72%)}
+}
+/* On a phone the words climb higher up the photograph, so the fade does too. */
+@media(max-width:760px){
+  @supports (background:color-mix(in srgb, red 50%, transparent)){
+    .pg-ch .pg-band.has-photo::after{background:linear-gradient(to top, var(--ch),
+      color-mix(in srgb, var(--ch) 72%, transparent) 46%, transparent 88%)}
+  }
+}
 .pg-band.has-photo .pg-band-in{padding-block:clamp(22px,3vw,36px);
   text-shadow:0 1px 3px rgba(6,8,24,.85),0 2px 22px rgba(6,8,24,.7)}
 /* The site's kicker. The day leads it, in ink, so every chapter says which
@@ -934,7 +971,7 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
   text-transform:uppercase;color:var(--marigold)}
 .pg-band-day{color:var(--ink)}
 .pg-band-hi{font-family:var(--display);font-weight:400;font-size:22px;line-height:1.35;
-  color:var(--marigold);margin:0}
+  color:var(--marigold);margin:6px 0 0}
 /* The site's h2, to the pixel. */
 .pg-band-h{font-family:var(--display);font-weight:400;line-height:1.08;letter-spacing:-.01em;
   font-size:clamp(1.9rem,4.6vw,3.2rem);color:var(--ink);margin:0}
@@ -1004,8 +1041,8 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
 .pg-pill-gold{color:var(--marigold)}
 .pg-pill-ink{color:var(--ink-2)}
 .pg-pill-ink::before{content:"\00B7";margin:0 .6em}
-.pg-feat-hi{font-family:var(--display);font-weight:400;font-size:20px;line-height:1.35;
-  color:var(--marigold);margin:0}
+.pg-feat-hi{font-family:var(--display);font-weight:400;font-size:20px;line-height:1;
+  color:var(--marigold);margin-left:.35em}
 .pg-feat-name{font-family:var(--display);font-weight:400;line-height:1.1;
   font-size:clamp(26px,3.6vw,38px);color:var(--ink);margin:0 0 6px}
 .pg-feat-title{margin:0 0 12px;font-size:16.5px;font-weight:600;color:var(--ember)}
@@ -1024,7 +1061,7 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
    rest of the site: a marigold rule, a pool of warm light of the kind the
    sign-up section has, and a title one step above the other chapters. It
    still stays under the landing page's own h1. */
-.pg-t2b{margin-top:clamp(52px,8vw,96px);padding-block:clamp(52px,8vw,96px);
+.pg-t2b{--ch:var(--night);padding-block:clamp(52px,8vw,96px);
   border-top:1px solid rgba(232,163,59,.4);border-bottom:1px solid var(--line);
   background:
     radial-gradient(900px 460px at 16% 0%, rgba(232,163,59,.17), transparent 66%),
@@ -1089,6 +1126,9 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
   line-height:1.18;color:var(--marigold)}
 .pg-between-l{margin:0;font-size:15px;line-height:1.6;color:var(--ink);opacity:.82}
 @media(max-width:560px){.pg-between-row{grid-template-columns:1fr 1fr}}
+/* The small print: the programme can still move. */
+.pg-fine{margin:clamp(28px,4vw,44px) 0 0;font-size:12.5px;line-height:1.6;color:var(--ink-3);
+  text-align:center}
 
 @media(prefers-reduced-motion:reduce){
   .pg-day,.pg-day-img,.pg-tile{transition:none}

@@ -17,7 +17,10 @@
     "both_days": {"en": "Saturday and Sunday", "fr": "Samedi et dimanche", "nl": "Zaterdag en zondag"},
     "between": {"en": "Between the acts", "fr": "Entre les spectacles", "nl": "Tussen de optredens"},
     "ticket_heading": {"en": "One ticket. Come Saturday or Sunday, or both.", "fr": "Un billet. Venez samedi ou dimanche, ou les deux.", "nl": "Eén ticket. Kom zaterdag of zondag, of allebei."},
-    "dont_miss": {"en": "Don't miss", "fr": "À ne pas manquer", "nl": "Niet te missen"}
+    "dont_miss": {"en": "Don't miss", "fr": "À ne pas manquer", "nl": "Niet te missen"},
+    "disclaimer": {"en": "This programme is subject to change and modification.", "fr": "Ce programme est susceptible d'être modifié.", "nl": "Dit programma kan nog wijzigen."},
+    "prev": {"en": "Previous", "fr": "Précédent", "nl": "Vorige"},
+    "next": {"en": "Next", "fr": "Suivant", "nl": "Volgende"}
   },
   "jump": [
     {
@@ -35,6 +38,59 @@
     {
       "href": "#chapter-t2b",
       "label": {"en": "Party", "fr": "Fête", "nl": "Feest"}
+    }
+  ],
+  "highlights": [
+    {
+      "kicker": {"en": "The party", "fr": "La fête", "nl": "Het feest"},
+      "title": {"en": "Ticket2Bollywood", "fr": "Ticket2Bollywood", "nl": "Ticket2Bollywood"},
+      "line": {"en": "The Bollywood night returns, with DJ Nitro and DJ Param.", "fr": "La soirée Bollywood revient, avec DJ Nitro et DJ Param.", "nl": "De Bollywoodnacht is terug, met DJ Nitro en DJ Param."},
+      "photo": "t2b-bollywood",
+      "href": "#chapter-t2b"
+    },
+    {
+      "kicker": {"en": "The fireworks", "fr": "Le feu d'artifice", "nl": "Het vuurwerk"},
+      "title": {"en": "Diwali in the Sky", "fr": "Diwali dans le ciel", "nl": "Diwali in de lucht"},
+      "line": {"en": "Above the Atomium, both nights.", "fr": "Au-dessus de l'Atomium, les deux soirs.", "nl": "Boven het Atomium, beide avonden."},
+      "photo": "fireworks",
+      "href": "#chapter-t2b"
+    },
+    {
+      "kicker": {"en": "Exclusive concert", "fr": "Concert exclusif", "nl": "Exclusief concert"},
+      "title": {"en": "Dr. Suryaprakash", "fr": "Dr. Suryaprakash", "nl": "Dr. Suryaprakash"},
+      "line": {"en": "Vidwan of the Festival", "fr": "Vidwan du Festival", "nl": "Vidwan van het Festival"},
+      "photo": "suryaprakash",
+      "href": "#chapter-heritage",
+      "day": "saturday"
+    },
+    {
+      "kicker": {"en": "Glamour", "fr": "Glamour", "nl": "Glamour"},
+      "title": {"en": "Brides of India", "fr": "Brides of India", "nl": "Brides of India"},
+      "line": {"en": "One country, many weddings: a bridal journey.", "fr": "Un pays, tant de mariages : un voyage nuptial.", "nl": "Eén land, vele bruiloften: een reis langs de bruidstradities."},
+      "photo": "brides",
+      "href": "#chapter-colours",
+      "day": "sunday"
+    },
+    {
+      "kicker": {"en": "Headliner", "fr": "Tête d'affiche", "nl": "Headliner"},
+      "title": {"en": "DJ Param", "fr": "DJ Param", "nl": "DJ Param"},
+      "line": {"en": "The best Indian DJ in Europe", "fr": "Le meilleur DJ indien d'Europe", "nl": "De beste Indiase dj van Europa"},
+      "photo": "dj-param",
+      "href": "#chapter-t2b"
+    },
+    {
+      "kicker": {"en": "Punjab", "fr": "Pendjab", "nl": "Punjab"},
+      "title": {"en": "Pind: a Journey to the Punjabi Village", "fr": "Pind : un voyage au village pendjabi", "nl": "Pind: een reis naar het Punjabi dorp"},
+      "line": {"en": "The beat and the joy of rural Punjab.", "fr": "Le rythme et la joie du Pendjab rural.", "nl": "Het ritme en de vreugde van het landelijke Punjab."},
+      "photo": "pind",
+      "href": "#chapter-colours"
+    },
+    {
+      "kicker": {"en": "South India", "fr": "Inde du Sud", "nl": "Zuid-India"},
+      "title": {"en": "Tollywood Fire", "fr": "Tollywood Fire", "nl": "Tollywood Fire"},
+      "line": {"en": "The pulse of Telugu cinema.", "fr": "Le pouls du cinéma télougou.", "nl": "De hartslag van de Telugu-cinema."},
+      "photo": "tollywood",
+      "href": "#chapter-colours"
     }
   ],
   "days": [
@@ -55,44 +111,10 @@
       "see": {"en": "See Saturday: Traditions", "fr": "Voir le samedi : Traditions", "nl": "Bekijk zaterdag: Tradities"},
       "feature": "suryaprakash",
       "chapters": {
-        "welcome": ["lamps", "parade"],
+        "welcome": ["lamps", "procession", "pooja", "offering"],
         "heritage": ["vandana", "ganesha", "spice-route", "little-india", "ramayana", "magic", "saree", "conservatory"],
         "colours": ["tollywood", "ghoomar", "hiphop", "kathak", "dakshin", "devi", "address", "pind"]
-      },
-      "highlights": [
-        {
-          "kicker": {"en": "The party", "fr": "La fête", "nl": "Het feest"},
-          "title": {"en": "Ticket2Bollywood", "fr": "Ticket2Bollywood", "nl": "Ticket2Bollywood"},
-          "line": {"en": "The Bollywood night returns, with DJ Nitro and DJ Param.", "fr": "La soirée Bollywood revient, avec DJ Nitro et DJ Param.", "nl": "De Bollywoodnacht is terug, met DJ Nitro en DJ Param."},
-          "photo": "chapter-t2b",
-          "href": "#chapter-t2b",
-          "lead": true
-        },
-        {
-          "kicker": {"en": "The fireworks", "fr": "Le feu d'artifice", "nl": "Het vuurwerk"},
-          "title": {"en": "Diwali in the Sky", "fr": "Diwali dans le ciel", "nl": "Diwali in de lucht"},
-          "line": {"en": "Above the Atomium, both nights.", "fr": "Au-dessus de l'Atomium, les deux soirs.", "nl": "Boven het Atomium, beide avonden."},
-          "photo": "fireworks",
-          "href": "#chapter-t2b",
-          "lead": false
-        },
-        {
-          "kicker": {"en": "For families", "fr": "En famille", "nl": "Voor families"},
-          "title": {"en": "Jadoo: the Indian Magic Show", "fr": "Jadoo : le spectacle de magie indien", "nl": "Jadoo: de Indiase goochelshow"},
-          "line": {"en": "Wonder for children of every age.", "fr": "De l'émerveillement pour les enfants de tous les âges.", "nl": "Verwondering voor kinderen van alle leeftijden."},
-          "photo": "magic",
-          "href": "#chapter-heritage",
-          "lead": false
-        },
-        {
-          "kicker": {"en": "The food", "fr": "La cuisine", "nl": "Het eten"},
-          "title": {"en": "A Taste of Every Region", "fr": "Les saveurs de toutes les régions", "nl": "De smaken van elke regio"},
-          "line": {"en": "Chaat, dosa and jalebi, region by region.", "fr": "Chaat, dosa et jalebi, région par région.", "nl": "Chaat, dosa en jalebi, regio per regio."},
-          "photo": "food",
-          "href": "#between",
-          "lead": false
-        }
-      ]
+      }
     },
     {
       "id": "sunday",
@@ -111,44 +133,10 @@
       "see": {"en": "See Sunday: Encounters", "fr": "Voir le dimanche : Rencontres", "nl": "Bekijk zondag: Ontmoetingen"},
       "feature": null,
       "chapters": {
-        "welcome": ["lamps", "kirtan"],
+        "welcome": ["lamps", "pooja", "offering", "kirtan"],
         "heritage": ["ramayana", "odissi", "saree", "hiphop", "conservatory", "devi", "collaborations"],
         "colours": ["dakshin", "tollywood", "kathak", "brides", "ganesha", "pind", "ghoomar"]
-      },
-      "highlights": [
-        {
-          "kicker": {"en": "The party", "fr": "La fête", "nl": "Het feest"},
-          "title": {"en": "Ticket2Bollywood", "fr": "Ticket2Bollywood", "nl": "Ticket2Bollywood"},
-          "line": {"en": "The Bollywood night returns, with DJ Nitro and DJ Param.", "fr": "La soirée Bollywood revient, avec DJ Nitro et DJ Param.", "nl": "De Bollywoodnacht is terug, met DJ Nitro en DJ Param."},
-          "photo": "chapter-t2b",
-          "href": "#chapter-t2b",
-          "lead": true
-        },
-        {
-          "kicker": {"en": "The fireworks", "fr": "Le feu d'artifice", "nl": "Het vuurwerk"},
-          "title": {"en": "Diwali in the Sky", "fr": "Diwali dans le ciel", "nl": "Diwali in de lucht"},
-          "line": {"en": "Above the Atomium, both nights.", "fr": "Au-dessus de l'Atomium, les deux soirs.", "nl": "Boven het Atomium, beide avonden."},
-          "photo": "fireworks",
-          "href": "#chapter-t2b",
-          "lead": false
-        },
-        {
-          "kicker": {"en": "Glamour", "fr": "Glamour", "nl": "Glamour"},
-          "title": {"en": "Brides of India", "fr": "Brides of India", "nl": "Brides of India"},
-          "line": {"en": "One country, many weddings: a bridal journey.", "fr": "Un pays, tant de mariages : un voyage nuptial.", "nl": "Eén land, vele bruiloften: een reis langs de bruidstradities."},
-          "photo": "brides",
-          "href": "#chapter-colours",
-          "lead": false
-        },
-        {
-          "kicker": {"en": "The food", "fr": "La cuisine", "nl": "Het eten"},
-          "title": {"en": "A Taste of Every Region", "fr": "Les saveurs de toutes les régions", "nl": "De smaken van elke regio"},
-          "line": {"en": "Chaat, dosa and jalebi, region by region.", "fr": "Chaat, dosa et jalebi, région par région.", "nl": "Chaat, dosa en jalebi, regio per regio."},
-          "photo": "food",
-          "href": "#between",
-          "lead": false
-        }
-      ]
+      }
     }
   ],
   "chapters": [
@@ -159,7 +147,7 @@
       "when": {"en": "From noon", "fr": "Dès midi", "nl": "Vanaf de middag"},
       "hindi": "स्वागत",
       "title": {"en": "The Welcome", "fr": "La Bienvenue", "nl": "Het Welkom"},
-      "promise": {"en": "Lamps, colour and music to open the day.", "fr": "Des lampes, des couleurs et de la musique pour ouvrir la journée.", "nl": "Lampen, kleur en muziek om de dag te openen."},
+      "promise": {"en": "Lamps, music and the pooja for world peace and harmony.", "fr": "Des lampes, de la musique et la pooja pour la paix et l'harmonie dans le monde.", "nl": "Lampen, muziek en de pooja voor wereldvrede en harmonie."},
       "alt": {"en": "Lamps being lit at the opening of the festival", "fr": "L'allumage des lampes à l'ouverture du festival", "nl": "Lampen worden aangestoken bij de opening van het festival"}
     },
     {
@@ -199,13 +187,25 @@
       "id": "lamps",
       "tag": {"en": "Opening", "fr": "Ouverture", "nl": "Opening"},
       "name": {"en": "Lighting the Lamps", "fr": "L'allumage des lampes", "nl": "Het aansteken van de lampen"},
-      "line": {"en": "The traditional opening of Diwali. Everyone is welcome.", "fr": "L'ouverture traditionnelle de Diwali. Tout le monde est le bienvenu.", "nl": "De traditionele opening van Diwali. Iedereen is welkom."}
+      "line": {"en": "The story of Diwali, told as the festival opens.", "fr": "L'histoire de Diwali, racontée à l'ouverture du festival.", "nl": "Het verhaal van Diwali, verteld bij de opening van het festival."}
     },
     {
-      "id": "parade",
-      "tag": {"en": "Parade", "fr": "Parade", "nl": "Optocht"},
-      "name": {"en": "The Festival Parade", "fr": "La parade du festival", "nl": "De festivaloptocht"},
-      "line": {"en": "Through the festival, in music and colour.", "fr": "À travers le festival, en musique et en couleurs.", "nl": "Door het festival, met muziek en kleur."}
+      "id": "procession",
+      "tag": {"en": "Procession", "fr": "Procession", "nl": "Processie"},
+      "name": {"en": "The Procession", "fr": "La procession", "nl": "De processie"},
+      "line": {"en": "To the festival temple, in music and colour.", "fr": "Vers le temple du festival, en musique et en couleurs.", "nl": "Naar de festivaltempel, met muziek en kleur."}
+    },
+    {
+      "id": "pooja",
+      "tag": {"en": "Ceremony", "fr": "Cérémonie", "nl": "Ceremonie"},
+      "name": {"en": "Pooja for World Peace and Harmony", "fr": "Pooja pour la paix et l'harmonie dans le monde", "nl": "Pooja voor wereldvrede en harmonie"},
+      "line": {"en": "The heart of the festival. Everyone is welcome.", "fr": "Le cœur du festival. Tout le monde est le bienvenu.", "nl": "Het hart van het festival. Iedereen is welkom."}
+    },
+    {
+      "id": "offering",
+      "tag": {"en": "Classical dance", "fr": "Danse classique", "nl": "Klassieke dans"},
+      "name": {"en": "An Offering in Dance", "fr": "Une offrande dansée", "nl": "Een offer in dans"},
+      "line": {"en": "Classical dance, offered as the day begins.", "fr": "La danse classique, offerte en ouverture de la journée.", "nl": "Klassieke dans, opgedragen bij het begin van de dag."}
     },
     {
       "id": "kirtan",
