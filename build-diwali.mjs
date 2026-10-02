@@ -676,6 +676,12 @@ ${newsBlock()}
      placeholder: the band falls back to flat colour and the card to text. */
   const prPhoto = (stem, opts) => (stem && PIMG.entry(stem) ? PIMG.tag(stem, opts) : '');
 
+  /* The party's name set as a wordmark: the 2 takes the accent colour, the way
+     a logo would. Used where the name stands as a title, never in running
+     text. The input is escaped first, so the span is the only markup. */
+  const t2bMark = v => esc(v).replace('Ticket2Bollywood',
+    'Ticket<span class="pg-t2b-2">2</span>Bollywood');
+
   function programmeMain(day) {
     const other = OTHER_DAY(day);
     const ui = PR.ui;
@@ -723,7 +729,7 @@ ${newsBlock()}
         <span class="pg-tile-when">${e(own ? own.only : ui.both_days)}</span>
         <span class="pg-tile-in">
           <span class="pg-tile-kicker">${e(h.kicker)}</span>
-          <span class="pg-tile-title">${e(h.title)}</span>
+          <span class="pg-tile-title">${t2bMark(t(h.title))}</span>
           <span class="pg-tile-line">${e(h.line)}</span>
         </span>
       </a>`;
@@ -1018,7 +1024,7 @@ ${newsBlock()}
     pill: e(ui.both_days),
     label: e(t2b.when),
     kicker: e(t2b.kicker),
-    title: esc(t2b.title),
+    title: t2bMark(t2b.title),
   })}
   <div class="pg-body pg-t2b-body-wrap">
     <div class="wrap">

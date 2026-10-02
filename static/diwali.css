@@ -1075,6 +1075,8 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
   /* One long token: at 320px it must be allowed to break rather than push the
      page sideways. */
   overflow-wrap:anywhere}
+/* The 2 in Ticket2Bollywood, in the accent colour, so the name reads as a mark. */
+.pg-t2b-2{color:var(--marigold)}
 .pg-t2b-intro{margin:0 0 26px;font-size:clamp(1.02rem,2vw,1.16rem);line-height:1.62;
   color:var(--ink);opacity:.86;max-width:60ch}
 .pg-t2b-cards{display:grid;gap:clamp(12px,1.6vw,18px);
