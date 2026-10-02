@@ -66,6 +66,30 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # The ladder, kept between runs. images.mjs already skips any stem whose
+      # source still hashes to what the cache recorded, so a hit turns a twelve
+      # minute re-encode of every photograph into a few seconds of copying.
+      #
+      # Keyed on the photographs themselves rather than the commit: adding one
+      # picture should re-encode that picture, not all of them. restore-keys
+      # takes the newest earlier cache when the key misses, so the new photo is
+      # the only work. images.json lives beside the ladder and holds the hash
+      # per stem, so both have to travel together or every stem looks stale.
+      #
+      # The key does not cover images.mjs: the freshness test inside it compares
+      # the source photograph's hash, so changing a quality setting or a width
+      # would be reused rather than re-encoded. Clear the cache by hand on the
+      # day those change.
+      - name: Cache the image ladder
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache/img
+            .cache/images.json
+          key: img-${{ runner.os }}-${{ hashFiles('media/**') }}
+          restore-keys: |
+            img-${{ runner.os }}-
+
       # set -e is the default for run steps; it is written out here because
       # a silent build failure would publish a stale or empty dist-diwali.
       - name: Build the site
