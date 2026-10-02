@@ -686,9 +686,11 @@ ${newsBlock()}
       /* The day and the date lead the card: that is the decision being made
          here. The theme word is the second line, not the first. Each day has
          a photograph of its own behind the words, when one has been supplied. */
-      const pic = prPhoto(x.photo, {
-        alt: '', sizes: '(max-width:720px) 50vw, 620px', className: 'pg-day-img', eager: true,
-      });
+      /* Until a day has a photograph of its own it borrows one of its acts,
+         named in the data, so the card is never a bare box. The day's own
+         photo takes over the moment it is dropped into the folder. */
+      const dayOpts = { alt: '', sizes: '(max-width:720px) 50vw, 620px', className: 'pg-day-img', eager: true };
+      const pic = prPhoto(x.photo, dayOpts) || prPhoto(x.photo_until, dayOpts);
       return `<a class="pg-day${here ? ' is-here' : ''}" href="${PROGRAMME_OF[x.id][lang]}"${
         here ? ' aria-current="page"' : ''}>
       ${pic}
@@ -1598,7 +1600,7 @@ IMG.save();
     ...PR.acts.map(a => a.id),
     ...PR.t2b.items.map(i => i.id),
     ...(PR.highlights || []).map(h => h.photo),
-    ...PR.days.map(x => x.photo),
+    ...PR.days.flatMap(x => [x.photo, x.photo_until]),
   ].filter(Boolean);
 
   const missing = [];
