@@ -63,11 +63,22 @@ for (const file of files) {
 
   /* fit:'inside' sizes the long side whichever one it is, so portrait and
      landscape need no separate case. Nothing is enlarged. */
-  const out = await sharp(buf)
+  let pipe = sharp(buf)
     .rotate()
-    .resize({ width: MAX, height: MAX, fit: 'inside', withoutEnlargement: true })
-    .jpeg({ quality: QUALITY, progressive: true, mozjpeg: true })
-    .toBuffer();
+    .resize({ width: MAX, height: MAX, fit: 'inside', withoutEnlargement: true });
+
+  /* The file keeps the format its name claims. Writing JPEG bytes into a .png
+     would leave the folder lying about itself, and renaming a file is the
+     photographer's call, not this script's. A photograph stored as PNG stays a
+     large PNG; the line printed below says how much that costs. */
+  const ext = extname(file).toLowerCase();
+  pipe = ext === '.png' ? pipe.png({ compressionLevel: 9 })
+    : ext === '.webp' ? pipe.webp({ quality: QUALITY })
+    : ext === '.avif' ? pipe.avif({ quality: 60 })
+    : ext === '.tif' || ext === '.tiff' ? pipe.tiff()
+    : pipe.jpeg({ quality: QUALITY, progressive: true, mozjpeg: true });
+
+  const out = await pipe.toBuffer();
 
   writeFileSync(path, out);
   const now = await sharp(out).metadata();
