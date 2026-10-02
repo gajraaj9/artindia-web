@@ -523,6 +523,15 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
   line-height:1.1;margin:0 0 12px;color:var(--marigold);
   min-height:1.65rem;display:flex;align-items:flex-end}
 .sense p{margin:0;font-size:15px;line-height:1.6;color:var(--ink-2);flex:1 1 auto}
+/* On a phone the five "What awaits you" cards become one row swiped sideways
+   instead of five stacked cards. */
+@media(max-width:759px){
+  .senses{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch;margin-top:22px;
+    margin-inline:calc(var(--pad) * -1);padding-inline:var(--pad);scroll-padding-inline:var(--pad)}
+  .senses::-webkit-scrollbar{display:none}
+  .sense{flex:0 0 78%;scroll-snap-align:start;height:auto}
+}
 
 /* ---------------- panel galleries ---------------- */
 /* Swipeable rail, one photograph at a time, snapping so a half image is never

@@ -1184,8 +1184,11 @@ if(want!=='en')location.replace(P[want]);})();`;
   const mainBlock = page === 'programme' ? programmeMain(day)
     : page === 'partners' ? partnersMain() : `<main>
 ${atomiumStrip()}
-${awaits()}
-${PROGRAMME_PUBLIC ? programmeTeaser() : timeline()}
+${/* Once the programme is public it is the strongest thing on the page, so it
+     goes above What awaits you rather than under it. While it is hidden the
+     hour-by-hour block is all there is, and the old order stands. */
+  PROGRAMME_PUBLIC ? programmeTeaser() + '\n' + awaits()
+    : awaits() + '\n' + timeline()}
 ${tickets()}
 ${kids()}
 ${lamps()}
@@ -1225,7 +1228,8 @@ ${alternates}
 </head>
 <body${page === 'programme' ? ' class="page-programme"' : ''}>
 <a class="skip" href="${
-  page === 'programme' ? '#programme-main' : page === 'partners' ? '#partners-main' : '#awaits'}">${e(d.ui.skip)}</a>
+  page === 'programme' ? '#programme-main' : page === 'partners' ? '#partners-main'
+    : PROGRAMME_PUBLIC ? '#programme' : '#awaits'}">${e(d.ui.skip)}</a>
 <nav class="topbar">
   <div class="wrap bar">
     <div class="bar-left">
