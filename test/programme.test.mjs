@@ -48,24 +48,69 @@ test('the six pages are built', () => {
   }
 });
 
-test('hidden while the flag is off: noindex, out of the sitemap, nothing links in', () => {
-  assert.equal(PUBLIC, false, 'this suite describes the hidden state; flip it back');
+/* One switch, two states, and this check follows whichever one the flag is in,
+   so turning the programme on is a one-line change to data/diwali.json and
+   the suite then proves the public state instead of refusing it. */
+const HOME = ['index.html', 'fr/index.html', 'nl/index.html'];
+const PARTNERS = ['partners/index.html', 'fr/partners/index.html', 'nl/partners/index.html'];
+/* A link to the page itself, not the #programme anchor the footer has always
+   carried. */
+const linkIn = /href="\/(?:fr\/|nl\/)?programme\//;
 
+test('hidden while the flag is off: noindex, out of the sitemap, nothing links in', { skip: PUBLIC }, () => {
   for (const [name, h] of Object.entries(html)) {
     assert.match(h, /<meta name="robots" content="noindex, nofollow">/,
       `${name} is missing its noindex`);
   }
-
-  const sitemap = read('sitemap.xml');
-  assert.ok(!sitemap.includes('/programme'), 'sitemap names the programme while it is hidden');
-
-  /* A link to the page itself, not the #programme anchor the footer has always
-     carried. Only the six may point at each other. */
-  const linkIn = /href="\/(?:fr\/|nl\/)?programme\//;
-  const elsewhere = ['index.html', 'fr/index.html', 'nl/index.html',
-    'partners/index.html', 'fr/partners/index.html', 'nl/partners/index.html'];
-  for (const rel of elsewhere) {
+  assert.ok(!read('sitemap.xml').includes('/programme'), 'sitemap names the programme while it is hidden');
+  /* Only the six may point at each other. */
+  for (const rel of [...HOME, ...PARTNERS]) {
     assert.ok(!linkIn.test(read(rel)), `${rel} links to the programme while it is hidden`);
+  }
+  /* The home page keeps the block it has always had until the switch. */
+  for (const rel of HOME) {
+    assert.ok(read(rel).includes('class="band timeline" id="programme"'), `${rel} lost its programme block`);
+    assert.ok(!read(rel).includes('pg-home'), `${rel} shows the teaser while the programme is hidden`);
+  }
+});
+
+test('public once the flag is on: indexed, in the sitemap, and the home page leads in', { skip: !PUBLIC }, () => {
+  for (const [name, h] of Object.entries(html)) {
+    assert.ok(!/<meta name="robots" content="noindex/.test(h), `${name} is still noindex`);
+  }
+  const sitemap = read('sitemap.xml');
+  for (const path of ['/programme/', '/programme/sunday/', '/fr/programme/', '/fr/programme/sunday/',
+    '/nl/programme/', '/nl/programme/sunday/']) {
+    assert.ok(sitemap.includes(path), `sitemap is missing ${path}`);
+  }
+  /* The header nav on every page now goes to the programme. */
+  for (const rel of [...HOME, ...PARTNERS]) {
+    assert.ok(linkIn.test(read(rel)), `${rel} does not link to the programme`);
+  }
+  /* The home page: the teaser in place of the hour-by-hour block, built from
+     the programme's own highlights and days, every link leading into it. */
+  for (const rel of HOME) {
+    const h = read(rel);
+    const root = rel === 'index.html' ? '' : `/${rel.split('/')[0]}`;
+    assert.ok(h.includes('class="band pg-home" id="programme"'), `${rel} has no programme teaser`);
+    assert.ok(!h.includes('class="band timeline"'), `${rel} still shows the hour-by-hour block`);
+    const sec = h.slice(h.indexOf('class="band pg-home"'));
+    const teaser = sec.slice(0, sec.indexOf('</section>'));
+    assert.equal((teaser.match(/<a class="pg-tile/g) || []).length, PR.highlights.length,
+      `${rel} does not carry every highlight`);
+    assert.equal((teaser.match(/class="pg-day is-open"/g) || []).length, 2,
+      `${rel} should offer both days, neither marked as current`);
+    assert.ok(!teaser.includes('is-here'), `${rel} marks a day as the current page`);
+    for (const to of [`${root}/programme/`, `${root}/programme/sunday/`]) {
+      assert.ok(teaser.includes(`href="${to}"`), `${rel} teaser does not link to ${to}`);
+    }
+    const hrefs = [...teaser.matchAll(/<a [^>]*href="([^"]+)"/g)].map(m => m[1]);
+    for (const href of hrefs) {
+      assert.ok(href.startsWith(`${root}/programme/`), `${rel} teaser links somewhere else: ${href}`);
+    }
+    for (const banned of ['Avenue of Lights', 'Jashn', '—']) {
+      assert.ok(!teaser.includes(banned), `${rel} teaser says "${banned}"`);
+    }
   }
 });
 

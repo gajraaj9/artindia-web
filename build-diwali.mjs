@@ -682,22 +682,21 @@ ${newsBlock()}
   const t2bMark = v => esc(v).replace('Ticket2Bollywood',
     'Ticket<span class="pg-t2b-2">2</span>Bollywood');
 
-  function programmeMain(day) {
-    const other = OTHER_DAY(day);
-    const ui = PR.ui;
+  const ui = PR.ui;
 
-    /* The two day cards at the top, and the two pills in the day bar. */
-    function dayCard(x) {
-      const here = x.id === day.id;
+  /* The two day cards. On a programme page one of them is the page you are on;
+     on the home page neither is, and both are simply ways in. */
+    function dayCard(x, cur) {
+      const here = Boolean(cur) && x.id === cur.id;
       /* The day and the date lead the card: that is the decision being made
          here. The theme word is the second line, not the first. Each day has
          a photograph of its own behind the words, when one has been supplied. */
       /* Until a day has a photograph of its own it borrows one of its acts,
          named in the data, so the card is never a bare box. The day's own
          photo takes over the moment it is dropped into the folder. */
-      const dayOpts = { alt: '', sizes: '(max-width:720px) 50vw, 620px', className: 'pg-day-img', eager: true };
+      const dayOpts = { alt: '', sizes: '(max-width:720px) 50vw, 620px', className: 'pg-day-img', eager: Boolean(cur) };
       const pic = prPhoto(x.photo, dayOpts) || prPhoto(x.photo_until, dayOpts);
-      return `<a class="pg-day${here ? ' is-here' : ''}" href="${PROGRAMME_OF[x.id][lang]}"${
+      return `<a class="pg-day${here ? ' is-here' : ''}${cur ? '' : ' is-open'}" href="${PROGRAMME_OF[x.id][lang]}"${
         here ? ' aria-current="page"' : ''}>
       ${pic}
       <span class="pg-day-name">${e(x.button)}</span>
@@ -705,7 +704,7 @@ ${newsBlock()}
       <span class="pg-day-theme"><span class="pg-day-word">${e(x.word)}</span>
         <span class="pg-day-hi" lang="hi">${esc(x.hindi)}</span></span>
       <span class="pg-day-tag">${e(x.tagline)}</span>
-      <span class="pg-day-pill">${e(here ? ui.now_showing : ui.tap_to_view)}</span>
+      <span class="pg-day-pill">${e(here ? ui.now_showing : cur ? ui.tap_to_view : ui.see_day)}</span>
     </a>`;
     }
 
@@ -716,6 +715,7 @@ ${newsBlock()}
        page. The row is a plain sideways scroller with scroll snap, so it is
        whole with JavaScript off; the script below turns it into one slow,
        continuous roll. */
+    function missBlock(cur) {
     const BY_ID = Object.fromEntries(PR.days.map(x => [x.id, x]));
     const tiles = (PR.highlights || []).map(h => {
       const pic = prPhoto(h.photo, {
@@ -723,7 +723,11 @@ ${newsBlock()}
       });
       const own = h.day ? BY_ID[h.day] : null;
       if (h.day && !own) throw new Error(`programme: a highlight names a day that does not exist: ${h.day}`);
-      const href = own && own.id !== day.id ? `${PROGRAMME_OF[own.id][lang]}${h.href}` : h.href;
+      /* From the home page every highlight leads into the programme: to its own
+         day if it has one, to Saturday if it plays on both. */
+      const href = cur
+        ? (own && own.id !== cur.id ? `${PROGRAMME_OF[own.id][lang]}${h.href}` : h.href)
+        : `${PROGRAMME_OF[(own || PR.days[0]).id][lang]}${h.href}`;
       return `<a class="pg-tile${pic ? ' has-photo' : ''}" href="${esc(href)}">
         ${pic}
         <span class="pg-tile-when">${e(own ? own.only : ui.both_days)}</span>
@@ -890,6 +894,30 @@ ${newsBlock()}
       requestAnimationFrame(function (t) { last = t; requestAnimationFrame(frame); });
     })();
     </script>` : '';
+    return dontMiss;
+    }
+
+  /* The programme on the home page, once the programme pages are public: the
+     highlights, the two days as two doors, and one button. Everything in it is
+     the programme page's own markup and data, so the two cannot drift apart. */
+  function programmeTeaser() {
+    return `<section class="band pg-home" id="programme">
+  <div class="wrap">
+    <p class="kicker gold">${e(d.timeline.kicker)}</p>
+    <h2 class="section-h">${e(PR.hero.headline)}</h2>
+    <p class="pg-lede">${e(PR.hero.intro)}</p>${missBlock(null)}
+    <p class="pg-choose">${e(PR.hero.choose)}</p>
+    <div class="pg-days">${PR.days.map(x => dayCard(x, null)).join('')}</div>
+    <p class="pg-night">${e(PR.hero.night_line)}</p>
+    <p class="pg-home-more"><a class="pg-home-cta" href="${PROGRAMME_OF[PR.days[0].id][lang]}">${e(ui.home_cta)}</a></p>
+  </div></section>`;
+  }
+
+  function programmeMain(day) {
+    const other = OTHER_DAY(day);
+    const ui = PR.ui;
+
+    const dontMiss = missBlock(day);
 
     const intro = `<section class="pg-intro">
   <div class="wrap">
@@ -897,7 +925,7 @@ ${newsBlock()}
     <h1 class="pg-h1">${e(PR.hero.headline)}</h1>
     <p class="pg-lede">${e(PR.hero.intro)}</p>${dontMiss}
     <p class="pg-choose">${e(PR.hero.choose)}</p>
-    <div class="pg-days">${PR.days.map(dayCard).join('')}</div>
+    <div class="pg-days">${PR.days.map(x => dayCard(x, day)).join('')}</div>
     <p class="pg-night">${e(PR.hero.night_line)}</p>
   </div>
 </section>`;
@@ -1157,7 +1185,7 @@ if(want!=='en')location.replace(P[want]);})();`;
     : page === 'partners' ? partnersMain() : `<main>
 ${atomiumStrip()}
 ${awaits()}
-${timeline()}
+${PROGRAMME_PUBLIC ? programmeTeaser() : timeline()}
 ${tickets()}
 ${kids()}
 ${lamps()}

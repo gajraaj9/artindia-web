@@ -20,7 +20,9 @@
     "dont_miss": {"en": "Don't miss", "fr": "À ne pas manquer", "nl": "Niet te missen"},
     "disclaimer": {"en": "This programme is subject to change and modification.", "fr": "Ce programme est susceptible d'être modifié.", "nl": "Dit programma kan nog wijzigen."},
     "prev": {"en": "Previous", "fr": "Précédent", "nl": "Vorige"},
-    "next": {"en": "Next", "fr": "Suivant", "nl": "Volgende"}
+    "next": {"en": "Next", "fr": "Suivant", "nl": "Volgende"},
+    "see_day": {"en": "See the programme", "fr": "Voir le programme", "nl": "Bekijk het programma"},
+    "home_cta": {"en": "See the full programme", "fr": "Voir tout le programme", "nl": "Bekijk het volledige programma"}
   },
   "jump": [
     {
@@ -147,7 +149,7 @@
       "n": 1,
       "photo": "chapter-welcome",
       "when": {"en": "From noon", "fr": "Dès midi", "nl": "Vanaf de middag"},
-      "hindi": "स्वागत",
+      "hindi": "स्वागतम्",
       "title": {"en": "The Welcome", "fr": "La Bienvenue", "nl": "Het Welkom"},
       "promise": {"en": "Lamps, music and the pooja for world peace and harmony.", "fr": "Des lampes, de la musique et la pooja pour la paix et l'harmonie dans le monde.", "nl": "Lampen, muziek en de pooja voor wereldvrede en harmonie."},
       "alt": {"en": "Lamps being lit at the opening of the festival", "fr": "L'allumage des lampes à l'ouverture du festival", "nl": "Lampen worden aangestoken bij de opening van het festival"}

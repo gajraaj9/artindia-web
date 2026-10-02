@@ -773,6 +773,17 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
 .pg-day:not(.is-here):hover .pg-day-img,
 .pg-day:not(.is-here):focus-visible .pg-day-img{filter:none}
 
+/* On the home page neither day is "the one you are on", so neither steps
+   back: both are doors into the programme. */
+.pg-day.is-open{opacity:1}
+.pg-day.is-open .pg-day-img{filter:none}
+.pg-home .pg-lede{margin-bottom:30px}
+.pg-home-more{margin:clamp(24px,3.4vw,36px) 0 0}
+.pg-home-cta{display:inline-block;font-size:14px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;border:1px solid var(--marigold);border-radius:100px;
+  padding:12px 24px;color:var(--marigold);text-decoration:none}
+.pg-home-cta:hover{background:var(--marigold);color:#1A1000}
+
 /* Day, then date, then everything else. */
 .pg-day-name{font-family:var(--display);font-weight:400;line-height:1.02;
   font-size:clamp(19px,5.6vw,46px);overflow-wrap:anywhere}
