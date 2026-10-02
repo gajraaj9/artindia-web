@@ -1,0 +1,111 @@
+diff --git a/build-diwali.mjs b/build-diwali.mjs
+index f734899..e0e0c4e 100644
+--- a/build-diwali.mjs
++++ b/build-diwali.mjs
+@@ -898,7 +898,8 @@ ${newsBlock()}
+     }
+ 
+   /* The programme on the home page, once the programme pages are public: the
+-     highlights, the two days as two doors, and one button. Everything in it is
++     highlights and one button into the full programme. The choice of day is
++     made on the programme page, not here. Everything in it is
+      the programme page's own markup and data, so the two cannot drift apart. */
+   function programmeTeaser() {
+     return `<section class="band pg-home" id="programme">
+@@ -906,9 +907,6 @@ ${newsBlock()}
+     <p class="kicker gold">${e(d.timeline.kicker)}</p>
+     <h2 class="section-h">${e(PR.hero.headline)}</h2>
+     <p class="pg-lede">${e(PR.hero.intro)}</p>${missBlock(null)}
+-    <p class="pg-choose">${e(PR.hero.choose)}</p>
+-    <div class="pg-days">${PR.days.map(x => dayCard(x, null)).join('')}</div>
+-    <p class="pg-night">${e(PR.hero.night_line)}</p>
+     <p class="pg-home-more"><a class="pg-home-cta" href="${PROGRAMME_OF[PR.days[0].id][lang]}">${e(ui.home_cta)}</a></p>
+   </div></section>`;
+   }
+@@ -923,7 +921,7 @@ ${newsBlock()}
+   <div class="wrap">
+     <p class="pg-kicker">${e(PR.hero.kicker)}</p>
+     <h1 class="pg-h1">${e(PR.hero.headline)}</h1>
+-    <p class="pg-lede">${e(PR.hero.intro)}</p>${dontMiss}
++    <p class="pg-lede">${e(PR.hero.intro)}</p>
+     <p class="pg-choose">${e(PR.hero.choose)}</p>
+     <div class="pg-days">${PR.days.map(x => dayCard(x, day)).join('')}</div>
+     <p class="pg-night">${e(PR.hero.night_line)}</p>
+@@ -1089,11 +1087,20 @@ ${newsBlock()}
+   </div>
+ </section>`;
+ 
++    /* The highlights close the page, between the party and the ticket: by
++       then the day has been read, and this is the reminder of its best parts
++       on the way to buying. The top of the page is the choice of day alone. */
++    const miss = dontMiss ? `<section class="pg-missband" id="dont-miss">
++  <div class="wrap">${dontMiss}
++  </div>
++</section>` : '';
++
+     return `<main id="programme-main">
+ ${intro}
+ ${bar}
+ ${chapters}
+ ${finale}
++${miss}
+ ${ticket}
+ ${between}
+ </main>`;
+diff --git a/static/diwali.css b/static/diwali.css
+index 8a639ab..5e97c13 100644
+--- a/static/diwali.css
++++ b/static/diwali.css
+@@ -830,6 +830,10 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
+    next on a phone, which is what says "there is more". It scrolls by hand
+    with no script at all; with the script it rolls slowly on its own. */
+ .pg-miss{margin:0 0 clamp(30px,4.4vw,48px)}
++/* On the programme page the row stands as a section of its own, after the
++   party and before the ticket. */
++.pg-missband{padding-top:clamp(52px,8vw,96px)}
++.pg-missband .pg-miss{margin-bottom:0}
+ .pg-miss-top{display:flex;align-items:center;justify-content:space-between;gap:12px;
+   margin:0 0 18px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+ .pg-miss-h{margin:0;font-size:12.5px;font-weight:700;letter-spacing:.14em;
+diff --git a/test/programme.test.mjs b/test/programme.test.mjs
+index 3fabac1..a4c8832 100644
+--- a/test/programme.test.mjs
++++ b/test/programme.test.mjs
+@@ -98,12 +98,11 @@ test('public once the flag is on: indexed, in the sitemap, and the home page lea
+     const teaser = sec.slice(0, sec.indexOf('</section>'));
+     assert.equal((teaser.match(/<a class="pg-tile/g) || []).length, PR.highlights.length,
+       `${rel} does not carry every highlight`);
+-    assert.equal((teaser.match(/class="pg-day is-open"/g) || []).length, 2,
+-      `${rel} should offer both days, neither marked as current`);
+-    assert.ok(!teaser.includes('is-here'), `${rel} marks a day as the current page`);
+-    for (const to of [`${root}/programme/`, `${root}/programme/sunday/`]) {
+-      assert.ok(teaser.includes(`href="${to}"`), `${rel} teaser does not link to ${to}`);
+-    }
++    /* The days are chosen on the programme page; the home page carries the
++       highlights and one button. */
++    assert.ok(!teaser.includes('class="pg-day'), `${rel} still shows the day cards`);
++    assert.ok(teaser.includes(`<a class="pg-home-cta" href="${root}/programme/"`),
++      `${rel} has no button into the full programme`);
+     const hrefs = [...teaser.matchAll(/<a [^>]*href="([^"]+)"/g)].map(m => m[1]);
+     for (const href of hrefs) {
+       assert.ok(href.startsWith(`${root}/programme/`), `${rel} teaser links somewhere else: ${href}`);
+@@ -206,14 +205,16 @@ test('the highlights are the list in the data, each pointing somewhere real', ()
+   }
+ });
+ 
+-test('the highlights come before the choice of day, and scroll without a script', () => {
++test('the highlights close the page, before the ticket, and scroll without a script', () => {
+   const css = readFileSync(join(ROOT, 'static/diwali.css'), 'utf8');
+   assert.match(css, /\.pg-tiles\{[^}]*overflow-x:auto[^}]*scroll-snap-type:x/,
+     'the row must scroll by hand when JavaScript is off');
+   for (const [name, h] of Object.entries(html)) {
+     const main = mainOf(h);
+-    assert.ok(main.indexOf('class="pg-tiles"') < main.indexOf('class="pg-days"'),
+-      `${name} puts the day cards above the highlights`);
++    const at = s => main.indexOf(s);
++    assert.ok(at('class="pg-days"') < at('id="chapter-welcome"'), `${name} does not open on the choice of day`);
++    assert.ok(at('id="chapter-t2b"') < at('class="pg-tiles"'), `${name} shows the highlights before the party`);
++    assert.ok(at('class="pg-tiles"') < at('class="pg-ticket"'), `${name} shows the highlights after the ticket`);
+     assert.match(main, /class="pg-miss-nav" hidden/, `${name} shows arrows that need a script`);
+   }
+ });

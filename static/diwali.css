@@ -830,6 +830,10 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
    next on a phone, which is what says "there is more". It scrolls by hand
    with no script at all; with the script it rolls slowly on its own. */
 .pg-miss{margin:0 0 clamp(30px,4.4vw,48px)}
+/* On the programme page the row stands as a section of its own, after the
+   party and before the ticket. */
+.pg-missband{padding-top:clamp(52px,8vw,96px)}
+.pg-missband .pg-miss{margin-bottom:0}
 .pg-miss-top{display:flex;align-items:center;justify-content:space-between;gap:12px;
   margin:0 0 18px;padding-bottom:10px;border-bottom:1px solid var(--line)}
 .pg-miss-h{margin:0;font-size:12.5px;font-weight:700;letter-spacing:.14em;

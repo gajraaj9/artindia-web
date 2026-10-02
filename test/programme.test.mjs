@@ -98,12 +98,11 @@ test('public once the flag is on: indexed, in the sitemap, and the home page lea
     const teaser = sec.slice(0, sec.indexOf('</section>'));
     assert.equal((teaser.match(/<a class="pg-tile/g) || []).length, PR.highlights.length,
       `${rel} does not carry every highlight`);
-    assert.equal((teaser.match(/class="pg-day is-open"/g) || []).length, 2,
-      `${rel} should offer both days, neither marked as current`);
-    assert.ok(!teaser.includes('is-here'), `${rel} marks a day as the current page`);
-    for (const to of [`${root}/programme/`, `${root}/programme/sunday/`]) {
-      assert.ok(teaser.includes(`href="${to}"`), `${rel} teaser does not link to ${to}`);
-    }
+    /* The days are chosen on the programme page; the home page carries the
+       highlights and one button. */
+    assert.ok(!teaser.includes('class="pg-day'), `${rel} still shows the day cards`);
+    assert.ok(teaser.includes(`<a class="pg-home-cta" href="${root}/programme/"`),
+      `${rel} has no button into the full programme`);
     const hrefs = [...teaser.matchAll(/<a [^>]*href="([^"]+)"/g)].map(m => m[1]);
     for (const href of hrefs) {
       assert.ok(href.startsWith(`${root}/programme/`), `${rel} teaser links somewhere else: ${href}`);
@@ -206,14 +205,16 @@ test('the highlights are the list in the data, each pointing somewhere real', ()
   }
 });
 
-test('the highlights come before the choice of day, and scroll without a script', () => {
+test('the highlights close the page, before the ticket, and scroll without a script', () => {
   const css = readFileSync(join(ROOT, 'static/diwali.css'), 'utf8');
   assert.match(css, /\.pg-tiles\{[^}]*overflow-x:auto[^}]*scroll-snap-type:x/,
     'the row must scroll by hand when JavaScript is off');
   for (const [name, h] of Object.entries(html)) {
     const main = mainOf(h);
-    assert.ok(main.indexOf('class="pg-tiles"') < main.indexOf('class="pg-days"'),
-      `${name} puts the day cards above the highlights`);
+    const at = s => main.indexOf(s);
+    assert.ok(at('class="pg-days"') < at('id="chapter-welcome"'), `${name} does not open on the choice of day`);
+    assert.ok(at('id="chapter-t2b"') < at('class="pg-tiles"'), `${name} shows the highlights before the party`);
+    assert.ok(at('class="pg-tiles"') < at('class="pg-ticket"'), `${name} shows the highlights after the ticket`);
     assert.match(main, /class="pg-miss-nav" hidden/, `${name} shows arrows that need a script`);
   }
 });

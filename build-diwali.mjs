@@ -898,7 +898,8 @@ ${newsBlock()}
     }
 
   /* The programme on the home page, once the programme pages are public: the
-     highlights, the two days as two doors, and one button. Everything in it is
+     highlights and one button into the full programme. The choice of day is
+     made on the programme page, not here. Everything in it is
      the programme page's own markup and data, so the two cannot drift apart. */
   function programmeTeaser() {
     return `<section class="band pg-home" id="programme">
@@ -906,9 +907,6 @@ ${newsBlock()}
     <p class="kicker gold">${e(d.timeline.kicker)}</p>
     <h2 class="section-h">${e(PR.hero.headline)}</h2>
     <p class="pg-lede">${e(PR.hero.intro)}</p>${missBlock(null)}
-    <p class="pg-choose">${e(PR.hero.choose)}</p>
-    <div class="pg-days">${PR.days.map(x => dayCard(x, null)).join('')}</div>
-    <p class="pg-night">${e(PR.hero.night_line)}</p>
     <p class="pg-home-more"><a class="pg-home-cta" href="${PROGRAMME_OF[PR.days[0].id][lang]}">${e(ui.home_cta)}</a></p>
   </div></section>`;
   }
@@ -923,7 +921,7 @@ ${newsBlock()}
   <div class="wrap">
     <p class="pg-kicker">${e(PR.hero.kicker)}</p>
     <h1 class="pg-h1">${e(PR.hero.headline)}</h1>
-    <p class="pg-lede">${e(PR.hero.intro)}</p>${dontMiss}
+    <p class="pg-lede">${e(PR.hero.intro)}</p>
     <p class="pg-choose">${e(PR.hero.choose)}</p>
     <div class="pg-days">${PR.days.map(x => dayCard(x, day)).join('')}</div>
     <p class="pg-night">${e(PR.hero.night_line)}</p>
@@ -1089,11 +1087,20 @@ ${newsBlock()}
   </div>
 </section>`;
 
+    /* The highlights close the page, between the party and the ticket: by
+       then the day has been read, and this is the reminder of its best parts
+       on the way to buying. The top of the page is the choice of day alone. */
+    const miss = dontMiss ? `<section class="pg-missband" id="dont-miss">
+  <div class="wrap">${dontMiss}
+  </div>
+</section>` : '';
+
     return `<main id="programme-main">
 ${intro}
 ${bar}
 ${chapters}
 ${finale}
+${miss}
 ${ticket}
 ${between}
 </main>`;
