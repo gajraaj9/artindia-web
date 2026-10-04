@@ -712,12 +712,31 @@ footer{border-top:1px solid var(--line);padding:66px 0 50px;background:rgba(8,10
    4.4:1 against the darkest part of the ground behind this block, under the
    4.5:1 floor. ink-2 is still clearly the quiet third of the row. */
 .n-date{font-size:13.5px;color:var(--ink-2);white-space:nowrap}
+/* The agency a dispatch came through, in the outlet's own line. */
+.n-via{font-weight:400;letter-spacing:0;text-transform:none;color:var(--ink-2)}
+/* A chip saying the piece is in another language than this page. */
+.n-lang{display:inline-block;margin-left:8px;padding:1px 6px;border-radius:4px;
+  border:1px solid var(--line);font-size:10.5px;font-weight:700;letter-spacing:.08em;
+  color:var(--ink-2);vertical-align:2px}
+/* A film rather than an article. */
+.n-play{width:11px;height:11px;margin-right:7px;fill:var(--marigold);vertical-align:baseline}
+/* The same dispatch, carried by other outlets. */
+.n-also{grid-column:2;margin-top:6px;font-size:13px;color:var(--ink-2)}
+.n-also a{color:var(--ink-2);border-bottom:1px solid var(--line);text-decoration:none}
+.n-also a:hover{color:var(--ink);border-bottom-color:var(--marigold)}
+.n-also a + a{margin-left:10px}
+/* From three cuttings on the partners page to all of them. */
+.n-more{margin:20px 0 0}
+.n-more-link{font-size:13.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--marigold);text-decoration:none;border-bottom:1px solid transparent}
+.n-more-link:hover{border-bottom-color:currentColor}
 
 @media(max-width:760px){
   /* One column. The outlet leads, the title carries the tap target, and the
      month closes the row. */
   .n-item{grid-template-columns:1fr;row-gap:5px;padding-block:17px}
   .n-title{font-size:17px}
+  .n-also{grid-column:1;margin-top:2px}
 }
 
 /* ==================================================================

@@ -1,26 +1,51 @@
 [
-  { "outlet":"Inside Brussels",
+  { "outlet":"BruxellesToday", "edition":2026, "kind":"press", "lang":"fr",
+    "date":"2026-10-04",
+    "title":"Un grand festival indien s'installe au pied de l'Atomium pendant tout un week-end",
+    "url":"https://www.bruxellestoday.be/que-faire/festival-indien-atomium.html" },
+
+  { "outlet":"La Libre", "via":"Belga", "edition":2026, "kind":"press", "lang":"fr",
+    "date":"2026-10-02",
+    "title":"Le Brussels Diwali Festival fêtera ses 10 ans au pied de l'Atomium les 24 et 25 octobre",
+    "url":"https://www.lalibre.be/dernieres-depeches/2026/10/02/le-brussels-diwali-festival-fetera-ses-10-ans-au-pied-de-latomium-les-24-et-25-octobre-GIKQBUGX4FBYJHRCBLRJLVLPL4/",
+    "also":[
+      {"outlet":"La DH","url":"https://www.dhnet.be/dernieres-depeches/2026/10/02/le-brussels-diwali-festival-fetera-ses-10-ans-au-pied-de-latomium-les-24-et-25-octobre-GIKQBUGX4FBYJHRCBLRJLVLPL4/"},
+      {"outlet":"BX1","url":"https://bx1.be/categories/news/le-brussels-diwali-festival-fetera-ses-10-ans-au-pied-de-latomium-les-24-et-25-octobre/"}
+    ] },
+
+  { "outlet":"Inside Brussels", "edition":2026, "kind":"press", "lang":"fr",
+    "date":"2026-09",
     "title":{"en":"What to do in Brussels in October 2026",
              "fr":"Que faire à Bruxelles en octobre 2026",
              "nl":"Wat te doen in Brussel in oktober 2026"},
-    "date":"2026-09",
     "url":"https://www.insidebrussels.be/V2/bruxelles/que-faire-a-bruxelles-en-octobre-2026-notre-selection-pour-ne-rien-rater/" },
 
-  { "outlet":"visit.brussels",
+  { "outlet":"The Brussels Times", "edition":2025, "kind":"press", "lang":"en",
+    "date":"2025-10-10",
+    "title":"What to do in Brussels this weekend: 10 - 12 October",
+    "url":"https://www.brusselstimes.com/1783485/what-to-do-in-brussels-this-weekend-10-12-october" },
+
+  { "outlet":"BRUZZ", "edition":2023, "kind":"video", "lang":"en",
+    "date":"2023-11-26",
+    "title":"The Diwali festival in Brussels: 'Biggest in Europe'",
+    "url":"https://www.bruzz.be/en/videoreeks/bruzz-international-zondag-26-november-2023/video-diwali-festival-brussels-biggest" },
+
+  { "outlet":"visit.brussels", "edition":2026, "kind":"listing", "lang":"en",
+    "date":"2026-09",
     "title":{"en":"Brussels Diwali Festival, official agenda listing",
              "fr":"Brussels Diwali Festival, agenda officiel",
              "nl":"Brussels Diwali Festival, officiële agenda"},
-    "date":"2026-09",
     "url":"https://www.visit.brussels/en/visitors/agenda/event-detail.Brussels-Diwali-Festival.5700026274",
     "url_fr":"https://www.visit.brussels/fr/visiteurs/agenda/event-detail.Brussels-Diwali-Festival.5700026274",
     "url_nl":"https://www.visit.brussels/nl/bezoekers/agenda/event-detail.Brussels-Diwali-Festival.5700026274" },
 
-  { "outlet":"City of Brussels",
+  { "outlet":"City of Brussels", "edition":2026, "kind":"listing", "lang":"nl",
+    "date":"2026-09",
     "title":{"en":"Brussels Diwali Festival 2026 on brussels.be",
              "fr":"Brussels Diwali Festival 2026 sur bruxelles.be",
              "nl":"Brussels Diwali Festival 2026 op brussel.be"},
-    "date":"2026-09",
     "url":"https://www.brussel.be/brussels-diwali-festival-2026",
     "url_en":"https://www.brussels.be/brussels-diwali-festival-2026",
-    "url_fr":"https://www.bruxelles.be/brussels-diwali-festival-2026" }
+    "url_fr":"https://www.bruxelles.be/brussels-diwali-festival-2026",
+    "url_nl":"https://www.brussel.be/brussels-diwali-festival-2026" }
 ]

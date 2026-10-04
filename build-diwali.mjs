@@ -46,6 +46,10 @@ for (const x of P.partners) {
 const LANGS = ['en', 'fr', 'nl'];
 const PATH_OF = { en: '/', fr: '/fr/', nl: '/nl/' };
 const PARTNERS_OF = { en: '/partners/', fr: '/fr/partners/', nl: '/nl/partners/' };
+const PRESS_OF = { en: '/press/', fr: '/fr/press/', nl: '/nl/press/' };
+
+/* How many cuttings the partners page shows before handing over to /press. */
+const NEWS_ON_PARTNERS = 3;
 
 /* One page per festival day. Separate pages rather than tabs, so the switch
    works with JavaScript off, each day has a link of its own for an ad or a
@@ -482,7 +486,9 @@ function render(lang, page = 'home', dayId = null) {
   <div class="wrap foot-cols">
     <div><p class="col-h">${e(f.col_festival)}</p>
       <a href="#tickets">${e(f.links.tickets)}</a><a href="#programme">${e(f.links.programme)}</a>${
-        PRACTICAL_ON ? `<a href="#practical">${e(f.links.practical)}</a>` : ''}</div>
+        PRACTICAL_ON ? `<a href="#practical">${e(f.links.practical)}</a>` : ''}
+      <a href="${PARTNERS_OF[lang]}">${e(pc('nav'))}</a>
+      <a href="${PRESS_OF[lang]}">${e(d.press.nav)}</a></div>
     <div><p class="col-h">${e(f.col_org)}</p>
       <a href="${org}">artindia.be</a>
       <a href="${org}festivals/">${e(f.links.festivals)}</a>
@@ -540,9 +546,10 @@ function render(lang, page = 'home', dayId = null) {
      same page on three domains, one per language, and visit.brussels does the
      same with three paths; url_<lang> names it and url is the fall back.
 
-     Reachability is not checked here. Every URL in data/ was confirmed to
-     answer 200 when it was written, and a build that calls out to the network
-     is a build that fails when a partner's site is down. */
+     Reachability is not checked here, and nothing else in this build touches
+     the network either: the output is a function of the repository alone, so
+     a deploy cannot fail because someone else's site is down. The cuttings and
+     partner links are checked on demand by scripts/check-links.mjs. */
   const href = x => esc(x[`url_${lang}`] || x.url);
 
   /* Live, and with artwork on disk. A partner listed as live whose logo has
@@ -629,22 +636,91 @@ ${newsBlock()}
        order they were written in. */
     const items = NEWS.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
 
-    const month = v => {
-      const m = /^(\d{4})-(\d{2})$/.exec(String(v));
-      if (!m) throw new Error(`news date must be YYYY-MM, got: ${v}`);
-      const name = MONTHS[lang][Number(m[2]) - 1];
-      if (!name) throw new Error(`news date has no month ${m[2]}: ${v}`);
-      return `${name} ${m[1]}`;
-    };
+    const shown = items.slice(0, NEWS_ON_PARTNERS);
+    const more = items.length > shown.length ? `
+  <p class="n-more"><a class="n-more-link" href="${PRESS_OF[lang]}">${e(d.press.all)}</a></p>` : '';
 
     return `<section class="wrap p-sec p-news">
   <h2 class="p-tier">${e(pc('news'))}</h2>
-  <ul class="n-list">${items.map(x => `
-    <li class="n-item">
-      <span class="n-outlet">${esc(x.outlet)}</span>
-      <a class="n-title" href="${href(x)}" target="_blank" rel="noopener">${e(x.title)}</a>
-      <span class="n-date">${esc(month(x.date))}</span>
-    </li>`).join('')}</ul></section>`;
+  <ul class="n-list">${shown.map(newsRow).join('')}</ul>${more}</section>`;
+  }
+
+  /* ------------------------------------------------------------- the press */
+  /* One row, used by the three cuttings on /partners and by every section of
+     /press, so the two pages cannot describe the same cutting differently. */
+
+  /* A cutting's date is either a month, for the ones that carry no day, or a
+     full day. Both are written out in the reader's language. */
+  function newsDate(v) {
+    const d1 = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v));
+    if (d1) {
+      const name = MONTHS[lang][Number(d1[2]) - 1];
+      if (!name) throw new Error(`news date has no month ${d1[2]}: ${v}`);
+      return `${Number(d1[3])} ${name} ${d1[1]}`;
+    }
+    const m = /^(\d{4})-(\d{2})$/.exec(String(v));
+    if (!m) throw new Error(`news date must be YYYY-MM or YYYY-MM-DD, got: ${v}`);
+    const name = MONTHS[lang][Number(m[2]) - 1];
+    if (!name) throw new Error(`news date has no month ${m[2]}: ${v}`);
+    return `${name} ${m[1]}`;
+  }
+
+  /* A play triangle for a cutting that is a film rather than an article. */
+  const PLAY = `<svg class="n-play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5 3.5v9l8-4.5z"/></svg>`;
+
+  function newsRow(x) {
+    /* The chip says the article is in another language. It is left off when
+       the outlet publishes the same piece per language and this reader gets
+       their own: that is what a url_<lang> override means. */
+    const translated = Boolean(x[`url_${lang}`]);
+    const chip = !translated && x.lang && x.lang !== lang
+      ? `<span class="n-lang">${esc(x.lang.toUpperCase())}</span>` : '';
+    /* "via" reads the same in all three languages, so the agency's name needs
+       no wrapper of its own. */
+    const via = x.via ? ` <span class="n-via">via ${esc(x.via)}</span>` : '';
+    const also = Array.isArray(x.also) && x.also.length ? `
+      <span class="n-also">${e(d.press.also)} ${x.also.map(a =>
+        `<a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.outlet)}</a>`).join('')}</span>` : '';
+    return `
+    <li class="n-item${x.kind === 'video' ? ' is-video' : ''}">
+      <span class="n-outlet">${esc(x.outlet)}${via}</span>
+      <a class="n-title" href="${href(x)}" target="_blank" rel="noopener">${
+        x.kind === 'video' ? PLAY : ''}${e(x.title)}${chip}</a>
+      <span class="n-date">${esc(newsDate(x.date))}</span>${also}
+    </li>`;
+  }
+
+  function pressMain() {
+    const p = d.press;
+    const byDate = NEWS.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+
+    /* Three shelves. A cutting lands on exactly one of them with the entries
+       there are today: 2026 writing, anything from an earlier edition, and the
+       agendas whatever their year. */
+    const shelves = [
+      [p.current, byDate.filter(x => x.edition === 2026 && (x.kind === 'press' || x.kind === 'video'))],
+      [p.earlier, byDate.filter(x => Number(x.edition) < 2026)],
+      [p.agendas, byDate.filter(x => x.kind === 'listing')],
+    ];
+
+    const blocks = shelves.filter(([, list]) => list.length).map(([label, list]) => `
+  <section class="wrap p-sec">
+    <h2 class="p-tier">${e(label)}</h2>
+    <ul class="n-list">${list.map(newsRow).join('')}</ul>
+  </section>`).join('');
+
+    return `<main class="partners" id="press-main">
+  <section class="wrap p-intro">
+    <h1>${e(p.headline)}</h1>
+    <p>${e(p.intro)}</p>
+  </section>
+${blocks}
+  <section class="wrap p-become">
+    <h2>${e(p.contact_heading)}</h2>
+    <p>${e(p.contact_text)}</p>
+    <a class="p-cta" href="mailto:${esc(p.contact_email)}">${esc(p.contact_email)}</a>
+  </section>
+</main>`;
   }
 
   /* The slim strip above the footer on the landing page. Greyscale until
@@ -1110,7 +1186,7 @@ ${between}
   /* Every page points at its own siblings, so /fr/partners offers
      /nl/partners rather than the Dutch landing page. */
   const pathsFor = page === 'programme' ? PROGRAMME_OF[day.id]
-    : page === 'partners' ? PARTNERS_OF : PATH_OF;
+    : page === 'partners' ? PARTNERS_OF : page === 'press' ? PRESS_OF : PATH_OF;
   const selfPath = pathsFor[lang];
   const alternates = LANGS.map(l =>
     `<link rel="alternate" hreflang="${HREFLANG[l]}" href="${SITE}${pathsFor[l]}">`).join('\n') +
@@ -1154,7 +1230,7 @@ ${between}
      page, with the partners page gone. Every page keeps the half that records
      a deliberate click on the language switch; only the home page keeps the
      half that redirects. */
-  const LANG_REDIRECT = page === 'home';
+  const LANG_REDIRECT = page === 'home';  // see the note above: only the root
   const langClickOnly = `(function(){var K='ai_lang';
 document.addEventListener('click',function(e){
   var a=e.target&&e.target.closest&&e.target.closest('#langsw a[data-lang]');
@@ -1189,7 +1265,8 @@ if(want!=='en')location.replace(P[want]);})();`;
      is its own main, with no hero and no Atomium photograph. */
   const heroBlock = page === 'home' ? hero() : '';
   const mainBlock = page === 'programme' ? programmeMain(day)
-    : page === 'partners' ? partnersMain() : `<main>
+    : page === 'partners' ? partnersMain()
+    : page === 'press' ? pressMain() : `<main>
 ${atomiumStrip()}
 ${/* Once the programme is public it is the strongest thing on the page, so it
      goes above What awaits you rather than under it. While it is hidden the
@@ -1210,16 +1287,20 @@ ${register()}
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${page === 'programme' ? e(day.title) : page === 'partners' ? e(pc('title')) : e(d.meta.title)}</title>
-<meta name="description" content="${page === 'programme' ? e(PR.meta.description) : page === 'partners' ? e(pc('intro')) : e(d.meta.description)}">${
+<title>${page === 'programme' ? e(day.title) : page === 'partners' ? e(pc('title'))
+  : page === 'press' ? e(d.press.title) : e(d.meta.title)}</title>
+<meta name="description" content="${page === 'programme' ? e(PR.meta.description) : page === 'partners' ? e(pc('intro'))
+  : page === 'press' ? e(d.press.intro) : e(d.meta.description)}">${
   page === 'programme' && !PROGRAMME_PUBLIC
     ? '\n<meta name="robots" content="noindex, nofollow">' : ''}
 <link rel="canonical" href="${SITE}${selfPath}">
 ${alternates}
 <meta property="og:type" content="website">
 <meta property="og:locale" content="${OG_LOCALE[lang]}">
-<meta property="og:title" content="${page === 'programme' ? e(day.title) : page === 'partners' ? e(pc('headline')) : e(d.meta.og_title)}">
-<meta property="og:description" content="${page === 'programme' ? e(PR.meta.description) : page === 'partners' ? e(pc('intro')) : e(d.meta.og_description)}">
+<meta property="og:title" content="${page === 'programme' ? e(day.title) : page === 'partners' ? e(pc('headline'))
+  : page === 'press' ? e(d.press.headline) : e(d.meta.og_title)}">
+<meta property="og:description" content="${page === 'programme' ? e(PR.meta.description) : page === 'partners' ? e(pc('intro'))
+  : page === 'press' ? e(d.press.intro) : e(d.meta.og_description)}">
 <meta property="og:url" content="${SITE}${selfPath}">
 <meta property="og:image" content="${SITE}${ogImage}">
 <meta name="twitter:card" content="summary_large_image">
@@ -1236,6 +1317,7 @@ ${alternates}
 <body${page === 'programme' ? ' class="page-programme"' : ''}>
 <a class="skip" href="${
   page === 'programme' ? '#programme-main' : page === 'partners' ? '#partners-main'
+    : page === 'press' ? '#press-main'
     : PROGRAMME_PUBLIC ? '#programme' : '#awaits'}">${e(d.ui.skip)}</a>
 <nav class="topbar">
   <div class="wrap bar">
@@ -1267,6 +1349,7 @@ ${alternates}
           const toProgramme = n.href === '#awaits' && PROGRAMME_PUBLIC;
           const href = toProgramme ? PROGRAMME_OF.saturday[lang]
             : page === 'home' ? n.href : PATH_OF[lang] + n.href;
+          /* Every page but the landing one sends the in-page anchors home. */
           const here = page === 'programme' && n.href === '#awaits';
           return `<a href="${esc(href)}"${here ? ' class="on" aria-current="page"'
             : i === 0 && page === 'home' ? ' class="on"' : ''}>${e(n.label)}</a>`;
@@ -1673,6 +1756,10 @@ for (const lang of LANGS) {
   mkdirSync(pdir, { recursive: true });
   writeFileSync(join(pdir, 'index.html'), render(lang, 'partners'));
 
+  const prdir = join(dir, 'press');
+  mkdirSync(prdir, { recursive: true });
+  writeFileSync(join(prdir, 'index.html'), render(lang, 'press'));
+
   /* One directory per day. Saturday is /programme/ itself, which is why its
      slug is empty rather than "saturday". */
   for (const pday of PR.days) {
@@ -1787,7 +1874,7 @@ writeFileSync(join(out, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${SITE
 writeFileSync(join(out, 'sitemap.xml'),
   `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
-${[PATH_OF, PARTNERS_OF, ...(PROGRAMME_PUBLIC ? PR.days.map(x => PROGRAMME_OF[x.id]) : [])]
+${[PATH_OF, PARTNERS_OF, PRESS_OF, ...(PROGRAMME_PUBLIC ? PR.days.map(x => PROGRAMME_OF[x.id]) : [])]
   .map(paths => LANGS.map(l => `<url><loc>${SITE}${paths[l]}</loc>
 ${LANGS.map(a => `  <xhtml:link rel="alternate" hreflang="${HREFLANG[a]}" href="${SITE}${paths[a]}"/>`).join('\n')}
   <xhtml:link rel="alternate" hreflang="x-default" href="${SITE}${paths.en}"/>

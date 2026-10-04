@@ -303,6 +303,32 @@
       }
     ]
   },
+  "press": {
+    "nav": {"en": "Press", "fr": "Presse", "nl": "Pers"},
+    "title": {
+      "en": "In the press | Brussels Diwali Festival 2026",
+      "fr": "Dans la presse | Brussels Diwali Festival 2026",
+      "nl": "In de pers | Brussels Diwali Festival 2026"
+    },
+    "headline": {"en": "In the press", "fr": "Dans la presse", "nl": "In de pers"},
+    "intro": {
+      "en": "What the media say about the Brussels Diwali Festival.",
+      "fr": "Ce que les m\u00e9dias disent du Brussels Diwali Festival.",
+      "nl": "Wat de media zeggen over het Brussels Diwali Festival."
+    },
+    "current": {"en": "2026, 10th edition", "fr": "2026, 10e \u00e9dition", "nl": "2026, 10e editie"},
+    "earlier": {"en": "Earlier editions", "fr": "\u00c9ditions pr\u00e9c\u00e9dentes", "nl": "Vorige edities"},
+    "agendas": {"en": "Official agendas", "fr": "Agendas officiels", "nl": "Offici\u00eble agenda\u0027s"},
+    "also": {"en": "Also in", "fr": "Aussi dans", "nl": "Ook in"},
+    "all": {"en": "All press coverage", "fr": "Toute la presse", "nl": "Alle persberichten"},
+    "contact_heading": {"en": "Press contact", "fr": "Contact presse", "nl": "Perscontact"},
+    "contact_text": {
+      "en": "Interviews, photos and accreditation for 24 and 25 October: diwali@artindia.be",
+      "fr": "Interviews, photos et accr\u00e9ditations pour les 24 et 25 octobre : diwali@artindia.be",
+      "nl": "Interviews, foto\u0027s en accreditatie voor 24 en 25 oktober: diwali@artindia.be"
+    },
+    "contact_email": "diwali@artindia.be"
+  },
   "footer": {
     "org": "Art India ASBL",
     "address": "Avenue du Centaure 73, 1200 Woluwe-Saint-Lambert",
