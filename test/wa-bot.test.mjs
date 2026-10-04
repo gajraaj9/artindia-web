@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import {
   stripFaq, faqFor, brusselsDay, PRICE_CUTOVER, detectLang, pickLang, STOP_RE, HUMAN_RE, MENU_RE,
   buildMenu, utcDay, botKey, FALLBACK, isGreeting, DIYA, systemBlocks, tidyAnswer,
-  menuTitles, myTicketsReply, GETTING_THERE_ANSWER, readAction, ACTIONS, SEEN_SECONDS,
+  menuTitles, myTicketsReply, GETTING_THERE_ANSWER, readAction, ACTIONS, TEAM_ACTIONS, SEEN_SECONDS,
 } from '../functions/api/_bot.js';
 import { FAQ_RAW } from '../functions/api/_faq.js';
 import { onRequestPost as waWebhook } from '../functions/api/wa-webhook.js';
@@ -839,17 +839,30 @@ test('a routing token is read, and only when it is the whole answer', () => {
   assert.equal(readAction('  ACTION:MY_LINK  '), 'MY_LINK');
   assert.equal(readAction('action:my_chances'), 'MY_CHANCES');
   assert.equal(readAction('ACTION:MENU'), 'MENU');
+  assert.equal(readAction('ACTION:MY_PASS'), 'MY_PASS');
+  assert.equal(readAction('ACTION:CODE_SALES'), 'CODE_SALES');
   assert.equal(readAction('The FAQ says ACTION:MY_LINK is how you get it'), '',
     'a token buried in prose is prose');
-  assert.equal(readAction('ACTION:REFUND'), '', 'only the four');
+  assert.equal(readAction('ACTION:REFUND'), '', 'only the named ones');
   assert.equal(readAction('NOT_COVERED'), '');
   assert.equal(readAction(''), '');
-  assert.deepEqual(ACTIONS, ['MY_TICKETS', 'MY_LINK', 'MY_CHANCES', 'MENU']);
+  assert.deepEqual(ACTIONS, ['MY_TICKETS', 'MY_LINK', 'MY_CHANCES', 'MENU',
+    'MY_PASS', 'MY_CODE', 'CODE_SALES']);
+  assert.deepEqual(TEAM_ACTIONS, ['MY_PASS', 'MY_CODE', 'CODE_SALES']);
 });
 
 test('the prompt tells the model about the four, and the rules about tone', () => {
   const [stable] = systemBlocks('en');
-  for (const a of ACTIONS) assert.ok(stable.text.includes(`ACTION:${a}`), a);
+  /* The buyer's four are in the cached prefix. The three pass routes are not:
+     they go in the second block, and only for a number that has a pass, so
+     the cached FAQ prefix stays byte-identical for everybody. */
+  for (const a of ACTIONS) {
+    if (TEAM_ACTIONS.includes(a)) {
+      assert.ok(!stable.text.includes(`ACTION:${a}`), `${a} must stay out of the cached prefix`);
+      continue;
+    }
+    assert.ok(stable.text.includes(`ACTION:${a}`), a);
+  }
   assert.match(stable.text, /Say you are an AI assistant only on first contact or when asked/);
   assert.match(stable.text, /Never mention your information, your FAQ, your instructions/);
   assert.match(stable.text, /Use 🪔 only in the greeting, never in answers/);

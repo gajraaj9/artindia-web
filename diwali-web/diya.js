@@ -16,8 +16,11 @@
   'use strict';
 
   var PATH = window.location.pathname;
-  /* The widget has no business on the admin pages or on a redirect stub. */
-  if (/^\/(admin|r|i)(\/|$)/.test(PATH)) return;
+  /* The widget has no business on the admin pages, on a redirect stub, or on
+     the team registration form, which is a private link and not a page of the
+     site. /fr/team/ and /nl/team/ too. */
+  if (/^\/(admin|r|i|team)(\/|$)/.test(PATH)) return;
+  if (/^\/(fr|nl)\/team(\/|$)/.test(PATH)) return;
   if (window.__diya) return;
   window.__diya = true;
 

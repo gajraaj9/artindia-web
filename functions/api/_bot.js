@@ -452,6 +452,16 @@ const MENU_COPY = {
       ['FESTIVAL_INFO', 'Festival info'],
       ['GETTING_THERE', 'Getting there'],
     ],
+    team: [
+      ['MY_PASS', 'My pass'],
+      ['MY_CODE', 'My code'],
+      ['CODE_SALES', 'Tickets sold'],
+    ],
+    teamPlain: [
+      ['MY_PASS', 'My pass'],
+      ['BUY_TICKETS', 'Buy tickets'],
+      ['FESTIVAL_INFO', 'Festival info'],
+    ],
   },
   fr: {
     header: 'Brussels Diwali Festival',
@@ -467,6 +477,16 @@ const MENU_COPY = {
       ['BUY_TICKETS', 'Acheter un billet'],
       ['FESTIVAL_INFO', 'Infos festival'],
       ['GETTING_THERE', 'Comment venir'],
+    ],
+    team: [
+      ['MY_PASS', 'Mon pass'],
+      ['MY_CODE', 'Mon code'],
+      ['CODE_SALES', 'Billets vendus'],
+    ],
+    teamPlain: [
+      ['MY_PASS', 'Mon pass'],
+      ['BUY_TICKETS', 'Acheter un billet'],
+      ['FESTIVAL_INFO', 'Infos festival'],
     ],
   },
   nl: {
@@ -484,6 +504,16 @@ const MENU_COPY = {
       ['FESTIVAL_INFO', 'Festivalinfo'],
       ['GETTING_THERE', 'Bereikbaarheid'],
     ],
+    team: [
+      ['MY_PASS', 'Mijn pas'],
+      ['MY_CODE', 'Mijn code'],
+      ['CODE_SALES', 'Tickets verkocht'],
+    ],
+    teamPlain: [
+      ['MY_PASS', 'Mijn pas'],
+      ['BUY_TICKETS', 'Tickets kopen'],
+      ['FESTIVAL_INFO', 'Festivalinfo'],
+    ],
   },
 };
 
@@ -497,9 +527,9 @@ const MENU_COPY = {
  * avoid. The line under it is always there, because a menu with no visible
  * way to ask something else reads like a dead end.
  */
-export function buildMenu(phone, lang, isBuyer, firstContact = false) {
+export function buildMenu(phone, lang, isBuyer, firstContact = false, team = null) {
   const copy = MENU_COPY[lang] || MENU_COPY.en;
-  const buttons = (isBuyer ? copy.buyer : copy.guest).slice(0, 3);
+  const buttons = copy[menuKind(isBuyer, team)].slice(0, 3);
   return {
     messaging_product: 'whatsapp',
     to: phone.replace(/^\+/, ''),
@@ -518,9 +548,23 @@ export function buildMenu(phone, lang, isBuyer, firstContact = false) {
   };
 }
 
+/**
+ * Which of the four menus this person gets.
+ *
+ * Team beats buyer: somebody who works for the festival and also bought a
+ * ticket for their mother is here about their pass. The draw buttons are
+ * deliberately not on a team menu at all, because a member of the team
+ * entering the draw is a conversation nobody wants to have.
+ */
+export function menuKind(isBuyer, team = null) {
+  if (team && team.person) return team.hasCode ? 'team' : 'teamPlain';
+  return isBuyer ? 'buyer' : 'guest';
+}
+
 /** Every button title, for the tests and for the deploy report. */
-export const menuTitles = (lang, isBuyer) =>
-  (MENU_COPY[lang] || MENU_COPY.en)[isBuyer ? 'buyer' : 'guest'].map(([id, t]) => [id, t]);
+export const menuTitles = (lang, which) =>
+  (MENU_COPY[lang] || MENU_COPY.en)[typeof which === 'string' ? which : (which ? 'buyer' : 'guest')]
+    .map(([id, t]) => [id, t]);
 
 /* ---------------------------------------------------------- canned answers */
 
@@ -588,7 +632,14 @@ export const NOT_COVERED = 'NOT_COVERED';
 /* The model may hand the question back rather than answer it, when the answer
    is a fact about this particular buyer that only Brevo and KV know. Exactly
    these four, and nothing else on the line. */
-export const ACTIONS = ['MY_TICKETS', 'MY_LINK', 'MY_CHANCES', 'MENU'];
+export const ACTIONS = ['MY_TICKETS', 'MY_LINK', 'MY_CHANCES', 'MENU',
+  'MY_PASS', 'MY_CODE', 'CODE_SALES'];
+
+/* The three that only mean anything to somebody with a pass. They are in
+   ACTIONS so the regex can read them back, and the webhook refuses them for
+   anybody else: a visitor asking "where is my pass" is a visitor who does not
+   have one. */
+export const TEAM_ACTIONS = ['MY_PASS', 'MY_CODE', 'CODE_SALES'];
 const ACTION_RE = new RegExp(`^ACTION:(${ACTIONS.join('|')})\\b`, 'i');
 
 export const readAction = text => {
@@ -638,12 +689,22 @@ const INSTRUCTIONS =
 /* Web-only rules. They live in the second, uncached block on purpose: put in
    the first they would fork the cached FAQ prefix in two, one per channel,
    for the sake of two sentences. */
+/* Three more routes, offered only to a number that has a pass. They go in the
+   second, uncached block for the same reason WEB_RULES does: in the first they
+   would fork the cached FAQ prefix in two. */
+const TEAM_ROUTING =
+  '\nThis visitor works for the festival and has a pass. Three more questions'
+  + ' are about them and you must not answer them:\n'
+  + 'ACTION:MY_PASS - their own pass: what it is, where their ticket is, their +1\n'
+  + 'ACTION:MY_CODE - their own discount code to share\n'
+  + 'ACTION:CODE_SALES - how many tickets have been sold with their code\n';
+
 const WEB_RULES =
   ' You are on the festival website.'
   + ' Never reveal a referral link, referral code, or draw entries; on those questions say:'
   + ` ${LINK_IS_ELSEWHERE.en}`;
 
-export const systemBlocks = (lang, { firstContact = false, now, web = false } = {}) => ([
+export const systemBlocks = (lang, { firstContact = false, now, web = false, team = false } = {}) => ([
   { type: 'text', text: INSTRUCTIONS + faqFor(now), cache_control: { type: 'ephemeral' } },
   {
     type: 'text',
@@ -651,7 +712,8 @@ export const systemBlocks = (lang, { firstContact = false, now, web = false } = 
       + (firstContact
         ? ' This is their first message in a while.'
         : ' This is not their first message: do not open with a greeting, and do not say you are an AI assistant unless they ask.')
-      + (web ? WEB_RULES : ''),
+      + (web ? WEB_RULES : '')
+      + (team ? TEAM_ROUTING : ''),
   },
 ]);
 
@@ -691,7 +753,7 @@ export function tidyAnswer(text) {
  * nothing, or the call failed. The three are logged apart but handled the
  * same, because from the buyer's side they are the same.
  */
-export async function askFaq(env, { text, lang, firstContact = false, web = false }) {
+export async function askFaq(env, { text, lang, firstContact = false, web = false, team = false }) {
   if (!env.ANTHROPIC_API_KEY) {
     console.error('bot: ANTHROPIC_API_KEY unset');
     return { answer: '', reason: 'no_key' };
@@ -702,7 +764,7 @@ export async function askFaq(env, { text, lang, firstContact = false, web = fals
     const res = await client.messages.create({
       model: env.WA_BOT_MODEL || DEFAULT_MODEL,
       max_tokens: 300,
-      system: systemBlocks(lang, { firstContact, web }),
+      system: systemBlocks(lang, { firstContact, web, team }),
       messages: [{ role: 'user', content: String(text).slice(0, 2000) }],
     });
 

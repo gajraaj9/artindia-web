@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Team passes — Art India</title>
+<!--
+  Who gets a free pass, and who decided.
+
+  Reads and writes /api/team-admin with a named token kept in this browser. The
+  name behind the token is written onto every decision server side, so there is
+  always an answer to "who let this person in".
+
+  Plain HTML, same as wa.html: it gets opened on a phone, backstage, with
+  somebody standing there waiting.
+
+  This page shows children's dates of birth. Nothing here puts one in a URL.
+-->
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #faf7f2; --card: #fff; --ink: #1b1714; --muted: #6b625a;
+    --line: #e4ddd3; --accent: #b4381f; --ok: #1d6b45; --bad: #9c2323;
+    --warm: #b47a1f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17140f; --card: #211c16; --ink: #f2ece4; --muted: #a2988c;
+      --line: #342c23; --accent: #e2673f; --ok: #5fc191; --bad: #f08a7c;
+      --warm: #e0ad5a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 1rem .9rem 4rem; background: var(--bg); color: var(--ink);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 52rem; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-bottom: .9rem; }
+  h1 { font-size: 1.15rem; margin: 0; flex: 1; min-width: 0; }
+  h2 { font-size: .95rem; margin: 1.4rem 0 .5rem; }
+  .pill {
+    font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    padding: .25rem .55rem; border-radius: 999px; border: 1px solid var(--line);
+  }
+  .pill.dark { border-color: var(--warm); color: var(--warm); }
+  .pill.off { border-color: var(--bad); color: var(--bad); }
+  .pill.on { border-color: var(--ok); color: var(--ok); }
+  .tabs { display: flex; gap: .4rem; flex-wrap: wrap; margin: 0 0 1rem; }
+  .tabs button {
+    font: inherit; padding: .45rem .8rem; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  }
+  .tabs button[aria-selected=true] { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: .7rem;
+    padding: .8rem .85rem; margin: 0 0 .7rem;
+  }
+  .row { display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .name { font-weight: 700; }
+  .muted { color: var(--muted); font-size: .85rem; }
+  .chips { display: flex; gap: .3rem; flex-wrap: wrap; margin: .4rem 0 0; }
+  .chip {
+    font-size: .72rem; padding: .15rem .45rem; border-radius: .3rem;
+    border: 1px solid var(--warm); color: var(--warm);
+  }
+  .chip.bad { border-color: var(--bad); color: var(--bad); }
+  .steps { font-size: .78rem; color: var(--muted); margin: .4rem 0 0; word-break: break-word; }
+  .acts { display: flex; gap: .4rem; flex-wrap: wrap; margin: .6rem 0 0; }
+  .acts button, .bar button, form button {
+    font: inherit; padding: .45rem .8rem; border-radius: .4rem; cursor: pointer;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  }
+  .acts button.go { border-color: var(--ok); color: var(--ok); font-weight: 700; }
+  .acts button.no { border-color: var(--bad); color: var(--bad); }
+  .acts button[disabled] { opacity: .45; cursor: default; }
+  label { display: block; font-size: .85rem; margin: .5rem 0 .15rem; color: var(--muted); }
+  input, select {
+    font: inherit; width: 100%; padding: .5rem .6rem; border-radius: .4rem;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 .6rem; }
+  @media (max-width: 29rem) { .grid2 { grid-template-columns: 1fr; } }
+  .bar { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin: 0 0 .8rem; }
+  .bar input, .bar select { width: auto; flex: 1 1 8rem; min-width: 0; }
+  code { font-size: .8rem; word-break: break-all; }
+  .teamline { display: flex; justify-content: space-between; gap: .6rem; padding: .3rem 0; border-bottom: 1px solid var(--line); }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Team passes</h1>
+    <span class="pill" id="who" hidden></span>
+    <span class="pill" id="mode" hidden></span>
+    <span class="pill" id="reg" hidden></span>
+  </header>
+
+  <div class="card" id="unlock" hidden>
+    <label for="token">Admin token</label>
+    <input id="token" type="password" autocomplete="off" spellcheck="false">
+    <div class="acts"><button type="button" id="save">Unlock</button></div>
+    <p class="muted" id="unlockmsg"></p>
+  </div>
+
+  <div id="app" hidden>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="queue" aria-selected="true">Queue</button>
+      <button type="button" role="tab" data-tab="people" aria-selected="false">People</button>
+      <button type="button" role="tab" data-tab="links" aria-selected="false">Links</button>
+    </div>
+    <p class="muted" id="msg"></p>
+    <section id="queue"></section>
+    <section id="people" hidden></section>
+    <section id="links" hidden></section>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var KEY = 'artindia.team.token';
+  var D = null;
+  var TAB = 'queue';
+
+  function $(id) { return document.getElementById(id); }
+  function readToken() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
+  function writeToken(v) {
+    try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch (e) {}
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function note(t) { $('msg').textContent = t || ''; }
+
+  function api(method, body) {
+    return fetch('/api/team-admin', {
+      method: method,
+      headers: Object.assign({ 'X-Admin-Token': readToken() },
+        body ? { 'content-type': 'application/json' } : {}),
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (r) {
+      return r.json().catch(function () { return { ok: false, error: 'bad_json' }; })
+        .then(function (d) { d.httpStatus = r.status; return d; });
+    });
+  }
+
+  function teamOf(key) {
+    for (var i = 0; i < D.teams.length; i++) if (D.teams[i].key === key) return D.teams[i];
+    return null;
+  }
+  function teamName(key) {
+    var t = teamOf(key);
+    return t ? (t.name.en || key) : key;
+  }
+  function linkOf(tok) {
+    for (var i = 0; i < D.links.length; i++) if (D.links[i].token === tok) return D.links[i];
+    return null;
+  }
+  function personOf(id) {
+    for (var i = 0; i < D.people.length; i++) if (D.people[i].id === id) return D.people[i];
+    return null;
+  }
+
+  /* ------------------------------------------------------------- rendering */
+
+  function chips(p) {
+    var out = (p.flags || []).map(function (f) {
+      return '<span class="chip' + (f === 'already_buyer' ? '' : '') + '">' + esc(f) + '</span>';
+    });
+    if (p.plusOneOf) {
+      var a = personOf(p.plusOneOf);
+      out.push('<span class="chip">+1 of ' + esc(a ? a.firstName + ' ' + a.lastName : p.plusOneOf) + '</span>');
+    }
+    return out.length ? '<div class="chips">' + out.join('') + '</div>' : '';
+  }
+
+  function stepline(p) {
+    var names = ['ticket', 'discount', 'brevo', 'email', 'whatsapp'];
+    var bits = names.map(function (n) {
+      var v = p.steps && p.steps[n];
+      return n + ': ' + (v || 'not run');
+    });
+    if (p.tt && p.tt.issuedTicketId) bits.push('ticket id: ' + p.tt.issuedTicketId);
+    if (p.promo && p.promo.code) bits.push('code: ' + p.promo.code);
+    return '<p class="steps">' + esc(bits.join(' · ')) + '</p>';
+  }
+
+  function head(p) {
+    var t = teamOf(p.team);
+    var label = p.label ? ' · ' + p.label : '';
+    var who = '<div class="row"><span class="name">' + esc(p.firstName + ' ' + p.lastName) + '</span>'
+      + '<span class="muted">' + esc(p.role || '') + '</span></div>'
+      + '<div class="muted">' + esc(teamName(p.team) + label) + '</div>'
+      + '<div class="muted">' + esc(p.phone || 'no phone') + ' · ' + esc(p.email) + '</div>';
+    if (p.child) {
+      who += '<div class="muted">Child: ' + esc(p.child.firstName + ' ' + p.child.lastName)
+        + ' · born ' + esc(p.child.dob)
+        + ' · ' + esc(p.childAge) + ' on 24 October</div>';
+    }
+    if (t && t.blocked) {
+      who += '<div class="chips"><span class="chip bad">' + esc(t.blocked) + '</span></div>';
+    }
+    return who;
+  }
+
+  function renderQueue() {
+    var pending = D.people.filter(function (p) {
+      return p.status === 'pending' || p.status === 'approving';
+    });
+    if (!pending.length) {
+      $('queue').innerHTML = '<p class="muted">Nothing waiting.</p>' + teamTotals();
+      return;
+    }
+    var byTeam = {};
+    pending.forEach(function (p) { (byTeam[p.team] = byTeam[p.team] || []).push(p); });
+
+    var html = '';
+    D.teams.forEach(function (t) {
+      var list = byTeam[t.key];
+      if (!list) return;
+      html += '<h2>' + esc(t.name.en) + ' <span class="muted">'
+        + t.registered + ' registered, ' + t.expected + ' expected</span></h2>';
+      list.forEach(function (p) {
+        var l = linkOf(p.linkToken);
+        html += '<div class="card" data-id="' + esc(p.id) + '">' + head(p) + chips(p)
+          + (l ? '<div class="muted">Link: ' + esc(l.label || l.token) + ' · '
+              + l.registered + ' on this link, ' + l.expected + ' expected</div>' : '')
+          + stepline(p)
+          + '<div class="acts">'
+          /* The form switch is about registering, not about deciding: with
+             the form off, somebody already in the queue can still be let in. */
+          + '<button type="button" class="go" data-act="approve"'
+          + (t.blocked ? ' disabled' : '') + '>Approve</button>'
+          + '<button type="button" class="no" data-act="reject">Reject</button>'
+          + '</div></div>';
+      });
+    });
+    $('queue').innerHTML = html + teamTotals();
+  }
+
+  function teamTotals() {
+    var rows = D.teams.map(function (t) {
+      return '<div class="teamline"><span>' + esc(t.name.en)
+        + (t.inviteOnly ? ' <span class="muted">(invite only)</span>' : '')
+        + '</span><span class="muted">' + t.registered + ' / ' + t.expected + '</span></div>';
+    }).join('');
+    return '<h2>Everyone, by team</h2><div class="card">' + rows + '</div>';
+  }
+
+  function renderPeople() {
+    var fTeam = (document.querySelector('[data-filter=team]') || {}).value || '';
+    var fStatus = (document.querySelector('[data-filter=status]') || {}).value || '';
+    var q = ((document.querySelector('[data-filter=q]') || {}).value || '').trim().toLowerCase();
+
+    var bar = '<div class="bar">'
+      + '<select data-filter="team"><option value="">All teams</option>'
+      + D.teams.map(function (t) {
+        return '<option value="' + t.key + '"' + (t.key === fTeam ? ' selected' : '') + '>'
+          + esc(t.name.en) + '</option>';
+      }).join('') + '</select>'
+      + '<select data-filter="status"><option value="">Any status</option>'
+      + ['pending', 'approving', 'approved', 'rejected', 'revoked'].map(function (s) {
+        return '<option value="' + s + '"' + (s === fStatus ? ' selected' : '') + '>' + s + '</option>';
+      }).join('') + '</select>'
+      + '<input data-filter="q" placeholder="Name or phone" value="' + esc(q) + '">'
+      + '<button type="button" data-act="csv">Export CSV</button>'
+      + '<button type="button" data-act="addform">Add person</button>'
+      + '</div><div id="addwrap"></div>';
+
+    var list = D.people.filter(function (p) {
+      if (fTeam && p.team !== fTeam) return false;
+      if (fStatus && p.status !== fStatus) return false;
+      if (q) {
+        var hay = (p.firstName + ' ' + p.lastName + ' ' + (p.phone || '')).toLowerCase();
+        if (hay.indexOf(q) < 0) return false;
+      }
+      return true;
+    });
+
+    var html = list.map(function (p) {
+      return '<div class="card" data-id="' + esc(p.id) + '">' + head(p) + chips(p)
+        + '<div class="muted">' + esc(p.status)
+        + (p.decidedBy ? ' by ' + esc(p.decidedBy) : '')
+        + (p.note ? ' · ' + esc(p.note) : '') + '</div>'
+        + stepline(p)
+        + '<div class="acts">'
+        + (p.status === 'pending' ? '<button type="button" class="go" data-act="approve">Approve</button>' : '')
+        + (p.status === 'approved' ? '<button type="button" data-act="retry">Retry failed steps</button>' : '')
+        + (p.status === 'approved' ? '<button type="button" class="no" data-act="revoke">Revoke</button>' : '')
+        + (p.status === 'pending' ? '<button type="button" class="no" data-act="reject">Reject</button>' : '')
+        + '</div></div>';
+    }).join('');
+
+    $('people').innerHTML = bar
+      + '<p class="muted">' + list.length + ' of ' + D.people.length + '</p>'
+      + (html || '<p class="muted">Nobody yet.</p>');
+  }
+
+  function addForm() {
+    var teams = D.teams.filter(function (t) { return !t.inviteOnly && !t.derived; });
+    $('addwrap').innerHTML = '<div class="card"><h2>Add a person</h2>'
+      + '<p class="muted">Created approved by you, and run through the same steps.</p>'
+      + '<label>Team</label><select id="a-team">'
+      + teams.map(function (t) { return '<option value="' + t.key + '">' + esc(t.name.en) + '</option>'; }).join('')
+      + '</select>'
+      + '<div class="grid2">'
+      + '<div><label>First name</label><input id="a-first"></div>'
+      + '<div><label>Last name</label><input id="a-last"></div>'
+      + '<div><label>Email</label><input id="a-email" type="email"></div>'
+      + '<div><label>WhatsApp</label><input id="a-phone" type="tel"></div>'
+      + '<div><label>Role or act</label><input id="a-role"></div>'
+      + '<div><label>Language</label><select id="a-lang">'
+      + '<option value="en">en</option><option value="fr">fr</option><option value="nl">nl</option>'
+      + '</select></div>'
+      + '<div><label>Child first name</label><input id="a-cfirst"></div>'
+      + '<div><label>Child last name</label><input id="a-clast"></div>'
+      + '<div><label>Child date of birth</label><input id="a-cdob" placeholder="YYYY-MM-DD"></div>'
+      + '</div>'
+      + '<div class="acts"><button type="button" class="go" data-act="addsave">Add and approve</button>'
+      + '<button type="button" data-act="addcancel">Cancel</button></div></div>';
+  }
+
+  function renderLinks() {
+    var teams = D.teams.filter(function (t) { return !t.inviteOnly && !t.derived; });
+    var form = '<div class="card"><h2>New link</h2>'
+      + '<label>Team</label><select id="l-team">'
+      + teams.map(function (t) { return '<option value="' + t.key + '">' + esc(t.name.en) + '</option>'; }).join('')
+      + '</select>'
+      + '<div class="grid2">'
+      + '<div><label>Label (the group, the teacher, the board member)</label><input id="l-label"></div>'
+      + '<div><label>Lead</label><input id="l-lead"></div>'
+      + '<div><label>Expected</label><input id="l-expected" type="number" min="1" value="10"></div>'
+      + '</div>'
+      + '<div class="acts"><button type="button" data-act="link_create">Create</button></div></div>';
+
+    var rows = D.links.length ? D.links.map(function (l) {
+      return '<div class="card" data-token="' + esc(l.token) + '">'
+        + '<div class="row"><span class="name">' + esc(l.label || '(no label)') + '</span>'
+        + '<span class="muted">' + esc(teamName(l.team)) + '</span>'
+        + '<span class="pill ' + (l.open ? 'on' : 'off') + '">' + (l.open ? 'open' : 'closed') + '</span></div>'
+        + '<div class="muted">' + esc(l.lead || '') + ' · ' + l.registered
+        + ' registered, ' + l.expected + ' expected, ' + l.cap + ' hard cap</div>'
+        + '<p class="steps"><code>' + esc(l.url) + '</code></p>'
+        + '<div class="acts">'
+        + '<button type="button" data-act="copy">Copy link</button>'
+        + '<button type="button" data-act="toggle">' + (l.open ? 'Close' : 'Reopen') + '</button>'
+        + '<button type="button" data-act="expected">Edit expected</button>'
+        + '</div></div>';
+    }).join('') : '<p class="muted">No links yet.</p>';
+
+    var teamRows = '<div class="card"><h2>Expected, per team</h2>'
+      + D.teams.map(function (t) {
+        return '<div class="teamline"><span>' + esc(t.name.en) + '</span>'
+          + '<span><span class="muted">' + t.registered + ' / ' + t.expected + '</span> '
+          + '<button type="button" data-act="team_expected" data-team="' + t.key + '">edit</button></span></div>';
+      }).join('') + '</div>';
+
+    $('links').innerHTML = form + rows + teamRows;
+  }
+
+  function render() {
+    $('who').textContent = D.approver;
+    $('who').hidden = false;
+    $('mode').textContent = D.settings.dryRun ? 'dry run' : 'live';
+    $('mode').className = 'pill ' + (D.settings.dryRun ? 'dark' : 'on');
+    $('mode').hidden = false;
+    $('reg').textContent = D.settings.regEnabled ? 'form open' : 'form off';
+    $('reg').className = 'pill ' + (D.settings.regEnabled ? 'on' : 'off');
+    $('reg').hidden = false;
+
+    ['queue', 'people', 'links'].forEach(function (t) { $(t).hidden = t !== TAB; });
+    if (TAB === 'queue') renderQueue();
+    if (TAB === 'people') renderPeople();
+    if (TAB === 'links') renderLinks();
+  }
+
+  /* ----------------------------------------------------------------- csv */
+
+  /* Everyone who works for the festival, in one file. The child's date of
+     birth is in it, which is the only place outside KV that it goes, and the
+     file is built in the browser from data this page already holds so no date
+     of birth is ever put in a URL. */
+  function csv() {
+    var cols = ['firstName', 'lastName', 'email', 'phone', 'team', 'label', 'role',
+      'childFirstName', 'childLastName', 'childDob', 'salutation', 'title',
+      'organisation', 'rsvp', 'status', 'approver', 'promoCode', 'ticketsSold'];
+    function cell(v) {
+      var s = String(v == null ? '' : v);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }
+    var lines = [cols.join(',')];
+    D.people.forEach(function (p) {
+      var v = p.vip || {};
+      lines.push([
+        p.firstName, p.lastName, p.email, p.phone, teamName(p.team), p.label, p.role,
+        p.child ? p.child.firstName : '', p.child ? p.child.lastName : '', p.child ? p.child.dob : '',
+        v.salutation || '', v.jobTitle || '', v.organisation || '',
+        v.attending == null ? '' : (v.attending ? 'accepted' : 'declined'),
+        p.status, p.decidedBy || '', (p.promo && p.promo.code) || '', p.ticketsSold == null ? '' : p.ticketsSold
+      ].map(cell).join(','));
+    });
+    var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'artindia-team-' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  /* --------------------------------------------------------------- actions */
+
+  function load() {
+    if (!readToken()) { $('unlock').hidden = false; $('app').hidden = true; return; }
+    note('Loading…');
+    api('GET').then(function (d) {
+      if (!d.ok) {
+        $('unlock').hidden = false;
+        $('app').hidden = true;
+        $('unlockmsg').textContent = d.httpStatus === 503
+          ? 'TEAM_ADMIN_TOKENS is not set on the project.'
+          : 'That token was refused.';
+        return;
+      }
+      D = d;
+      $('unlock').hidden = true;
+      $('app').hidden = false;
+      note('');
+      render();
+    }).catch(function () { note('Could not reach the server.'); });
+  }
+
+  function act(body) {
+    note('Working…');
+    return api('POST', body).then(function (d) {
+      if (!d.ok) { note('Refused: ' + (d.error || d.detail || d.httpStatus)); return d; }
+      return api('GET').then(function (fresh) {
+        if (fresh.ok) { D = fresh; render(); }
+        note(d.skipped ? 'Nothing to do: ' + d.skipped : 'Done.');
+        return d;
+      });
+    }).catch(function () { note('Could not reach the server.'); });
+  }
+
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target.closest('button');
+    if (!btn) return;
+    var a = btn.getAttribute('data-act');
+    var tab = btn.getAttribute('data-tab');
+
+    if (tab) {
+      TAB = tab;
+      document.querySelectorAll('[role=tab]').forEach(function (b) {
+        b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === tab));
+      });
+      render();
+      return;
+    }
+    if (btn.id === 'save') {
+      var v = $('token').value.trim();
+      if (!v) return;
+      writeToken(v);
+      $('token').value = '';
+      load();
+      return;
+    }
+    if (!a) return;
+
+    var card = btn.closest('[data-id]');
+    var id = card && card.getAttribute('data-id');
+    var lcard = btn.closest('[data-token]');
+    var tok = lcard && lcard.getAttribute('data-token');
+
+    if (a === 'approve') { act({ action: 'approve', id: id }); return; }
+    if (a === 'retry') { act({ action: 'retry', id: id }); return; }
+    if (a === 'reject') {
+      var note1 = window.prompt('Why? A short note, kept on the record.');
+      if (note1 === null) return;
+      act({ action: 'reject', id: id, note: note1 });
+      return;
+    }
+    if (a === 'revoke') {
+      var note2 = window.prompt('Revoke this pass. Why?');
+      if (note2 === null) return;
+      act({ action: 'revoke', id: id, note: note2 });
+      return;
+    }
+    if (a === 'csv') { csv(); return; }
+    if (a === 'addform') { addForm(); return; }
+    if (a === 'addcancel') { $('addwrap').innerHTML = ''; return; }
+    if (a === 'addsave') {
+      var team = $('a-team').value;
+      var body = {
+        action: 'person_add', team: team,
+        firstName: $('a-first').value.trim(), lastName: $('a-last').value.trim(),
+        email: $('a-email').value.trim(), phone: $('a-phone').value.trim(),
+        role: $('a-role').value.trim(), lang: $('a-lang').value
+      };
+      if ($('a-cdob').value.trim()) {
+        body.child = {
+          firstName: $('a-cfirst').value.trim(),
+          lastName: $('a-clast').value.trim(),
+          dob: $('a-cdob').value.trim()
+        };
+      }
+      act(body).then(function () { $('addwrap').innerHTML = ''; });
+      return;
+    }
+    if (a === 'link_create') {
+      act({
+        action: 'link_create', team: $('l-team').value,
+        label: $('l-label').value.trim(), lead: $('l-lead').value.trim(),
+        expected: Number($('l-expected').value) || 10
+      });
+      return;
+    }
+    if (a === 'copy') {
+      var l = linkOf(tok);
+      if (!l) return;
+      navigator.clipboard.writeText(l.url).then(function () { note('Copied.'); },
+        function () { window.prompt('Copy this link', l.url); });
+      return;
+    }
+    if (a === 'toggle') {
+      var li = linkOf(tok);
+      act({ action: 'link_update', token: tok, open: !(li && li.open) });
+      return;
+    }
+    if (a === 'expected') {
+      var l2 = linkOf(tok);
+      var n = window.prompt('Expected on this link', String(l2 ? l2.expected : 10));
+      if (n === null) return;
+      act({ action: 'link_update', token: tok, expected: Number(n) });
+      return;
+    }
+    if (a === 'team_expected') {
+      var key = btn.getAttribute('data-team');
+      var t = teamOf(key);
+      var m = window.prompt('Expected for ' + (t ? t.name.en : key), String(t ? t.expected : 10));
+      if (m === null) return;
+      act({ action: 'expected_set', team: key, expected: Number(m) });
+      return;
+    }
+  });
+
+  document.addEventListener('change', function (ev) {
+    if (ev.target.getAttribute && ev.target.getAttribute('data-filter')) renderPeople();
+  });
+  document.addEventListener('input', function (ev) {
+    if (ev.target.getAttribute && ev.target.getAttribute('data-filter') === 'q') renderPeople();
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

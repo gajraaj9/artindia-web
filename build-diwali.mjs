@@ -1827,6 +1827,76 @@ if (existsSync(join(HERE, 'diwali-web'))) {
   }
 }
 
+/* The team registration form: /team/ and /team/plus1/ in three languages.
+   Hidden by construction. It is noindex, it is in no sitemap (the sitemap
+   below is an allowlist), nothing on the site links to it, and the Diya widget
+   excludes the path. A person gets here because somebody sent them the link.
+
+   Rendered here rather than written three times by hand so that the page and
+   the emails read the same strings out of data/team-copy.json. */
+{
+  const tpl = join(HERE, 'templates/team-form.html');
+  const copyFile = join(HERE, 'data/team-copy.json');
+  if (existsSync(tpl) && existsSync(copyFile)) {
+    const COPY = JSON.parse(readFileSync(copyFile, 'utf8')).copy || {};
+    const raw = readFileSync(tpl, 'utf8');
+    const two = n => String(n).padStart(2, '0');
+    const opts = list => list.map(v => `<option value="${v}">${v}</option>`).join('');
+    const days = opts(Array.from({ length: 31 }, (_, i) => two(i + 1)));
+    const months = opts(Array.from({ length: 12 }, (_, i) => two(i + 1)));
+    /* A child artist is under 18 on 24 October 2026, so no earlier year can
+       ever be a valid answer and no later one can be a person. */
+    const years = opts(Array.from({ length: 19 }, (_, i) => String(2026 - i)));
+
+    /* The page shows one language and offers the other two. ?k is carried
+       across, because the link is the only way back in. */
+    const base = { en: '', fr: '/fr', nl: '/nl' };
+    const switcher = (lang, leaf) => LANGS.map(l => (l === lang
+      ? `<a href="${base[l]}/team/${leaf}" aria-current="page">${l.toUpperCase()}</a>`
+      : `<a href="${base[l]}/team/${leaf}">${l.toUpperCase()}</a>`))
+      .join(' &middot; ');
+
+    let n = 0;
+    for (const lang of LANGS) {
+      const t = key => (COPY[key] && (COPY[key][lang] || COPY[key].en)) || '';
+      const strings = Object.fromEntries(Object.entries(COPY)
+        .map(([k, v]) => [k, v[lang] || v.en || '']));
+      for (const [kind, leaf] of [['team', ''], ['plus1', 'plus1/']]) {
+        const html = raw
+          .replace(/\{\{LANG\}\}/g, HREFLANG[lang])
+          .replace(/\{\{LANG_JSON\}\}/g, JSON.stringify(lang))
+          .replace(/\{\{KIND_JSON\}\}/g, JSON.stringify(kind))
+          .replace(/\{\{STRINGS_JSON\}\}/g, JSON.stringify(strings))
+          .replace(/\{\{CSSV\}\}/g, CSSV)
+          .replace(/\{\{TITLE\}\}/g, esc(t('title')))
+          .replace(/\{\{INTRO\}\}/g, esc(t('intro')))
+          .replace(/\{\{S_FIRST\}\}/g, esc(t('first')))
+          .replace(/\{\{S_LAST\}\}/g, esc(t('last')))
+          .replace(/\{\{S_EMAIL\}\}/g, esc(t('email')))
+          .replace(/\{\{S_PHONE\}\}/g, esc(t('phone')))
+          .replace(/\{\{S_ROLE\}\}/g, esc(t('role')))
+          .replace(/\{\{S_CHILD\}\}/g, esc(t('child')))
+          .replace(/\{\{S_DOB_WHY\}\}/g, esc(t('dob_why')))
+          .replace(/\{\{S_DOB\}\}/g, esc(t('dob')))
+          .replace(/\{\{S_CONSENT\}\}/g, esc(t('consent')))
+          .replace(/\{\{S_SUBMIT\}\}/g, esc(t('submit')))
+          .replace(/\{\{S_RECEIVED\}\}/g, esc(t('received')))
+          .replace(/\{\{S_ANOTHER\}\}/g, esc(t('another')))
+          .replace(/\{\{DAYS\}\}/g, days)
+          .replace(/\{\{MONTHS\}\}/g, months)
+          .replace(/\{\{YEARS\}\}/g, years)
+          .replace(/\{\{LANGS\}\}/g, switcher(lang, leaf));
+        if (html.includes('{{')) throw new Error(`team form ${lang}/${kind} has an unfilled token`);
+        const dir = join(out, base[lang].slice(1), 'team', leaf);
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(join(dir, 'index.html'), html);
+        n++;
+      }
+    }
+    console.log(`  Team form: ${n} pages, hidden`);
+  }
+}
+
 /* The page a person answers an escalation from. Shipped at /admin/reply.html
    because the escalation email links straight to it with the number filled
    in. It holds nothing secret: the admin token is typed once into the
@@ -1851,6 +1921,26 @@ if (existsSync(join(HERE, 'diwali-admin'))) {
     + '   Edit docs/faq.md and rebuild. */\n\n'
     + 'export const FAQ_RAW = `' + escaped + '`;\n');
   console.log(`  FAQ compiled: ${raw.length} chars from docs/faq.md`);
+}
+
+/* The teams and their copy, the same way and for the same reason: a Worker
+   cannot read a file, so the accreditation module gets its configuration
+   compiled into the bundle. data/teams.json and data/team-copy.json stay the
+   things anyone edits, and the form pages below are rendered from the same
+   copy, so the page and the email can never drift apart. */
+{
+  const teams = existsSync(join(HERE, 'data/teams.json'))
+    ? JSON.parse(readFileSync(join(HERE, 'data/teams.json'), 'utf8')).teams || []
+    : [];
+  const copy = existsSync(join(HERE, 'data/team-copy.json'))
+    ? JSON.parse(readFileSync(join(HERE, 'data/team-copy.json'), 'utf8')).copy || {}
+    : {};
+  writeFileSync(join(HERE, 'functions/api/_teams.js'),
+    '/* GENERATED from data/teams.json and data/team-copy.json by\n'
+    + '   build-diwali.mjs. Do not edit. Edit the data files and rebuild. */\n\n'
+    + `export const TEAMS = ${JSON.stringify(teams, null, 2)};\n\n`
+    + `export const COPY = ${JSON.stringify(copy, null, 2)};\n`);
+  console.log(`  Teams compiled: ${teams.length} teams, ${Object.keys(copy).length} strings`);
 }
 
 /* The WhatsApp template header. Meta fetches this itself when a message goes

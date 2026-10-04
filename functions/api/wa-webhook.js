@@ -29,9 +29,12 @@ import {
   STOP_RE, HUMAN_RE, MENU_RE, FALLBACK, OPTOUT_CONFIRM, ESCALATION_REPLY,
   NOT_A_BUYER, TICKETS_ANSWER, INFO_ANSWER, GETTING_THERE_ANSWER,
   myLinkReply, myChancesReply, myTicketsReply,
-  buildMenu, pickLang, askFaq, sendText, sendToMeta, botKey, isGreeting,
+  buildMenu, pickLang, askFaq, sendText, sendToMeta, botKey, isGreeting, TEAM_ACTIONS,
   DAY_SECONDS, KEEP_SECONDS, LOG_SECONDS, SEEN_SECONDS, utcDay, stamp, logMessage,
 } from './_bot.js';
+import {
+  teamMemberFor, passAnswer, codeAnswer, salesAnswer, pendingAnswer,
+} from './_accred.js';
 
 const text = (status, body) =>
   new Response(body, {
@@ -259,8 +262,8 @@ async function say(env, kv, phone, body, kind, about) {
 }
 
 /** The menu, written down as the line the visitor actually sees. */
-async function showMenu(env, kv, phone, lang, buyer, firstContact, about) {
-  const menu = buildMenu(phone, lang, buyer, firstContact);
+async function showMenu(env, kv, phone, lang, buyer, firstContact, about, team = null) {
+  const menu = buildMenu(phone, lang, buyer, firstContact, team);
   const res = await sendToMeta(env, menu);
   await logMessage(kv, phone,
     { dir: 'out', kind: 'menu', text: menu.interactive.body.text }, about);
@@ -352,7 +355,7 @@ async function escalate(env, kv, { phone, lang, name, history, about }) {
 }
 
 /** The FAQ path, with the per-number daily ceiling in front of it. */
-async function answerQuestion(env, kv, { phone, lang, body, about, firstContact }) {
+async function answerQuestion(env, kv, { phone, lang, body, about, firstContact, team = false }) {
   const fallback = FALLBACK[lang] || FALLBACK.en;
 
   if (!truthy(env.WA_BOT_ENABLED)) {
@@ -377,7 +380,7 @@ async function answerQuestion(env, kv, { phone, lang, body, about, firstContact 
     return '';
   }
 
-  const { answer, action, reason } = await askFaq(env, { text: body, lang, firstContact });
+  const { answer, action, reason } = await askFaq(env, { text: body, lang, firstContact, team });
 
   /* The model recognised a question about the person rather than the festival
      and handed it back. It still cost a call, so it still counts. */
@@ -408,8 +411,35 @@ async function answerQuestion(env, kv, { phone, lang, body, about, firstContact 
  * the same question, and they must not be able to drift apart.
  */
 async function runButton(env, kv, buttonId, ctx) {
-  const { phone, lang, buyer, code, contact, name, history, about, firstToday, fallback } = ctx;
+  const { phone, lang, buyer, code, contact, name, history, about, firstToday, fallback, team } = ctx;
   const notABuyer = NOT_A_BUYER[lang] || NOT_A_BUYER.en;
+
+  /* The three pass answers. Refused outright for anybody without a pass: the
+     model can route a typed question here, and "where is my pass" from a
+     stranger must not be answered as though they had one. */
+  if (TEAM_ACTIONS.includes(buttonId)) {
+    if (!team || !team.person) {
+      await say(env, kv, phone, fallback, 'fallback', about);
+      return;
+    }
+    if (buttonId === 'MY_PASS') {
+      await say(env, kv, phone, await passAnswer(env, env.ACCRED, team), 'canned', about);
+      return;
+    }
+    const answer = buttonId === 'MY_CODE'
+      ? codeAnswer(team.person)
+      : await salesAnswer(env, env.ACCRED, team.person);
+    await say(env, kv, phone, answer || fallback, answer ? 'canned' : 'fallback', about);
+    return;
+  }
+
+  /* A member of the team is never offered the draw, and never gets one by
+     typing either. Their bought tickets, if they have any, still answer. */
+  if (team && team.person && (buttonId === 'MY_LINK' || buttonId === 'MY_CHANCES')) {
+    await say(env, kv, phone, await passAnswer(env, env.ACCRED, team), 'canned', about);
+    return;
+  }
+
   switch (buttonId) {
     case 'MY_TICKETS': {
         if (!buyer) { await say(env, kv, phone, notABuyer, 'canned', about); return; }
@@ -447,7 +477,7 @@ async function runButton(env, kv, buttonId, ctx) {
         await escalate(env, kv, { phone, lang, name, history, about });
         return;
       case 'MENU':
-        await showMenu(env, kv, phone, lang, buyer, firstToday, about);
+        await showMenu(env, kv, phone, lang, buyer, firstToday, about, team);
         return;
       default:
         console.warn('wa-webhook: unknown button', buttonId);
@@ -526,6 +556,18 @@ async function handleInbound(env, m, value) {
 
   const buyer = isBuyer(contact);
   const code = String((contact && contact.attributes && contact.attributes.REFERRAL_CODE) || '');
+
+  /* Who this number is to the festival, before anything else is decided. An
+     approved person gets the team menu; one still in the queue is told so and
+     nothing more; a rejected or unknown number is an ordinary visitor and
+     never hears that a registration exists. */
+  let accred = null;
+  try { accred = await teamMemberFor(env.ACCRED, phone); } catch (e) {
+    console.error('wa-webhook: accred lookup failed', String(e).slice(0, 160));
+  }
+  const team = accred && accred.person
+    ? { person: accred.person, team: accred.team, hasCode: Boolean(accred.person.promo && accred.person.promo.code) }
+    : null;
   const fallback = FALLBACK[lang] || FALLBACK.en;
   /* What the dashboard needs about this person, carried to every write. */
   const about = { name, buyer, lang };
@@ -550,11 +592,19 @@ async function handleInbound(env, m, value) {
        Tying it to the window alone meant a visitor whose first message of the
        day was a question, and who said "Bonjour" two hours later, never met
        her at all. */
-    await showMenu(env, kv, phone, lang, buyer, firstToday || greeted, about);
+    await showMenu(env, kv, phone, lang, buyer, firstToday || greeted, about, team);
     if (wantsMenu) return;
   }
 
-  const ctx = { phone, lang, buyer, code, contact, name, history, about, firstToday, fallback };
+  /* Waiting for an approver. One line, and the conversation stops there: an
+     FAQ answer underneath it would read as though the question had been
+     answered. */
+  if (accred && accred.pending) {
+    await say(env, kv, phone, pendingAnswer(lang), 'canned', about);
+    return;
+  }
+
+  const ctx = { phone, lang, buyer, code, contact, name, history, about, firstToday, fallback, team };
 
   if (buttonId) {
     await runButton(env, kv, buttonId, ctx);
@@ -582,7 +632,7 @@ async function handleInbound(env, m, value) {
      tickets, so it runs the same handler. The model only names the button; it
      never sees the buyer's data. */
   const action = await answerQuestion(env, kv,
-    { phone, lang, body, about, firstContact: firstToday });
+    { phone, lang, body, about, firstContact: firstToday, team: Boolean(team) });
   if (action) await runButton(env, kv, action, ctx);
 }
 
