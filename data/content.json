@@ -57,7 +57,7 @@
     "performers_2025": null
   },
   "festival_mode": {
-    "_comment": "Homepage festival mode. Shown until active_until, then removed in the browser and left out of any later build. Prices follow diwali.artindia.be.",
+    "_comment": "Homepage festival mode. Shown until active_until, then removed in the browser and left out of any later build. No prices here: they live on diwali.artindia.be, next to the checkout.",
     "active_until": "2026-10-26T00:00:00+02:00",
     "starts": "2026-10-24",
     "name": {
@@ -80,13 +80,13 @@
       "en": "24 and 25 October 2026, on the esplanade of the Atomium",
       "fr": "Les 24 et 25 octobre 2026, sur l'esplanade de l'Atomium"
     },
-    "price": {
-      "en": "Tickets €12",
-      "fr": "Billets 12 €"
-    },
     "url": {
       "en": "https://diwali.artindia.be/",
       "fr": "https://diwali.artindia.be/fr/"
+    },
+    "cta": {
+      "en": "Tickets",
+      "fr": "Billets"
     },
     "countdown": {
       "days": {
@@ -120,43 +120,15 @@
         "Aucun frais de réservation. Paiement par carte uniquement sur place."
       ]
     },
+    "block_link": {
+      "en": "Tickets and full programme on diwali.artindia.be",
+      "fr": "Billets et programme complet sur diwali.artindia.be"
+    },
     "image": "atomium-night",
     "image_alt": {
       "en": "The Atomium lit at night, with the festival on the esplanade below",
       "fr": "L'Atomium illuminé la nuit, avec le festival sur l'esplanade en contrebas"
     },
-    "tickets": [
-      {
-        "price": {
-          "en": "€12",
-          "fr": "12 €"
-        },
-        "what": {
-          "en": "online",
-          "fr": "en ligne"
-        }
-      },
-      {
-        "price": {
-          "en": "€15",
-          "fr": "15 €"
-        },
-        "what": {
-          "en": "at the gate",
-          "fr": "sur place"
-        }
-      },
-      {
-        "price": {
-          "en": "Free",
-          "fr": "Gratuit"
-        },
-        "what": {
-          "en": "children under 12, event band required",
-          "fr": "enfants de moins de 12 ans, bracelet obligatoire"
-        }
-      }
-    ],
     "title": {
       "en": "Brussels Diwali Festival 2026, 24 and 25 October, Atomium | Art India",
       "fr": "Brussels Diwali Festival 2026, 24 et 25 octobre, Atomium | Art India"
@@ -171,11 +143,11 @@
       "id": "diwali",
       "url": "https://diwali.artindia.be",
       "when": {
-        "en": "October",
-        "fr": "Octobre"
+        "en": "24 and 25 October 2026",
+        "fr": "24 et 25 octobre 2026"
       },
       "where": {
-        "en": "Atomium Esplanade",
+        "en": "Atomium esplanade",
         "fr": "Esplanade de l'Atomium"
       },
       "name": {
@@ -185,10 +157,6 @@
       "blurb": {
         "en": "Belgium's largest celebration of the Indian festival of lights. Two days of music, dance, food and light on the Atomium esplanade. The tenth edition falls on 24 and 25 October 2026.",
         "fr": "La plus grande célébration en Belgique de la fête indienne des lumières. Deux jours de musique, de danse, de cuisine et de lumière sur l'esplanade de l'Atomium. La dixième édition aura lieu les 24 et 25 octobre 2026."
-      },
-      "status": {
-        "en": "Tickets €12, €15 at the gate",
-        "fr": "Billets 12 €, 15 € sur place"
       },
       "image": ""
     },

@@ -71,7 +71,7 @@ function festivalCards(lang) {
         ${head}
         <p class="when">${esc(t(f.when, lang, 'when'))} · ${esc(t(f.where, lang, 'where'))}</p>
         <p>${esc(t(f.blurb, lang, `festival ${f.id} blurb`))}</p>
-        <p class="status">${esc(t(f.status, lang, 'status'))}</p>
+        ${f.status ? `<p class="status">${esc(t(f.status, lang, 'status'))}</p>` : ''}
       </div>
       ${plate(stemFor(f.id, f.image), '', lang)}
     </article>`;
@@ -150,15 +150,12 @@ function fmBar(lang) {
   return `<a class="fm-bar" data-fm href="${t(FM.url, lang, 'festival_mode.url')}">
   <span class="wrap fm-bar-in">
     <span class="fm-bar-text">${esc(t(FM.name, lang, 'name'))} · ${esc(t(FM.dates_short, lang, 'dates_short'))} · ${esc(t(FM.place, lang, 'place'))}</span>
-    <span class="fm-btn fm-bar-btn">${esc(t(FM.price, lang, 'price'))}</span>
+    <span class="fm-btn fm-bar-btn">${esc(t(FM.cta, lang, 'cta'))}</span>
   </span>
 </a>`;
 }
 
 function fmBlock(lang) {
-  const rows = FM.tickets.map(x => `<li><a href="${fmTickets(lang)}">
-      <span class="fm-p">${esc(t(x.price, lang, 'ticket price'))}</span>
-      <span class="fm-w">${esc(t(x.what, lang, 'ticket what'))}</span></a></li>`).join('');
   const copy = t(FM.block_copy, lang, 'block_copy');
   const photo = IMG.has(FM.image)
     ? IMG.tag(FM.image, { alt: t(FM.image_alt, lang, 'image_alt'), sizes: '(min-width:820px) 46vw, 100vw', ratio: '16/9', className: 'plate' })
@@ -169,7 +166,7 @@ function fmBlock(lang) {
       <div>
         <h2>${esc(t(FM.block_heading, lang, 'block_heading'))}</h2>
         ${(copy || []).map(p => `<p>${esc(p)}</p>`).join('')}
-        <ul class="fm-prices">${rows}</ul>
+        <p class="fm-link"><a href="${t(FM.url, lang, 'festival_mode.url')}">${esc(t(FM.block_link, lang, 'block_link'))}</a></p>
       </div>
     </div>
   </section>`;
@@ -187,7 +184,7 @@ function fmIndex(page, lang) {
     `<h1>${esc(t(FM.name, lang, 'name'))}</h1>`,
     `<div class="tri full-rule"><i></i><i></i><i></i></div>`,
     `<p class="lede">${esc(t(FM.line, lang, 'line'))}</p>`,
-    `<p class="fm-cta"><a class="fm-btn" href="${fmTickets(lang)}">${esc(t(FM.price, lang, 'price'))}</a></p>`,
+    `<p class="fm-cta"><a class="fm-btn" href="${fmTickets(lang)}">${esc(t(FM.cta, lang, 'cta'))}</a></p>`,
     heroMedia(lang),
     fmBlock(lang),
     `<section class="fm-intro"><p class="fm-motto">${esc(t(data.org.motto, lang, 'org.motto'))}</p>
@@ -490,6 +487,9 @@ for (const lang of LANGS) {
                alt="Art India" width="230" height="257" loading="lazy"></picture></div>`
         : '')
       .replace(/{{YEAR}}/g, new Date().getFullYear());
+
+    // Prices live on diwali.artindia.be, next to the checkout. Never here.
+    if (html.includes('€')) problems.push(`Price on artindia.be — ${key} ${lang}. Prices belong on diwali.artindia.be only.`);
 
     const dir = join(out, lang === DEFAULT ? '' : lang, page.slug);
     mkdirSync(dir, { recursive: true });
