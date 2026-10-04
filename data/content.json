@@ -91,11 +91,11 @@
     "countdown": {
       "days": {
         "en": "{n} days to go",
-        "fr": "Encore {n} jours"
+        "fr": "J-{n}"
       },
       "tomorrow": {
         "en": "Tomorrow",
-        "fr": "Demain"
+        "fr": "J-1"
       },
       "today": {
         "en": "Today and tomorrow",
@@ -135,7 +135,7 @@
     },
     "description": {
       "en": "Belgium's largest celebration of the festival of lights. Two days of music, dance, food and light on the Atomium esplanade. Tickets on sale now.",
-      "fr": "La plus grande fête des lumières de Belgique. Deux jours de musique, de danse, de cuisine et de lumière sur l'esplanade de l'Atomium. Billets en vente."
+      "fr": "La plus grande célébration de Diwali en Belgique. Deux jours de musique, de danse, de cuisine et de lumière sur l'esplanade de l'Atomium. Billets en vente."
     }
   },
   "festivals": [
@@ -156,7 +156,7 @@
       },
       "blurb": {
         "en": "Belgium's largest celebration of the Indian festival of lights. Two days of music, dance, food and light on the Atomium esplanade. The tenth edition falls on 24 and 25 October 2026.",
-        "fr": "La plus grande célébration en Belgique de la fête indienne des lumières. Deux jours de musique, de danse, de cuisine et de lumière sur l'esplanade de l'Atomium. La dixième édition aura lieu les 24 et 25 octobre 2026."
+        "fr": "La plus grande célébration de la fête indienne des lumières en Belgique. Deux jours de musique, de danse, de cuisine et de lumière sur l'esplanade de l'Atomium. La dixième édition aura lieu les 24 et 25 octobre 2026."
       },
       "image": ""
     },
