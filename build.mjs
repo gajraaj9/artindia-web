@@ -107,6 +107,122 @@ function tiersBlock(lang) {
 
 
 /* ------------------------------------------------------------------
+   Festival mode. While it runs, every page carries a ticket bar and the
+   homepage opens with the festival. It switches itself off: a build after
+   active_until leaves it out, and pages built before then carry a small
+   script that removes it in the browser at that moment. No deploy needed.
+------------------------------------------------------------------ */
+const FM = data.festival_mode;
+const fmOn = !!FM && Date.now() < Date.parse(FM.active_until);
+
+if (fmOn) {
+  // Visitor-facing copy rules. Walk every string, in every language.
+  const walk = (v, where) => {
+    if (Array.isArray(v)) return v.forEach((x, i) => walk(x, `${where}[${i}]`));
+    if (v && typeof v === 'object') {
+      if ('en' in v || 'fr' in v) {
+        for (const l of LANGS) if (!v[l] || !v[l].length) problems.push(`Missing ${l.toUpperCase()} for ${where}`);
+      }
+      return Object.entries(v).forEach(([k, x]) => !k.startsWith('_') && walk(x, `${where}.${k}`));
+    }
+    if (typeof v !== 'string') return;
+    if (/—/.test(v)) problems.push(`Em dash in ${where}`);
+    if (/week-?end|valid both days/i.test(v)) problems.push(`Banned wording in ${where}: "${v}"`);
+  };
+  walk(FM, 'festival_mode');
+}
+
+/** "20 days to go", counted in Brussels calendar days. Mirrors the page script. */
+function fmCountdown(lang, now = new Date()) {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Brussels' }).format(now);
+  const n = Math.round((Date.parse(FM.starts) - Date.parse(today)) / 864e5);
+  const c = FM.countdown;
+  if (n > 1) return t(c.days, lang, 'countdown.days').replace('{n}', n);
+  if (n === 1) return t(c.tomorrow, lang, 'countdown.tomorrow');
+  if (n === 0) return t(c.today, lang, 'countdown.today');
+  return t(c.last, lang, 'countdown.last');
+}
+
+const fmTickets = lang => t(FM.url, lang, 'festival_mode.url') + '#tickets';
+
+function fmBar(lang) {
+  if (!fmOn) return '';
+  return `<a class="fm-bar" data-fm href="${t(FM.url, lang, 'festival_mode.url')}">
+  <span class="wrap fm-bar-in">
+    <span class="fm-bar-text">${esc(t(FM.name, lang, 'name'))} · ${esc(t(FM.dates_short, lang, 'dates_short'))} · ${esc(t(FM.place, lang, 'place'))}</span>
+    <span class="fm-btn fm-bar-btn">${esc(t(FM.price, lang, 'price'))}</span>
+  </span>
+</a>`;
+}
+
+function fmBlock(lang) {
+  const rows = FM.tickets.map(x => `<li><a href="${fmTickets(lang)}">
+      <span class="fm-p">${esc(t(x.price, lang, 'ticket price'))}</span>
+      <span class="fm-w">${esc(t(x.what, lang, 'ticket what'))}</span></a></li>`).join('');
+  const copy = t(FM.block_copy, lang, 'block_copy');
+  const photo = IMG.has(FM.image)
+    ? IMG.tag(FM.image, { alt: t(FM.image_alt, lang, 'image_alt'), sizes: '(min-width:820px) 46vw, 100vw', ratio: '16/9', className: 'plate' })
+    : '';
+  return `<section class="fm-block band band-night">
+    <div class="fm-grid">
+      ${photo}
+      <div>
+        <h2>${esc(t(FM.block_heading, lang, 'block_heading'))}</h2>
+        ${(copy || []).map(p => `<p>${esc(p)}</p>`).join('')}
+        <ul class="fm-prices">${rows}</ul>
+      </div>
+    </div>
+  </section>`;
+}
+
+/** The homepage while the festival runs. The usual opening waits in a
+    <template> and replaces this one when the mode expires. */
+function fmIndex(page, lang) {
+  const c = FM.countdown;
+  const count = `<p class="eyebrow" id="fm-count" data-start="${FM.starts}"
+    data-days="${esc(t(c.days, lang, 'c'))}" data-tomorrow="${esc(t(c.tomorrow, lang, 'c'))}"
+    data-today="${esc(t(c.today, lang, 'c'))}" data-last="${esc(t(c.last, lang, 'c'))}">${esc(fmCountdown(lang))}</p>`;
+  return [
+    count,
+    `<h1>${esc(t(FM.name, lang, 'name'))}</h1>`,
+    `<div class="tri full-rule"><i></i><i></i><i></i></div>`,
+    `<p class="lede">${esc(t(FM.line, lang, 'line'))}</p>`,
+    `<p class="fm-cta"><a class="fm-btn" href="${fmTickets(lang)}">${esc(t(FM.price, lang, 'price'))}</a></p>`,
+    heroMedia(lang),
+    fmBlock(lang),
+    `<section class="fm-intro"><p class="fm-motto">${esc(t(data.org.motto, lang, 'org.motto'))}</p>
+      <p class="lede">${esc(t(page.lede, lang, 'index.lede'))}</p></section>`,
+    `<section>${prose(page, lang)}</section>`,
+    ...indexRest(lang),
+  ].filter(Boolean).join('\n');
+}
+
+const FM_SCRIPT = until => `<script>
+(function(){
+  var d=document.documentElement;
+  if(Date.now()<${until}){
+    addEventListener('DOMContentLoaded',function(){
+      var c=document.getElementById('fm-count');if(!c)return;
+      var s=c.dataset,today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Brussels'}).format(new Date());
+      var n=Math.round((Date.parse(s.start)-Date.parse(today))/864e5);
+      c.textContent=n>1?s.days.replace('{n}',n):n===1?s.tomorrow:n===0?s.today:s.last;
+    });
+    return;
+  }
+  d.classList.add('fm-off');
+  addEventListener('DOMContentLoaded',function(){
+    document.querySelectorAll('[data-fm]').forEach(function(e){e.remove()});
+    var on=document.getElementById('fm-on'),off=document.getElementById('fm-off');
+    if(!on||!off)return;
+    on.replaceWith(off.content);
+    document.title=off.dataset.title;
+    var m=document.querySelector('meta[name=description]');if(m)m.content=off.dataset.desc;
+  });
+})();
+</script>`;
+
+
+/* ------------------------------------------------------------------
    Images. Drop originals into media/ named after what they belong to:
      hero.jpg            the homepage hero
      diwali.jpg          named after the festival id
@@ -228,6 +344,19 @@ function prose(page, lang) {
   return `<div class="prose">` + paras.map(p => `<p>${esc(p)}</p>`).join('') + `</div>`;
 }
 
+/** Everything on the homepage below the intro, whichever opening is in use. */
+function indexRest(lang) {
+  const figs = figuresBlock(lang);
+  return [
+    `<section>${decadeSpine()}<p class="decade-cap">${lang === 'fr' ? 'Dix éditions du Brussels Diwali Festival' : 'Ten editions of the Brussels Diwali Festival'}</p></section>`,
+    armsBlock(lang),
+    presentersBlock(lang),
+    figs ? `<section>${figs}</section>` : '',
+    `<section><h2>${esc(t(data.ui.nav.festivals, lang, 'nav.festivals'))}</h2>${festivalCards(lang)}</section>`,
+    `<section><a class="cta" href="${path(lang, 'partners')}">${esc(t(data.ui.cta_partners, lang, 'cta_partners'))}</a></section>`,
+  ];
+}
+
 function buildContent(key, page, lang) {
   const parts = [];
   parts.push(key === 'index'
@@ -240,13 +369,7 @@ function buildContent(key, page, lang) {
   if (key === 'index') {
     parts.push(heroMedia(lang));
     parts.push(`<section>${prose(page, lang)}</section>`);
-    parts.push(`<section>${decadeSpine()}<p class="decade-cap">${lang === 'fr' ? 'Dix éditions du Brussels Diwali Festival' : 'Ten editions of the Brussels Diwali Festival'}</p></section>`);
-    parts.push(armsBlock(lang));
-    parts.push(presentersBlock(lang));
-    const figs = figuresBlock(lang);
-    if (figs) parts.push(`<section>${figs}</section>`);
-    parts.push(`<section><h2>${esc(t(data.ui.nav.festivals, lang, 'nav.festivals'))}</h2>${festivalCards(lang)}</section>`);
-    parts.push(`<section><a class="cta" href="${path(lang, 'partners')}">${esc(t(data.ui.cta_partners, lang, 'cta_partners'))}</a></section>`);
+    parts.push(...indexRest(lang));
   } else if (key === 'organisation') {
     parts.push(`<section>${prose(page, lang)}</section>`);
     parts.push(boardBlock(lang));
@@ -298,7 +421,8 @@ mkdirSync(out, { recursive: true });
 const wanted = [
   stemFor('hero', data.org.hero_image),
   ...data.festivals.map(f => stemFor(f.id, f.image)),
-  ...(data.productions || []).map(p => stemFor(p.id, p.image))];
+  ...(data.productions || []).map(p => stemFor(p.id, p.image)),
+  ...(fmOn ? [FM.image] : [])];
 for (const stem of wanted) { if (IMG.has(stem)) await IMG.prepare(stem); }
 IMG.save();
 
@@ -308,7 +432,12 @@ for (const lang of LANGS) {
     const page = data.pages[key];
     if (!page) { problems.push(`Missing page: ${key}`); continue; }
 
-    const desc = t(page.description, lang, `${key}.description`);
+    const fmHome = fmOn && key === 'index';
+    const usualTitle = t(page.title, lang, `${key}.title`);
+    const usualDesc = t(page.description, lang, `${key}.description`);
+    const title = fmHome ? t(FM.title, lang, 'festival_mode.title') : usualTitle;
+    const desc = fmHome ? t(FM.description, lang, 'festival_mode.description') : usualDesc;
+    if (fmHome && usualDesc.length > 160) problems.push(`Description too long (${usualDesc.length}) — ${key} ${lang}`);
     if (desc.length > 160) problems.push(`Description too long (${desc.length}) — ${key} ${lang}`);
     if (!desc) problems.push(`No description — ${key} ${lang}`);
 
@@ -330,7 +459,7 @@ for (const lang of LANGS) {
 
     const html = base
       .replace(/{{LANG}}/g, lang)
-      .replace(/{{TITLE}}/g, esc(t(page.title, lang, `${key}.title`)))
+      .replace(/{{TITLE}}/g, esc(title))
       .replace(/{{DESCRIPTION}}/g, esc(desc))
       .replace(/{{CANONICAL}}/g, SITE + path(lang, page.slug))
       .replace(/{{ALTERNATES}}/g, alternates)
@@ -343,7 +472,11 @@ for (const lang of LANGS) {
       .replace(/{{FOOTNAV}}/g, footnav)
       .replace(/{{NAV_HEADING}}/g, lang === 'fr' ? 'Pages' : 'Pages')
       .replace(/{{LANGS}}/g, langs)
-      .replace(/{{CONTENT}}/g, buildContent(key, page, lang))
+      .replace(/{{FMHEAD}}/g, fmOn ? FM_SCRIPT(Date.parse(FM.active_until)) : '')
+      .replace(/{{FMBAR}}/g, fmBar(lang))
+      .replace(/{{CONTENT}}/g, fmHome
+        ? `<div id="fm-on">${fmIndex(page, lang)}</div>\n<template id="fm-off" data-title="${esc(usualTitle)}" data-desc="${esc(usualDesc)}">${buildContent(key, page, lang)}</template>`
+        : buildContent(key, page, lang))
       .replace(/{{ADDRESS}}/g, esc(data.org.address))
       .replace(/{{VAT}}/g, esc(data.org.vat))
       .replace(/{{EMAIL_GENERAL}}/g, esc(data.org.email_general))

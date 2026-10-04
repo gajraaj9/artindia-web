@@ -274,3 +274,46 @@ footer{background:var(--indigo);color:var(--onnight-2);padding:60px 0 46px;font-
 picture{display:block;width:100%}
 picture img{width:100%;height:auto;object-fit:cover}
 .hero-inner picture,.hero-inner picture img{height:100%}
+
+
+/* ---------------- festival mode ------------------------------------------- */
+/* Ticket bar and festival-first homepage while the festival runs. The page
+   script adds .fm-off on the day it expires; this hides it before paint. */
+.fm-off [data-fm],.fm-off #fm-on{display:none}
+
+.fm-btn{display:inline-block;background:var(--marigold);color:#1A1000;border:none;
+  font-family:var(--text);font-weight:700;font-size:17px;letter-spacing:.01em;line-height:1.2;
+  padding:15px 34px;border-radius:100px;white-space:nowrap}
+.fm-btn:hover,a:hover>.fm-btn,a:hover .fm-btn{background:#F6DFA6;border:none}
+
+.fm-bar{display:block;background:var(--indigo);color:var(--onnight);border:none;padding:0;
+  font-size:15px;line-height:1.35}
+.fm-bar:hover{border:none}
+.fm-bar:focus-visible{outline:2px solid var(--marigold);outline-offset:-4px}
+.fm-bar-in{display:flex;align-items:center;justify-content:center;gap:8px 22px;padding-block:9px}
+.fm-bar-text{font-weight:500}
+.fm-bar-btn{font-size:14.5px;padding:7px 18px}
+@media(max-width:719px){
+  .fm-bar-in{flex-direction:column;align-items:stretch;text-align:center;padding-block:10px 12px}
+  .fm-bar-btn{display:block;padding:10px 18px}
+}
+
+.fm-cta{margin:30px 0 0}
+@media(min-width:960px){.fm-cta{margin-left:34%}}
+
+.fm-block{padding:56px 0}
+@media(min-width:900px){.fm-block{padding:76px 0}}
+.fm-grid{display:grid;gap:28px 48px;grid-template-columns:1fr}
+@media(min-width:820px){.fm-grid{grid-template-columns:1.1fr 1fr;align-items:center}}
+.fm-block h2{color:var(--onnight);margin-bottom:16px}
+.fm-block p{color:var(--onnight-2);margin:0 0 10px;font-size:17px;line-height:1.55;max-width:30em}
+.fm-prices{list-style:none;margin:26px 0 0;padding:0}
+.fm-prices li{border-top:1px solid rgba(242,239,230,.2)}
+.fm-prices li:last-child{border-bottom:1px solid rgba(242,239,230,.2)}
+.band-night .fm-prices a{display:flex;align-items:baseline;gap:18px;padding:13px 0;border:none}
+.fm-prices a:hover .fm-w{color:var(--onnight)}
+.fm-p{flex:0 0 4.4em;font-family:var(--display);font-size:1.6rem;line-height:1;color:var(--marigold)}
+.fm-w{color:var(--onnight-2);font-size:16.5px}
+
+.fm-motto{font-family:var(--display);font-size:clamp(1.5rem,3vw,2.1rem);line-height:1.15;margin:0 0 18px}
+@media(min-width:960px){.fm-intro{margin-left:34%}.fm-intro .lede{margin:0}}
