@@ -705,3 +705,101 @@ test('a reference that merely starts with p is not a person id', async () => {
   assert.notEqual((await res.json()).ignored, 'accreditation');
   assert.ok(db.size);
 });
+
+/* --------------------------------------------- draw entries follow payment */
+
+/* Ravi's rule: every paid ticket is one entry, a free ticket never is. The
+   five ticket types on the live box office, read off it on 5 October 2026:
+
+     Festival Ticket · Presale                 10 EUR
+     Festival Ticket - ONLINE OFFER            12 EUR
+     Festival Ticket (At Gate)                 15 EUR
+     Child 13-18 ( ID needed )                 10 EUR   <- pays, so it enters
+     Child Below 12 ( ID needed )               0 EUR   <- free, so it does not
+
+   The old rule read the word "child" in the name and gave the paying
+   teenager nothing. */
+
+const entries = d => Number(d.attributes.TICKET_COUNT) - Number(d.attributes.CHILD_COUNT);
+
+test('a paying teenager earns an entry, however the ticket type is named', async () => {
+  const { db } = stubWorld();
+  await post({ ...ENV, REFERRALS: memoryKv() }, order({
+    line_items: [{ quantity: 1, total: '1000', description: 'Child 13-18 ( ID needed )' }],
+  }));
+  const me = db.get('anouk@example.com');
+  assert.equal(me.attributes.TICKET_COUNT, 1);
+  assert.equal(me.attributes.CHILD_COUNT, 0, 'the word child is not what decides it');
+  assert.equal(entries(me), 1);
+});
+
+test('a free child earns nothing, however the ticket type is named', async () => {
+  const { db } = stubWorld();
+  await post({ ...ENV, REFERRALS: memoryKv() }, order({
+    line_items: [
+      { quantity: 1, total: '1000', description: 'Festival Ticket · Presale' },
+      { quantity: 2, total: '0', description: 'Child Below 12 ( ID needed )' },
+    ],
+  }));
+  const me = db.get('anouk@example.com');
+  assert.equal(me.attributes.TICKET_COUNT, 3);
+  assert.equal(me.attributes.CHILD_COUNT, 2, 'a line at zero is free however many are on it');
+  assert.equal(entries(me), 1);
+});
+
+test('the whole price list, one order, counted by what was paid', async () => {
+  const { db } = stubWorld();
+  await post({ ...ENV, REFERRALS: memoryKv() }, order({
+    line_items: [
+      { quantity: 1, total: '1000', description: 'Festival Ticket · Presale' },
+      { quantity: 1, total: '1200', description: 'Festival Ticket - ONLINE OFFER (Ends 11/OCT)' },
+      { quantity: 1, total: '1500', description: 'Festival Ticket (At Gate)' },
+      { quantity: 2, total: '2000', description: 'Child 13-18 ( ID needed )' },
+      { quantity: 3, total: '0', description: 'Child Below 12 ( ID needed )' },
+    ],
+  }));
+  const me = db.get('anouk@example.com');
+  assert.equal(me.attributes.TICKET_COUNT, 8);
+  assert.equal(me.attributes.CHILD_COUNT, 3);
+  assert.equal(entries(me), 5, 'five people paid, three came in free');
+});
+
+test('a ticket discounted to nothing is a free ticket', async () => {
+  const { db } = stubWorld();
+  await post({ ...ENV, REFERRALS: memoryKv() }, order({
+    line_items: [{ quantity: 1, total: '0', description: 'Festival Ticket · Presale' }],
+  }));
+  assert.equal(entries(db.get('anouk@example.com')), 0,
+    'nobody paid for it, so by the rule as written it earns nothing');
+});
+
+/* There is no Family of 4, Family of 3 or Group of Six on the box office: the
+   event sells the five types above and nothing else, checked against the live
+   public page. These two tests pin down what a bundle WOULD do if one were
+   created, so that whoever creates it finds out here rather than after the
+   draw.
+
+   Ticket Tailor sells a bundle as one line item with one quantity, so it is
+   one paid ticket and earns one entry. That matches the rule as Ravi stated it
+   and NOT "each paid person in a bundle is one entry". Nothing can tell the
+   two apart from a line item: a Family of 4 at 35 EUR says nothing about how
+   many of the four are adults. */
+
+test('a bundle sold as one line earns one entry, which is a decision to revisit', async () => {
+  const { db } = stubWorld();
+  await post({ ...ENV, REFERRALS: memoryKv() }, order({
+    line_items: [{ quantity: 1, total: '3500', description: 'Family of 4' }],
+  }));
+  const me = db.get('anouk@example.com');
+  assert.equal(me.attributes.TICKET_COUNT, 1);
+  assert.equal(entries(me), 1,
+    'one line, one quantity, one entry: a bundle needs its own rule to do better');
+});
+
+test('two bundles are two lines or a quantity of two, and count as such', async () => {
+  const { db } = stubWorld();
+  await post({ ...ENV, REFERRALS: memoryKv() }, order({
+    line_items: [{ quantity: 2, total: '7000', description: 'Group of Six' }],
+  }));
+  assert.equal(entries(db.get('anouk@example.com')), 2);
+});

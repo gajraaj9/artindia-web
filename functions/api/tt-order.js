@@ -129,18 +129,34 @@ function money(raw) {
    Dutch, so enfant and kind are matched too: a trilingual rename should not
    quietly stop counting children. A free line counts as well, the child ticket
    being the only free one. */
-const CHILD_RE =
-  /child|children|enfant|enfants|kind|kinderen|kid|under\s*12|moins\s*de\s*12|onder\s*12/i;
-
-/* line_items[] { quantity, total, description } */
+/**
+ * How many tickets, and how many of them earn no draw entry.
+ *
+ * Ravi's rule: every paid ticket is one entry, a free ticket never is. So the
+ * only thing that decides it is the money, not the name on the ticket type.
+ *
+ * It used to read the name, and that was wrong in a way that cost people
+ * entries: the box office sells "Child 13-18 ( ID needed )" at 10 EUR, the
+ * word "child" matched, and a paying teenager earned nothing. "Child Below 12
+ * ( ID needed )" is the free one, at 0, and the total alone tells them apart.
+ *
+ * `total` is the line total in cents, so a line of three free children is 0
+ * however many there are. A line discounted to nothing is free too, and by the
+ * rule as written that is correct: nobody paid for it.
+ *
+ * `child` keeps its name because it is the Brevo attribute CHILD_COUNT and the
+ * bot's "every adult ticket is one entry" wording. What it counts is free
+ * admissions.
+ *
+ * line_items[] { quantity, total, description }
+ */
 function countTickets(order) {
   const lines = Array.isArray(order.line_items) ? order.line_items : [];
   let total = 0, child = 0;
   for (const li of lines) {
     const qty = Number(li.quantity ?? 1) || 1;
-    const name = String(li.description || '');
     total += qty;
-    if (CHILD_RE.test(name) || money(li.total) === 0) child += qty;
+    if (money(li.total) === 0) child += qty;
   }
   return { total, child };
 }

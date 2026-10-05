@@ -20,7 +20,7 @@ import {
   teamMemberFor, passAnswer, codeAnswer, salesAnswer, linkKey, personKey,
   plus1Key, promoKey, phoneKey, rejectedPhoneKey, teamCfgKey, expectedFor,
   allowedOrigin, brevoAttributesFor, approvedMail, receivedMail, IP_CAP_PER_DAY,
-  restore, htmlMail, ticketFacts, rejectedEmailKey,
+  restore, htmlMail, ticketFacts, rejectedEmailKey, qrFileName, fetchQrAttachment,
 } from '../functions/api/_accred.js';
 import { onRequestGet as adminGet, onRequestPost as adminPost } from '../functions/api/team-admin.js';
 import { onRequestGet as formGet } from '../functions/api/team-form.js';
@@ -84,6 +84,9 @@ const ENV = (over = {}) => ({
  * retry-a-step tests are written.
  */
 function world({ fail = '', discountCollision = false, existingTicket = null, buyer = false } = {}) {
+  /* Four bytes standing in for a PNG. Nothing reads them; what matters is the
+     content type, the length and that they come back base64 on the wire. */
+  const QR_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
   const calls = [];
   let issued = 0;
   let discounts = 0;
@@ -100,6 +103,13 @@ function world({ fail = '', discountCollision = false, existingTicket = null, bu
       : new Response(JSON.stringify(obj), {
         status, headers: { 'content-type': 'application/json' },
       }));
+
+    /* The QR image itself, which is a plain file on their CDN and not the
+       API. Fetched at send time so it can be attached to the email. */
+    if (/tickettailor\.com\/(qr|barcode)\//.test(url)) {
+      if (fail === 'qr') return new Response('nope', { status: 404 });
+      return new Response(QR_BYTES, { status: 200, headers: { 'content-type': 'image/png' } });
+    }
 
     if (url.includes('api.tickettailor.com')) {
       if (fail === 'tt') return reply(502, { errors: [{ message: 'no inventory' }] });
@@ -147,7 +157,10 @@ function world({ fail = '', discountCollision = false, existingTicket = null, bu
   return {
     calls,
     restore() { globalThis.fetch = real; },
-    tt: () => calls.filter(c => c.url.includes('tickettailor')),
+    /* The API, not the CDN the QR image sits on: a retry of the email fetches
+       the image again and that is not a Ticket Tailor API call. */
+    tt: () => calls.filter(c => c.url.includes('api.tickettailor.com')),
+    qr: () => calls.filter(c => /tickettailor\.com\/(qr|barcode)\//.test(c.url)),
     brevo: () => calls.filter(c => c.url.includes('brevo')),
     wa: () => calls.filter(c => c.url.includes('facebook')),
   };
@@ -571,6 +584,7 @@ test('approval runs the steps in order and leaves a complete record', async () =
       { ticket: 'done', discount: 'done', brevo: 'done', email: 'done', whatsapp: 'done' });
 
     const order = w.calls.map(c => {
+      if (/tickettailor\.com\/qr\//.test(c.url)) return 'qr';
       if (c.url.includes('issued_tickets')) return `ticket:${c.method}`;
       if (c.url.includes('discounts')) return 'discount';
       if (c.url.includes('/smtp/email')) return 'email';
@@ -579,7 +593,8 @@ test('approval runs the steps in order and leaves a complete record', async () =
       return c.url;
     });
     assert.deepEqual(order,
-      ['ticket:GET', 'ticket:POST', 'discount', 'brevo', 'email', 'whatsapp']);
+      ['ticket:GET', 'ticket:POST', 'discount', 'brevo', 'qr', 'email', 'whatsapp'],
+      'the pass is fetched immediately before the email that carries it');
 
     /* The ticket is keyed on the person id, which is what makes a second
        approval able to find it rather than issue again. */
@@ -1412,4 +1427,149 @@ test('every string has all three languages, apart from the one the brief leaves 
       assert.ok(v[l], `${key}.${l} is empty`);
     }
   }
+});
+
+/* ------------------------------------------------------ the pass as a file */
+
+/* The inline image is what most people see. The attachment is what survives a
+   client with remote images off, which is the one that matters at a gate. */
+
+test('the approved email attaches the pass, fetched at send time', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM(), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+
+    assert.equal(done.person.steps.email, 'done');
+
+    const sent = JSON.parse(w.brevo().find(c => c.url.includes('/smtp/email')
+      && JSON.parse(c.body).subject === COPY.mail_approved_subject.en).body);
+
+    assert.equal(sent.attachment.length, 1);
+    assert.equal(sent.attachment[0].name, 'Brussels Diwali Festival pass - Shreya.png');
+    assert.equal(sent.attachment[0].content, btoa('\x89PNG'), 'the bytes go out base64');
+
+    /* And all three ways in are still there. */
+    assert.match(sent.htmlContent, /<img src="https:\/\/www\.tickettailor\.com\/qr\/1\.png"/);
+    assert.ok(sent.htmlContent.includes(done.person.tt.barcode));
+    assert.ok(sent.textContent.includes(done.person.tt.barcode));
+  } finally { w.restore(); }
+});
+
+test('a pass that will not download still gets the email out, and says so', async () => {
+  const { kv } = await withLink('artist');
+  const w = world({ fail: 'qr' });
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM(), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+
+    assert.ok(done.ok);
+    assert.equal(done.person.status, 'approved');
+    assert.equal(done.person.steps.email, 'done:no_attachment:http_404',
+      'the step result names what went wrong');
+
+    const sent = JSON.parse(w.brevo().find(c => c.url.includes('/smtp/email')
+      && JSON.parse(c.body).subject === COPY.mail_approved_subject.en).body);
+    assert.ok(!('attachment' in sent), 'no empty attachment array');
+    assert.ok(sent.htmlContent.includes('<img'), 'the inline image is untouched');
+    assert.ok(sent.textContent.includes(done.person.tt.barcode));
+  } finally { w.restore(); }
+});
+
+test('a half-done email is retryable, and a retry that works clears the note', async () => {
+  const { kv } = await withLink('crew');
+  let id;
+  const broken = world({ fail: 'qr' });
+  try {
+    const env = ENV({ ACCRED: kv });
+    id = (await register(env, kv, FORM({ role: 'Stage' }), {})).person.id;
+    const done = await approve(env, kv, { id, approver: 'ravi' });
+    assert.match(done.person.steps.email, /^done:no_attachment:/);
+  } finally { broken.restore(); }
+
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const again = await approve(env, kv, { id, approver: 'ravi', only: ['email'] });
+    assert.equal(again.person.steps.email, 'done');
+    assert.equal(w.tt().length, 0, 'retrying the email reissued nothing');
+    assert.equal(w.qr().length, 1, 'it did fetch the pass again, which is the point');
+  } finally { w.restore(); }
+});
+
+test('the pass file is named after whoever the pass is for', async () => {
+  assert.equal(qrFileName('Shreya'), 'Brussels Diwali Festival pass - Shreya.png');
+  assert.equal(qrFileName('  Tom  '), 'Brussels Diwali Festival pass - Tom.png');
+  assert.equal(qrFileName(''), 'Brussels Diwali Festival pass - guest.png');
+
+  /* On the child team the email goes to the parent but the pass is the
+     child's, and a mother of three should not get three identical names. */
+  const { kv } = await withLink('child', { expected: 50 });
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const base = { ...FORM(), role: '' };
+    for (const child of [
+      { firstName: 'Aarav', lastName: 'Menon', dob: '2016-05-04' },
+      { firstName: 'Diya', lastName: 'Menon', dob: '2018-01-09' },
+    ]) {
+      const r = await register(env, kv, { ...base, child }, {});
+      await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+    }
+    const names = w.brevo()
+      .filter(c => c.url.includes('/smtp/email'))
+      .map(c => JSON.parse(c.body).attachment)
+      .filter(Boolean)
+      .map(a => a[0].name);
+    assert.deepEqual(names, [
+      'Brussels Diwali Festival pass - Aarav.png',
+      'Brussels Diwali Festival pass - Diya.png',
+    ]);
+  } finally { w.restore(); }
+});
+
+test('the attachment fetch refuses anything that is not a small image', async () => {
+  const real = globalThis.fetch;
+  const reply = (status, body, type) => {
+    globalThis.fetch = async () => new Response(body, {
+      status, headers: type ? { 'content-type': type } : {},
+    });
+  };
+  try {
+    assert.deepEqual(await fetchQrAttachment('', 'x.png'), { ok: false, reason: 'no_qr_url' });
+
+    reply(404, 'nope');
+    assert.equal((await fetchQrAttachment('https://tt/qr.png', 'x.png')).reason, 'http_404');
+
+    /* A login page where an image was expected: 200, and useless. */
+    reply(200, '<!doctype html>', 'text/html');
+    assert.equal((await fetchQrAttachment('https://tt/qr.png', 'x.png')).reason, 'not_an_image');
+
+    reply(200, new Uint8Array(0), 'image/png');
+    assert.equal((await fetchQrAttachment('https://tt/qr.png', 'x.png')).reason, 'empty');
+
+    reply(200, new Uint8Array(300 * 1024), 'image/png');
+    assert.equal((await fetchQrAttachment('https://tt/qr.png', 'x.png')).reason, 'too_big');
+
+    globalThis.fetch = async () => { throw new Error('socket'); };
+    assert.equal((await fetchQrAttachment('https://tt/qr.png', 'x.png')).reason, 'threw');
+  } finally { globalThis.fetch = real; }
+});
+
+test('a dry run attaches nothing, because there is nothing to attach', async () => {
+  const { kv } = await withLink('crew');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv, TEAM_DRY_RUN: 'true', TEAM_TEST_EMAILS: 'ravi@artindia.be' });
+    const r = await register(env, kv, FORM({ email: 'ravi@artindia.be', role: 'Stage' }), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+
+    assert.equal(done.person.steps.email, 'done', 'no URL is not a failed attachment');
+    const sent = JSON.parse(w.brevo().find(c => c.url.includes('/smtp/email')
+      && JSON.parse(c.body).subject === COPY.mail_approved_subject.en).body);
+    assert.ok(!('attachment' in sent));
+  } finally { w.restore(); }
 });

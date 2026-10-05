@@ -182,6 +182,11 @@
     var names = ['ticket', 'discount', 'brevo', 'email', 'whatsapp'];
     var bits = names.map(function (n) {
       var v = p.steps && p.steps[n];
+      /* done:no_attachment:<why> is an email that went without the QR file.
+         Shortened here so the line stays readable on a phone. */
+      if (typeof v === 'string' && v.indexOf('done:no_attachment') === 0) {
+        return n + ': sent, no QR file (' + v.split(':').pop() + ')';
+      }
       return n + ': ' + (v || 'not run');
     });
     if (p.tt && p.tt.issuedTicketId) bits.push('ticket id: ' + p.tt.issuedTicketId);

@@ -388,6 +388,51 @@ const SIGNATURE = 'Brussels Diwali Festival, Art India ASBL';
  * Returns a plain result rather than throwing: an email that does not go out
  * must not undo a ticket that did.
  */
+/* Brevo caps an attachment well above a QR, but a URL that answers with a web
+   page instead of an image would still be worth catching before it is posted
+   as one. */
+const QR_MAX_BYTES = 256 * 1024;
+
+/**
+ * The pass as a file, fetched from Ticket Tailor at send time.
+ *
+ * The inline image is the nice version and the one most people will see. This
+ * is the one that survives: a mail client with remote images off shows nothing
+ * for an `<img>`, and an attachment is still an attachment. Both, plus the
+ * barcode text, so there are three ways to get through the gate.
+ *
+ * Never throws. A pass somebody can still read off the screen is worth more
+ * than an email that did not go out, so a failure here is returned and the
+ * send carries on without it.
+ */
+export async function fetchQrAttachment(url, name) {
+  if (!url) return { ok: false, reason: 'no_qr_url' };
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return { ok: false, reason: `http_${res.status}` };
+
+    const type = String(res.headers.get('content-type') || '');
+    if (type && !/^image\//i.test(type)) return { ok: false, reason: 'not_an_image' };
+
+    const buf = new Uint8Array(await res.arrayBuffer());
+    if (!buf.length) return { ok: false, reason: 'empty' };
+    if (buf.length > QR_MAX_BYTES) return { ok: false, reason: 'too_big' };
+
+    /* btoa wants a binary string, and a QR is small enough to build one in a
+       single pass without worrying about the argument limit. */
+    let bin = '';
+    for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+    return { ok: true, attachment: { name, content: btoa(bin) } };
+  } catch (e) {
+    console.error('accred qr fetch threw', String(e).slice(0, 160));
+    return { ok: false, reason: 'threw' };
+  }
+}
+
+/** What the file is called once it is sitting in somebody's downloads. */
+export const qrFileName = firstName =>
+  `Brussels Diwali Festival pass - ${String(firstName || '').trim() || 'guest'}.png`;
+
 export async function sendMail(env, { to, subject, lines, qr = null }) {
   const clean = lines.filter(l => l !== null && l !== undefined);
   /* The barcode is printed under the QR in the HTML, so it would read as a
@@ -396,6 +441,17 @@ export async function sendMail(env, { to, subject, lines, qr = null }) {
      the gate survives. */
   const text = qr && qr.barcode ? [...clean, '', qr.barcode] : clean;
   const body = [...text, '', SIGNATURE].join('\n');
+
+  /* Fetched now rather than stored on the record: it is a few hundred bytes of
+     PNG that only matters for the seconds it takes to post this message. */
+  let attached = null;
+  let attachmentFailed = '';
+  if (qr && qr.url && qr.fileName) {
+    const got = await fetchQrAttachment(qr.url, qr.fileName);
+    if (got.ok) attached = [got.attachment];
+    else attachmentFailed = got.reason;
+  }
+
   try {
     const res = await brevo(env, '/smtp/email', {
       method: 'POST',
@@ -407,6 +463,7 @@ export async function sendMail(env, { to, subject, lines, qr = null }) {
         to: [{ email: to }],
         subject,
         textContent: body,
+        ...(attached ? { attachment: attached } : {}),
         /* Both halves, always. The HTML is what carries the QR; the text is
            what a reader with images off, or a client that refuses HTML, still
            gets, and it names the barcode so a human on the gate can type it. */
@@ -418,7 +475,11 @@ export async function sendMail(env, { to, subject, lines, qr = null }) {
       console.error('accred mail failed', res.status, detail);
       return { ok: false, reason: `brevo_${res.status}` };
     }
-    return { ok: true };
+    if (attachmentFailed) {
+      console.warn('accred mail: sent without the QR attachment:', attachmentFailed);
+      return { ok: true, attachmentFailed };
+    }
+    return { ok: true, attached: Boolean(attached) };
   } catch (e) {
     console.error('accred mail threw', String(e));
     return { ok: false, reason: 'threw' };
@@ -516,9 +577,13 @@ export function approvedMail(env, person, team) {
       .replace('{LINK}', `${env.WALL_URL}?k=${person.wallToken}`));
   }
 
+  /* Named after whoever the pass is for, which on the child team is the child
+     and not the parent reading the email: a mother of three should not end up
+     with three files called after herself. */
   const qr = {
     url: (person.tt && person.tt.qrUrl) || '',
     barcode: (person.tt && person.tt.barcode) || '',
+    fileName: qrFileName(person.child ? person.child.firstName : person.firstName),
   };
   return { to: person.email, subject: say('mail_approved_subject', lang), lines, qr };
 }
@@ -820,7 +885,12 @@ export async function approve(env, kv, { id, approver, only = null, log = null }
       console.log('accred dry-run: skipped email for', person.id);
     } else {
       const r = await sendMail(env, approvedMail(env, person, team));
-      person.steps.email = r.ok ? 'done' : failed(r.reason);
+      /* The email went out, the pass did not come with it. Not a failure: they
+         have the inline image and the barcode. Said out loud all the same, and
+         left retryable, because a retry is how it gets fixed. */
+      person.steps.email = r.ok
+        ? (r.attachmentFailed ? `done:no_attachment:${r.attachmentFailed}` : 'done')
+        : failed(r.reason);
     }
     await putPerson(kv, person);
   }
