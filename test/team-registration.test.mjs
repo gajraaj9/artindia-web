@@ -20,6 +20,7 @@ import {
   teamMemberFor, passAnswer, codeAnswer, salesAnswer, linkKey, personKey,
   plus1Key, promoKey, phoneKey, rejectedPhoneKey, teamCfgKey, expectedFor,
   allowedOrigin, brevoAttributesFor, approvedMail, receivedMail, IP_CAP_PER_DAY,
+  restore, htmlMail, ticketFacts, rejectedEmailKey,
 } from '../functions/api/_accred.js';
 import { onRequestGet as adminGet, onRequestPost as adminPost } from '../functions/api/team-admin.js';
 import { onRequestGet as formGet } from '../functions/api/team-form.js';
@@ -107,7 +108,12 @@ function world({ fail = '', discountCollision = false, existingTicket = null, bu
       }
       if (url.includes('/issued_tickets') && method === 'POST') {
         issued += 1;
-        return reply(201, { data: [{ id: `it_${issued}`, barcode: `bc_${issued}` }] });
+        return reply(201, { data: [{
+          id: `it_${issued}`,
+          barcode: `bc_${issued}`,
+          barcode_url: `https://www.tickettailor.com/barcode/${issued}.png`,
+          qr_code_url: `https://www.tickettailor.com/qr/${issued}.png`,
+        }] });
       }
       if (url.includes('/void')) return reply(200, { data: [{ id: 'it_1', status: 'voided' }] });
       if (url.includes('/discounts') && method === 'POST') {
@@ -485,9 +491,22 @@ test('one parent phone covers several children without a flag', async () => {
       ...base, child: { firstName: 'Diya', lastName: 'Menon', dob: '2018-01-09' },
     }, {});
     assert.ok(one.ok && two.ok);
+    assert.ok(!two.repeat, 'a second child is a second registration, not a repeat submit');
+    assert.notEqual(two.person.id, one.person.id);
+    assert.equal((await people(kv)).length, 2, 'both children are in the queue');
     assert.ok(!two.person.flags.includes('dup_phone'), 'a shared parent phone is normal here');
 
-    /* The same child twice is the double entry worth flagging. */
+    /* The same parent and the same child again is the back arrow, not a
+       third dancer. */
+    const same = await register(env, kv, {
+      ...base, child: { firstName: 'Aarav', lastName: 'Menon', dob: '2016-05-04' },
+    }, {});
+    assert.ok(same.repeat, 'the same child twice is one child');
+    assert.equal(same.person.id, one.person.id);
+    assert.equal((await people(kv)).length, 2);
+
+    /* A different parent entering a child already registered is the double
+       entry worth flagging. */
     const again = await register(env, kv, {
       ...base, firstName: 'Shreya2',
       child: { firstName: 'Aarav', lastName: 'Menon', dob: '2016-05-04' },
@@ -1122,9 +1141,10 @@ test('the three pass answers say the right things, and the code line is forwarda
     assert.match(code, /https:\/\/diwali\.artindia\.be\/go\/buy\?cta=team/);
 
     const sales = await salesAnswer(env, kv, member.person);
-    assert.match(sales, /3 orders/, 'times_redeemed on the discount is the source');
+    assert.equal(sales, COPY.bot_sales.en.replace('{ORDERS}', '3'),
+      'times_redeemed on the discount is the source');
     const cached = await salesAnswer(env, kv, member.person);
-    assert.match(cached, /3 orders/);
+    assert.equal(cached, sales);
     assert.equal(w.tt().filter(c => c.method === 'GET' && c.url.includes('/discounts/')).length, 1,
       'the count is cached, not fetched on every tap');
   } finally { w.restore(); }
@@ -1179,4 +1199,217 @@ test('the emails say what they are for and sign as the festival', () => {
   const recv = receivedMail(person, team);
   assert.equal(recv.subject, COPY.mail_received_subject.fr);
   assert.equal(recv.to, 'shreya@example.com');
+});
+
+/* ------------------------------------------------------- the pass itself */
+
+/* Ticket Tailor's IssuedTicket schema lists `barcode`, `barcode_url` and
+   `qr_code_url` as required, so a real response always carries an image URL
+   and the approved email can show the pass rather than promise one. */
+
+test('the issued ticket is read for its QR, with the barcode image as a fallback', () => {
+  assert.deepEqual(
+    ticketFacts({ id: 'it_1', barcode: 'al4R5', qr_code_url: 'https://tt/qr.png', barcode_url: 'https://tt/bc.png' }),
+    { issuedTicketId: 'it_1', barcode: 'al4R5', qrUrl: 'https://tt/qr.png' });
+
+  assert.equal(ticketFacts({ id: 'it_1', barcode: 'x', barcode_url: 'https://tt/bc.png' }).qrUrl,
+    'https://tt/bc.png', 'the barcode image stands in when there is no QR');
+
+  assert.equal(ticketFacts({ id: 'it_1', barcode: 'x' }).qrUrl, '',
+    'neither URL is an empty string, never undefined');
+});
+
+test('the approved email carries the QR image and the barcode text under it', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM(), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+    const p = done.person;
+
+    assert.equal(p.tt.qrUrl, 'https://www.tickettailor.com/qr/1.png');
+
+    const sent = w.brevo().find(c => c.url.includes('/smtp/email')
+      && JSON.parse(c.body).subject === COPY.mail_approved_subject.en);
+    const mail = JSON.parse(sent.body);
+
+    assert.ok(mail.htmlContent, 'there is no HTML half to put an image in');
+    assert.match(mail.htmlContent, /<img src="https:\/\/www\.tickettailor\.com\/qr\/1\.png"/);
+    assert.equal((mail.htmlContent.match(new RegExp(p.tt.barcode, 'g')) || []).length, 1,
+      'the barcode prints once, under the image, for a reader with images off');
+
+    /* And the text half carries it too, so a stripped message still works. */
+    assert.ok(mail.textContent.includes(p.tt.barcode));
+    assert.ok(mail.textContent.includes(COPY.mail_qr.en));
+
+    /* send_email stays on: theirs arriving as well costs nothing. */
+    const issue = w.tt().find(c => c.method === 'POST' && c.url.includes('issued_tickets'));
+    assert.match(issue.body, /send_email=true/);
+  } finally { w.restore(); }
+});
+
+test('the HTML mail escapes what it is given and links a bare URL once', () => {
+  const html = htmlMail(['Tom <script>alert(1)</script>', '',
+    'Send them this: https://diwali.artindia.be/team/plus1/?k=ABC.'], null);
+  assert.ok(!html.includes('<script>'), 'a name is not markup');
+  assert.ok(html.includes('&lt;script&gt;'));
+  assert.match(html, /<a href="https:\/\/diwali\.artindia\.be\/team\/plus1\/\?k=ABC"/);
+  assert.ok(html.includes('</a>.'), 'the full stop stayed outside the link');
+  assert.ok(!html.includes('<img'), 'no QR, no QR block');
+});
+
+test('a dry run has no QR, and the email says so by showing only the barcode', async () => {
+  const { kv } = await withLink('crew');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv, TEAM_DRY_RUN: 'true', TEAM_TEST_EMAILS: 'ravi@artindia.be' });
+    const r = await register(env, kv, FORM({ email: 'ravi@artindia.be', role: 'Stage' }), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+
+    assert.equal(done.person.tt.qrUrl, '', 'nothing was asked of Ticket Tailor');
+    const mail = approvedMail(env, done.person, teamOf('crew'));
+    assert.ok(!htmlMail(mail.lines, mail.qr).includes('<img'));
+    assert.ok(htmlMail(mail.lines, mail.qr).includes(done.person.tt.barcode),
+      'with no image the barcode is the pass');
+  } finally { w.restore(); }
+});
+
+test('Diya points at the same QR as the email, and at nothing when there is none', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const p = (await approve(env, kv,
+      { id: (await register(env, kv, FORM(), {})).person.id, approver: 'ravi' })).person;
+    const member = await teamMemberFor(kv, '+32474919900');
+
+    const answer = await passAnswer(env, kv, member);
+    assert.ok(answer.includes(p.tt.qrUrl), 'MY_PASS does not link to the pass');
+
+    const noQr = { ...member, person: { ...member.person, tt: { issuedTicketId: 'x', barcode: 'y', qrUrl: '' } } };
+    const plain = await passAnswer(env, kv, noQr);
+    assert.ok(!plain.includes('http') || !plain.includes('/qr/'),
+      'no QR means no broken link');
+  } finally { w.restore(); }
+});
+
+/* ------------------------------------------------------------ 5.5 restore */
+
+test('restore puts a rejected person back and lets them register again', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM(), {});
+    await reject(env, kv, { id: r.person.id, approver: 'ravi', note: 'wrong group' });
+
+    assert.ok(await kv.get(rejectedPhoneKey('+32474919900')));
+    assert.ok(await kv.get(rejectedEmailKey('shreya@example.com')));
+
+    const back = await restore(env, kv, { id: r.person.id, approver: 'keerthi' });
+    assert.ok(back.ok);
+    assert.equal(back.person.status, 'pending');
+    assert.equal(back.person.restoredBy, 'keerthi');
+    assert.ok(back.person.restoredAt);
+    assert.equal(back.person.decidedBy, null, 'no decision stands on them now');
+    assert.equal(back.person.decidedAt, null);
+    assert.equal(back.person.note, 'wrong group', 'why they were turned down is still worth keeping');
+
+    assert.equal(await kv.get(rejectedPhoneKey('+32474919900')), null);
+    assert.equal(await kv.get(rejectedEmailKey('shreya@example.com')), null);
+
+    /* And the form takes them again, which is the point of it. */
+    const again = await register(env, kv, FORM({
+      firstName: 'Shreya', phone: '+32474919901', email: 'shreya2@example.com',
+    }), {});
+    assert.ok(again.ok);
+  } finally { w.restore(); }
+});
+
+test('restoring one person does not un-remember a sibling on the same phone', async () => {
+  const { kv } = await withLink('child', { expected: 50 });
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const base = { ...FORM(), role: '' };
+    const one = await register(env, kv, {
+      ...base, child: { firstName: 'Aarav', lastName: 'Menon', dob: '2016-05-04' },
+    }, {});
+    const two = await register(env, kv, {
+      ...base, email: 'other@example.com',
+      child: { firstName: 'Diya', lastName: 'Menon', dob: '2018-01-09' },
+    }, {});
+
+    await reject(env, kv, { id: one.person.id, approver: 'ravi', note: 'a' });
+    await reject(env, kv, { id: two.person.id, approver: 'ravi', note: 'b' });
+    /* The second rejection owns the phone key now. */
+    assert.equal(await kv.get(rejectedPhoneKey('+32474919900')), two.person.id);
+
+    await restore(env, kv, { id: one.person.id, approver: 'ravi' });
+    assert.equal(await kv.get(rejectedPhoneKey('+32474919900')), two.person.id,
+      'the other rejection still stands');
+    assert.equal(await kv.get(rejectedEmailKey('shreya@example.com')), null,
+      'but this one released its own email');
+  } finally { w.restore(); }
+});
+
+test('restore only works on a rejected person, and the route records the approver', async () => {
+  const { kv } = await withLink('crew');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM({ role: 'Stage' }), {});
+
+    const early = await restore(env, kv, { id: r.person.id, approver: 'ravi' });
+    assert.ok(early.ok);
+    assert.equal(early.skipped, 'status_pending');
+    assert.equal(early.person.restoredBy, undefined, 'nothing was recorded');
+
+    await reject(env, kv, { id: r.person.id, approver: 'ravi', note: 'no' });
+    const res = await adminPost({
+      request: req('POST', { action: 'restore', id: r.person.id },
+        { 'x-admin-token': ADMIN.keerthi }), env,
+    });
+    const body = await res.json();
+    assert.equal(body.person.status, 'pending');
+    assert.equal(body.person.restoredBy, 'keerthi');
+
+    const nobody = await restore(env, kv, { id: 'p_nope', approver: 'ravi' });
+    assert.equal(nobody.ok, false);
+    assert.equal(nobody.error, 'unknown_person');
+  } finally { w.restore(); }
+});
+
+/* -------------------------------------------------- 4.1 the language switch */
+
+test('the language switch is above the title on every form page, and only there', () => {
+  for (const rel of ['team/index.html', 'fr/team/index.html', 'nl/team/index.html',
+    'team/plus1/index.html', 'fr/team/plus1/index.html', 'nl/team/plus1/index.html']) {
+    const html = readFileSync(join(ROOT, 'dist-diwali', rel), 'utf8');
+    const main = html.slice(html.indexOf('<main'), html.indexOf('</main>'));
+
+    assert.equal((main.match(/class="tf-langs"/g) || []).length, 1,
+      `${rel} has the switch twice, or not at all`);
+    assert.ok(main.indexOf('class="tf-langs"') < main.indexOf('<h1>'),
+      `${rel} still shows the switch below the title`);
+
+    /* And it points at this page in the other two languages, not the home page. */
+    const leaf = rel.includes('plus1') ? 'team/plus1/' : 'team/';
+    for (const [lang, prefix] of [['en', ''], ['fr', '/fr'], ['nl', '/nl']]) {
+      assert.ok(main.includes(`href="${prefix}/${leaf}"`),
+        `${rel} does not offer ${lang}`);
+    }
+    assert.match(main, /aria-current="page"/, `${rel} does not mark the current language`);
+  }
+});
+
+test('every string has all three languages, apart from the one the brief leaves open', () => {
+  const open = ['wall_invite'];
+  for (const [key, v] of Object.entries(COPY)) {
+    if (open.includes(key)) continue;
+    for (const l of ['en', 'fr', 'nl']) {
+      assert.ok(v[l], `${key}.${l} is empty`);
+    }
+  }
 });

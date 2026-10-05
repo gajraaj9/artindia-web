@@ -187,6 +187,20 @@ export async function findIssuedTicket(env, reference) {
   return list.find(t => !t.voided_at) || list[0] || null;
 }
 
+/**
+ * The four things we keep off an issued ticket.
+ *
+ * `qr_code_url` and `barcode_url` are both in the schema's required list, so
+ * a real response always carries them and the approved email can show the
+ * pass itself rather than promising one. A dry run has neither, and the email
+ * then falls back to the barcode text alone.
+ */
+export const ticketFacts = t => ({
+  issuedTicketId: t.id,
+  barcode: t.barcode || '',
+  qrUrl: t.qr_code_url || t.barcode_url || '',
+});
+
 export async function issueTicket(env, { eventId, ticketTypeId, fullName, email, reference }) {
   const r = await tt(env, '/v1/issued_tickets', {
     method: 'POST',
@@ -198,8 +212,9 @@ export async function issueTicket(env, { eventId, ticketTypeId, fullName, email,
       /* Ticket Tailor only actually sends this if the box office is set to use
          separate event confirmation emails and the series is approved by their
          staff. Both are settings on their side, so a true here is a request,
-         not a guarantee, and the approved email says the pass "arrives in a
-         separate email" rather than promising it has already been sent. */
+         not a guarantee. It stays on anyway: our own email carries the QR, and
+         theirs arriving as well costs nothing. The copy says "may also send it
+         to you separately" for exactly that reason. */
       send_email: true,
       reference,
     },
@@ -373,8 +388,14 @@ const SIGNATURE = 'Brussels Diwali Festival, Art India ASBL';
  * Returns a plain result rather than throwing: an email that does not go out
  * must not undo a ticket that did.
  */
-export async function sendMail(env, { to, subject, lines }) {
-  const body = [...lines.filter(l => l !== null && l !== undefined), '', SIGNATURE].join('\n');
+export async function sendMail(env, { to, subject, lines, qr = null }) {
+  const clean = lines.filter(l => l !== null && l !== undefined);
+  /* The barcode is printed under the QR in the HTML, so it would read as a
+     stray line if it were also in `lines`. The text half has no QR to print it
+     under, so it gets it here: whatever strips the HTML, the number that opens
+     the gate survives. */
+  const text = qr && qr.barcode ? [...clean, '', qr.barcode] : clean;
+  const body = [...text, '', SIGNATURE].join('\n');
   try {
     const res = await brevo(env, '/smtp/email', {
       method: 'POST',
@@ -386,6 +407,10 @@ export async function sendMail(env, { to, subject, lines }) {
         to: [{ email: to }],
         subject,
         textContent: body,
+        /* Both halves, always. The HTML is what carries the QR; the text is
+           what a reader with images off, or a client that refuses HTML, still
+           gets, and it names the barcode so a human on the gate can type it. */
+        htmlContent: htmlMail(clean, qr),
       }),
     });
     if (!res.ok) {
@@ -398,6 +423,60 @@ export async function sendMail(env, { to, subject, lines }) {
     console.error('accred mail threw', String(e));
     return { ok: false, reason: 'threw' };
   }
+}
+
+const escHtml = v => String(v)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/* A bare link becomes a real one. Written against the whole line rather than
+   per word so a trailing full stop does not end up inside the href. */
+const linkify = line => escHtml(line)
+  .replace(/(https?:\/\/[^\s<]+?)([.,;:)]?)(?=\s|$)/g,
+    (_, url, tail) => `<a href="${url}" style="color:#b4381f">${url}</a>${tail}`);
+
+/**
+ * The email as HTML.
+ *
+ * Tables and inline styles, because this is email: a mail client is a browser
+ * from 2003 with the stylesheet support removed. Nothing here needs to be
+ * pretty, it needs to arrive legible in Outlook.
+ *
+ * The QR block is the point of it. `qr.url` is Ticket Tailor's own image, so
+ * a reader with remote images blocked sees the barcode text instead, which is
+ * why the text is always printed under the image and never only inside it.
+ */
+export function htmlMail(lines, qr = null) {
+  const body = lines.map(l => (l === ''
+    ? '<tr><td style="height:14px"></td></tr>'
+    : `<tr><td style="padding:0 0 4px">${linkify(l)}</td></tr>`)).join('');
+
+  const pass = qr && (qr.url || qr.barcode)
+    ? `<tr><td style="padding:22px 0 6px">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"
+          style="border:1px solid #e4ddd3;border-radius:10px"><tr>
+          <td align="center" style="padding:18px 22px">
+            ${qr.url
+              ? `<img src="${escHtml(qr.url)}" width="180" height="180" alt="QR"
+                   style="display:block;width:180px;height:180px;border:0">`
+              : ''}
+            ${qr.barcode
+              ? `<div style="padding-top:10px;font:600 15px/1.3 ui-monospace,Menlo,Consolas,monospace;
+                   letter-spacing:.08em;color:#1b1714">${escHtml(qr.barcode)}</div>`
+              : ''}
+          </td></tr></table></td></tr>`
+    : '';
+
+  return `<!doctype html><html><body style="margin:0;padding:0;background:#faf7f2">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+  style="background:#faf7f2"><tr><td align="center" style="padding:24px 16px">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+  style="max-width:520px;background:#ffffff;border-radius:12px;padding:26px 24px;
+  font:15px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1b1714">
+${body}${pass}
+<tr><td style="height:22px"></td></tr>
+<tr><td style="border-top:1px solid #e4ddd3;padding-top:14px;font-size:13px;color:#6b625a">
+${escHtml(SIGNATURE)}</td></tr>
+</table></td></tr></table></body></html>`;
 }
 
 /** The "we have you" email, sent the moment a form is submitted. */
@@ -436,7 +515,12 @@ export function approvedMail(env, person, team) {
     lines.push('', say('wall_invite', lang)
       .replace('{LINK}', `${env.WALL_URL}?k=${person.wallToken}`));
   }
-  return { to: person.email, subject: say('mail_approved_subject', lang), lines };
+
+  const qr = {
+    url: (person.tt && person.tt.qrUrl) || '',
+    barcode: (person.tt && person.tt.barcode) || '',
+  };
+  return { to: person.email, subject: say('mail_approved_subject', lang), lines, qr };
 }
 
 /* --------------------------------------------------------------- the brevo */
@@ -638,7 +722,10 @@ export async function approve(env, kv, { id, approver, only = null, log = null }
       : `${person.firstName} ${person.lastName}`.trim();
     try {
       if (dry) {
-        person.tt = { issuedTicketId: `dry_tkt_${token(10)}`, barcode: `dry_${token(8)}` };
+        /* No QR on a dry run: Ticket Tailor is the only thing that can make
+           one, and nothing was asked of it. The email shows the barcode text
+           alone, which is what a missing image looks like in the real thing. */
+        person.tt = { issuedTicketId: `dry_tkt_${token(10)}`, barcode: `dry_${token(8)}`, qrUrl: '' };
         person.steps.ticket = 'done';
       } else {
         const existing = await findIssuedTicket(env, person.id);
@@ -650,7 +737,7 @@ export async function approve(env, kv, { id, approver, only = null, log = null }
           reference: person.id,
         });
         if (!issued || !issued.id) throw new Error('no issued ticket id in the response');
-        person.tt = { issuedTicketId: issued.id, barcode: issued.barcode || '' };
+        person.tt = ticketFacts(issued);
         person.steps.ticket = 'done';
         if (existing) person.adoptedTicket = true;
       }
@@ -783,6 +870,42 @@ export async function reject(env, kv, { id, approver, note = '' }) {
     if (entry) await kv.put(plus1Key(person.plus1TokenUsed), JSON.stringify({ ...entry, used: false }));
   }
 
+  return { ok: true, person };
+}
+
+/**
+ * Rejected by mistake, or rejected and then argued about and won.
+ *
+ * Back into the queue, and the two "never again" keys are released so they can
+ * fill the form in again if they need to. Each key is only released when it
+ * still points at this person: on the child team one phone covers a family,
+ * and un-remembering a sibling's rejection because this one was restored
+ * would be wrong.
+ *
+ * The note stays. Why somebody was turned down is worth keeping even after
+ * the decision is reversed.
+ */
+export async function restore(env, kv, { id, approver }) {
+  const person = await getPerson(kv, id);
+  if (!person) return { ok: false, error: 'unknown_person' };
+  if (person.status !== 'rejected') {
+    return { ok: true, person, skipped: `status_${person.status}` };
+  }
+
+  for (const key of [person.phone && rejectedPhoneKey(person.phone),
+    person.email && rejectedEmailKey(person.email)]) {
+    if (!key) continue;
+    if (await kv.get(key) === person.id) await kv.delete(key);
+  }
+
+  person.status = 'pending';
+  person.restoredBy = approver;
+  person.restoredAt = nowIso();
+  /* No decision stands on them any more. */
+  person.decidedBy = null;
+  person.decidedAt = null;
+  person.lockedAt = null;
+  await putPerson(kv, person);
   return { ok: true, person };
 }
 
@@ -951,9 +1074,13 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
   const draftName = { firstName: body.firstName, lastName: body.lastName };
   for (const id of await idsFor(kv, phoneKey(phone))) {
     const p = await getPerson(kv, id);
-    if (p && p.linkToken === String(body.k) && sameName(p, draftName)) {
-      return { ok: true, repeat: true, person: p };
-    }
+    if (!p || p.linkToken !== String(body.k) || !sameName(p, draftName)) continue;
+    /* On the child team the parent is the same person every time, by design:
+       one mother entering three dancers types her own name three times. It is
+       the child that makes it a different registration, so only a matching
+       child makes it a repeat. */
+    if (team.childTeam && !(p.child && body.child && sameName(p.child, body.child))) continue;
+    return { ok: true, repeat: true, person: p };
   }
 
   const expected = await expectedFor(kv, link.team);
@@ -1065,6 +1192,11 @@ export async function passAnswer(env, kv, { person, team }) {
   const lines = [say('bot_pass', lang)
     .replace('{PASS}', passName(team, lang))
     .replace('{EMAIL}', person.email)];
+
+  /* The same image the email shows. Diya links to it rather than describing
+     it: a person asking "where is my pass" on a phone wants to open it, and
+     WhatsApp will not render one in a reply. */
+  if (person.tt && person.tt.qrUrl) lines.push(person.tt.qrUrl);
 
   const arrival = arrivalLine(team, lang);
   if (arrival) lines.push(arrival);

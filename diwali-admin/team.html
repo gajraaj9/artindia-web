@@ -285,6 +285,7 @@
       return '<div class="card" data-id="' + esc(p.id) + '">' + head(p) + chips(p)
         + '<div class="muted">' + esc(p.status)
         + (p.decidedBy ? ' by ' + esc(p.decidedBy) : '')
+        + (p.restoredBy ? ' · restored by ' + esc(p.restoredBy) : '')
         + (p.note ? ' · ' + esc(p.note) : '') + '</div>'
         + stepline(p)
         + '<div class="acts">'
@@ -292,6 +293,7 @@
         + (p.status === 'approved' ? '<button type="button" data-act="retry">Retry failed steps</button>' : '')
         + (p.status === 'approved' ? '<button type="button" class="no" data-act="revoke">Revoke</button>' : '')
         + (p.status === 'pending' ? '<button type="button" class="no" data-act="reject">Reject</button>' : '')
+        + (p.status === 'rejected' ? '<button type="button" data-act="restore">Restore</button>' : '')
         + '</div></div>';
     }).join('');
 
@@ -486,6 +488,13 @@
       var note2 = window.prompt('Revoke this pass. Why?');
       if (note2 === null) return;
       act({ action: 'revoke', id: id, note: note2 });
+      return;
+    }
+    if (a === 'restore') {
+      /* Not a decision, an undo: it puts them back in the queue and lets them
+         use the form again. Somebody still has to approve them. */
+      if (!window.confirm('Put this person back in the queue and let them register again?')) return;
+      act({ action: 'restore', id: id });
       return;
     }
     if (a === 'csv') { csv(); return; }

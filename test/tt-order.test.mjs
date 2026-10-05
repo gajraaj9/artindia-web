@@ -649,3 +649,59 @@ test('the widget tag is still neither a channel nor a code', async () => {
   assert.equal(c.attributes.UTM_SOURCE, 'event_page_widget');
   assert.equal(c.attributes.UTM_CAMPAIGN, undefined);
 });
+
+/* ---------------------------------------------- the accreditation guard */
+
+/* Free passes are issued through the API with the person's id as the
+   reference. If Ticket Tailor ever reports them as an order, nothing in this
+   file may happen to them: a member of the team is not a buyer, does not go on
+   the buyers list, and must never collect a referral code or a draw entry. */
+
+test('an order made only of accreditation passes is acknowledged and dropped', async () => {
+  const { db, calls } = stubWorld();
+  const kv = memoryKv();
+  const res = await post({ ...ENV, REFERRALS: kv }, order({
+    issued_tickets: [
+      { id: 'it_1', reference: 'p_a1b2c3d4e5f6a7b8', email: 'shreya@example.com' },
+      { id: 'it_2', reference: 'p_ffffffffffffffff', email: 'tom@example.com' },
+    ],
+  }));
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { ok: true, ignored: 'accreditation' });
+  assert.equal(calls.length, 0, 'the guard ran before anything went out');
+  assert.equal(db.size, 0, 'nobody was written to Brevo');
+  assert.equal(kv.store.size, 0, 'no referral code, no order record, no draw entry');
+});
+
+test('one real ticket in the payload makes it a real order', async () => {
+  const { db } = stubWorld();
+  const res = await post({ ...ENV, REFERRALS: memoryKv() }, order({
+    issued_tickets: [
+      { id: 'it_1', reference: 'p_a1b2c3d4e5f6a7b8' },
+      { id: 'it_2', reference: null },
+    ],
+  }));
+
+  const body = await res.json();
+  assert.notEqual(body.ignored, 'accreditation',
+    'all, not any: a payload with a bought ticket in it is a real order');
+  assert.ok(db.size, 'the buyer was processed as usual');
+});
+
+test('an ordinary order has no issued_tickets and is untouched by the guard', async () => {
+  const { db } = stubWorld();
+  const res = await post({ ...ENV, REFERRALS: memoryKv() }, order());
+  const body = await res.json();
+  assert.notEqual(body.ignored, 'accreditation');
+  assert.ok(db.get('anouk@example.com'), 'the buyer flow still runs');
+});
+
+test('a reference that merely starts with p is not a person id', async () => {
+  const { db } = stubWorld();
+  const res = await post({ ...ENV, REFERRALS: memoryKv() }, order({
+    issued_tickets: [{ id: 'it_1', reference: 'printed-batch-4' }],
+  }));
+  assert.notEqual((await res.json()).ignored, 'accreditation');
+  assert.ok(db.size);
+});

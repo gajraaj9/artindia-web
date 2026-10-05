@@ -608,6 +608,25 @@ function waBlocker(env, { kv, waOptIn, phone, code }) {
 
 /* ---------------------------------------------------------------- handler */
 
+/**
+ * True when every issued ticket on this order was created by the
+ * accreditation module.
+ *
+ * Those tickets are free passes, issued by us through the API with the
+ * person's id as the reference. If Ticket Tailor ever reports them as an
+ * order, none of what this file does should happen to them: they are not
+ * buyers, they do not belong on the buyers list, and a free pass must never
+ * become a lucky draw entry or a referral code.
+ *
+ * All, not any. A payload with a real ticket in it is a real order, however
+ * it got mixed up, and it is better to process it twice than to drop it.
+ */
+function isAccreditationOrder(order) {
+  const tickets = Array.isArray(order && order.issued_tickets) ? order.issued_tickets : [];
+  if (!tickets.length) return false;
+  return tickets.every(t => /^p_/.test(String((t && t.reference) || '')));
+}
+
 export async function onRequestPost({ request, env }) {
   /* The signature covers the bytes as sent, so the body is read as text and
      only parsed afterwards. */
@@ -628,6 +647,14 @@ export async function onRequestPost({ request, env }) {
   let body;
   try { body = JSON.parse(rawBody); }
   catch { return json(400, { ok: false, error: 'bad_json' }); }
+
+  /* Before anything else, including the payload log: an order made entirely of
+     accreditation passes is acknowledged and dropped. */
+  if (isAccreditationOrder(body.payload || body.data || body)) {
+    console.log('tt-order: accreditation passes, ignored',
+      String((body.payload || body.data || body).id || ''));
+    return json(200, { ok: true, ignored: 'accreditation' });
+  }
 
   /* One flag, one real delivery, one look at the log — rather than a
      console.log someone has to remember to take back out. */

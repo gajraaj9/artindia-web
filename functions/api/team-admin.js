@@ -14,7 +14,7 @@
 import { json } from './_shared.js';
 import { botKey, logMessage, LOG_SECONDS } from './_bot.js';
 import {
-  TEAMS, approverFor, allLinks, allPeople, approve, reject, revoke, expectedFor,
+  TEAMS, approverFor, allLinks, allPeople, approve, reject, revoke, restore, expectedFor,
   teamCfgKey, linkKey, teamOf, token, dryRun, regEnabled, closeAt, ticketTypeFor,
   approvalBlocker, getPerson, putPerson, addIdTo, phoneKey, emailKey, newPersonId,
   ageOnFestival, validDob, langOf, STEPS, hardCap,
@@ -163,6 +163,9 @@ export async function onRequestPost({ request, env }) {
     case 'revoke':
       return json(200, await revoke(env, kv,
         { id: String(body.id), approver, note: body.note || '' }));
+
+    case 'restore':
+      return json(200, await restore(env, kv, { id: String(body.id), approver }));
 
     case 'link_create': {
       const team = teamOf(String(body.team || ''));

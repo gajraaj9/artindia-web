@@ -36,13 +36,17 @@
 .tf .tf-note{margin:18px 0 0;padding:14px 16px;border:1px solid var(--line);border-radius:10px}
 .tf .tf-note[data-bad=1]{border-color:#b4553f}
 .tf .tf-hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
-.tf .tf-langs{margin:34px 0 0;font-size:14px;color:var(--ink-2)}
+/* At the top, above the title: somebody who opened the link in the wrong
+   language should not have to read the whole form to find the way out of it. */
+.tf .tf-langs{margin:0 0 20px;font-size:14px;color:var(--ink-2);
+  padding-bottom:14px;border-bottom:1px solid var(--line)}
 .tf .tf-langs a{color:var(--ink-2)}
 .tf .tf-langs a[aria-current=page]{color:var(--marigold);font-weight:700}
 </style>
 </head>
 <body>
 <main class="tf" id="team-form">
+  <p class="tf-langs">{{LANGS}}</p>
   <h1>{{TITLE}}</h1>
   <p class="tf-team" id="tf-team" hidden></p>
   <p class="tf-intro">{{INTRO}}</p>
@@ -90,7 +94,6 @@
     <button type="button" id="tf-again">{{S_ANOTHER}}</button>
   </p>
 
-  <p class="tf-langs">{{LANGS}}</p>
 </main>
 <script>
 (function () {

@@ -112,8 +112,8 @@
     },
     "error": {
       "en": "Something went wrong. Please try again.",
-      "fr": "",
-      "nl": ""
+      "fr": "Une erreur s'est produite. Veuillez réessayer.",
+      "nl": "Er ging iets mis. Probeer het opnieuw."
     },
     "wall_invite": {
       "en": "PLACEHOLDER: People of Art India photo invitation. {LINK}",
@@ -136,59 +136,59 @@
       "nl": "Tickets verkocht"
     },
     "mail_qr": {
-      "en": "Your QR ticket arrives in a separate email from Ticket Tailor.",
-      "fr": "",
-      "nl": ""
+      "en": "Your QR pass is in this email. Ticket Tailor may also send it to you separately.",
+      "fr": "Votre pass avec QR code se trouve dans cet e-mail. Ticket Tailor peut aussi vous l'envoyer séparément.",
+      "nl": "Je pas met QR-code staat in deze e-mail. Ticket Tailor kan hem ook apart sturen."
     },
     "bot_pass": {
       "en": "{PASS}. Your QR ticket is in your email, at {EMAIL}.",
-      "fr": "",
-      "nl": ""
+      "fr": "{PASS}. Votre billet avec QR code se trouve dans votre boîte e-mail, à l'adresse {EMAIL}.",
+      "nl": "{PASS}. Je ticket met QR-code zit in je mailbox, op {EMAIL}."
     },
     "bot_plus1_open": {
       "en": "Your +1 is not taken yet. Send them this link to register: {LINK}",
-      "fr": "",
-      "nl": ""
+      "fr": "Votre +1 n'est pas encore inscrit. Envoyez-lui ce lien pour s'inscrire : {LINK}",
+      "nl": "Je +1 is nog niet geregistreerd. Stuur deze link om te registreren: {LINK}"
     },
     "bot_plus1_pending": {
       "en": "Your +1 is registered and waiting for approval.",
-      "fr": "",
-      "nl": ""
+      "fr": "Votre +1 est inscrit et en attente de validation.",
+      "nl": "Je +1 is geregistreerd en wacht op goedkeuring."
     },
     "bot_plus1_approved": {
       "en": "Your +1 is approved: {NAME}.",
-      "fr": "",
-      "nl": ""
+      "fr": "Votre +1 est validé : {NAME}.",
+      "nl": "Je +1 is goedgekeurd: {NAME}."
     },
     "bot_code": {
       "en": "Your code is {CODE}. Forward this:",
-      "fr": "",
-      "nl": ""
+      "fr": "Votre code est {CODE}. Transférez ce message :",
+      "nl": "Je code is {CODE}. Stuur dit door:"
     },
     "bot_code_forward": {
       "en": "Use my code {CODE} for 10% off your Brussels Diwali Festival ticket: {LINK}",
-      "fr": "",
-      "nl": ""
+      "fr": "Utilisez mon code {CODE} pour 10 % de réduction sur votre billet du Brussels Diwali Festival : {LINK}",
+      "nl": "Gebruik mijn code {CODE} voor 10% korting op je ticket voor het Brussels Diwali Festival: {LINK}"
     },
     "bot_sales": {
-      "en": "{ORDERS} orders so far with your code.",
-      "fr": "",
-      "nl": ""
+      "en": "Orders with your code so far: {ORDERS}.",
+      "fr": "Commandes passées avec votre code à ce jour : {ORDERS}.",
+      "nl": "Bestellingen met je code tot nu toe: {ORDERS}."
     },
     "bot_sales_none": {
       "en": "No orders with your code yet.",
-      "fr": "",
-      "nl": ""
+      "fr": "Aucune commande avec votre code pour l'instant.",
+      "nl": "Nog geen bestellingen met je code."
     },
     "bot_sales_unknown": {
-      "en": "Ticket Tailor is not reporting a count for your code right now.",
-      "fr": "",
-      "nl": ""
+      "en": "I can't see the count for your code right now. Please try again later.",
+      "fr": "Je ne peux pas voir le nombre de commandes pour votre code pour le moment. Réessayez plus tard.",
+      "nl": "Ik kan het aantal bestellingen voor je code nu niet zien. Probeer het later opnieuw."
     },
     "bot_pending": {
       "en": "Your registration is waiting for approval by the festival team.",
-      "fr": "",
-      "nl": ""
+      "fr": "Votre inscription est en attente de validation par l'équipe du festival.",
+      "nl": "Je registratie wacht op goedkeuring door het festivalteam."
     }
   }
 }
