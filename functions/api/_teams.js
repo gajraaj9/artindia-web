@@ -57,6 +57,24 @@ export const TEAMS = [
     }
   },
   {
+    "key": "media",
+    "env": "TT_TYPE_MEDIA",
+    "expected": 10,
+    "plusOne": false,
+    "promoCode": true,
+    "wall": true,
+    "name": {
+      "en": "Media team",
+      "fr": "Équipe média",
+      "nl": "Mediateam"
+    },
+    "arrival": {
+      "en": "",
+      "fr": "",
+      "nl": ""
+    }
+  },
+  {
     "key": "artist",
     "env": "TT_TYPE_ARTIST",
     "expected": 30,

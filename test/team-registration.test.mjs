@@ -187,15 +187,16 @@ const req = (method, body, headers = {}) => new Request('https://diwali.artindia
 
 /* ------------------------------------------------------------- 2. the teams */
 
-test('the seed teams are the eleven in the brief, with the right flags', () => {
+test('the seed teams are the twelve in the brief, with the right flags', () => {
   assert.deepEqual(TEAMS.map(t => t.key),
-    ['core', 'crew', 'dj', 'artist', 'collab', 'aimc', 'child', 'vip', 'press', 'guest', 'plus1']);
+    ['core', 'crew', 'dj', 'media', 'artist', 'collab', 'aimc', 'child', 'vip',
+      'press', 'guest', 'plus1']);
 
   const by = k => TEAMS.find(t => t.key === k);
   assert.deepEqual(TEAMS.filter(t => t.promoCode).map(t => t.key),
-    ['core', 'dj', 'artist', 'collab', 'aimc', 'child']);
+    ['core', 'dj', 'media', 'artist', 'collab', 'aimc', 'child']);
   assert.deepEqual(TEAMS.filter(t => t.wall).map(t => t.key),
-    ['core', 'crew', 'dj', 'artist', 'collab', 'aimc']);
+    ['core', 'crew', 'dj', 'media', 'artist', 'collab', 'aimc']);
   assert.deepEqual(TEAMS.filter(t => t.plusOne).map(t => t.key), ['artist']);
   assert.ok(by('vip').inviteOnly, 'the VIP team is invite only');
   assert.ok(by('child').childTeam);
@@ -203,6 +204,22 @@ test('the seed teams are the eleven in the brief, with the right flags', () => {
     for (const l of ['en', 'fr', 'nl']) {
       assert.ok(t.name[l], `${t.key} has no ${l} name`);
     }
+  }
+});
+
+test('every team names its own ticket type variable, and no two share one', () => {
+  const envs = TEAMS.map(t => t.env);
+  assert.equal(new Set(envs).size, envs.length, 'two teams share a ticket type variable');
+  for (const t of TEAMS) {
+    assert.equal(t.env, `TT_TYPE_${t.key.toUpperCase()}`,
+      `${t.key} does not follow the TT_TYPE_<KEY> convention`);
+  }
+  /* And the brief's section 10 lists every one of them, so nothing can be
+     added to the data file and forgotten in the environment. */
+  const brief = readFileSync(join(ROOT, 'docs/claude-code-brief-team-registration.md'), 'utf8');
+  const env = brief.slice(brief.indexOf('## 10. Environment'));
+  for (const t of TEAMS) {
+    assert.ok(env.includes(`\`${t.env}\``), `${t.env} is missing from section 10`);
   }
 });
 
@@ -873,7 +890,7 @@ test('the admin payload carries the teams, the links and everyone', async () => 
     const res = await adminGet({ request: req('GET', null, { 'x-admin-token': ADMIN.ravi }), env });
     const d = await res.json();
     assert.equal(d.approver, 'ravi');
-    assert.equal(d.teams.length, 11);
+    assert.equal(d.teams.length, 12);
     assert.equal(d.links.length, 1);
     assert.equal(d.links[0].url, `https://diwali.artindia.be/team/?k=${t}`);
     assert.equal(d.links[0].registered, 1);

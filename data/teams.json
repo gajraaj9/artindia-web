@@ -7,6 +7,8 @@
       "name": {"en": "Technical crew", "fr": "Équipe technique", "nl": "Technische ploeg"}, "arrival": {"en": "", "fr": "", "nl": ""} },
     { "key": "dj",     "env": "TT_TYPE_DJ",     "expected": 7,  "plusOne": false, "promoCode": true,  "wall": true,
       "name": {"en": "DJ team", "fr": "Équipe DJ", "nl": "Dj-team"}, "arrival": {"en": "", "fr": "", "nl": ""} },
+    { "key": "media",  "env": "TT_TYPE_MEDIA",  "expected": 10, "plusOne": false, "promoCode": true,  "wall": true,
+      "name": {"en": "Media team", "fr": "Équipe média", "nl": "Mediateam"}, "arrival": {"en": "", "fr": "", "nl": ""} },
     { "key": "artist", "env": "TT_TYPE_ARTIST", "expected": 30, "plusOne": true,  "promoCode": true,  "wall": true,
       "name": {"en": "Main artists", "fr": "Artistes principaux", "nl": "Hoofdartiesten"}, "arrival": {"en": "", "fr": "", "nl": ""} },
     { "key": "collab", "env": "TT_TYPE_COLLAB", "expected": 20, "plusOne": false, "promoCode": true,  "wall": true,
