@@ -18,7 +18,7 @@ import {
   teamCfgKey, linkKey, teamOf, token, dryRun, regEnabled, closeAt, ticketTypeFor,
   approvalBlocker, getPerson, putPerson, addIdTo, phoneKey, emailKey, newPersonId,
   ageOnFestival, validDob, langOf, STEPS, hardCap, allRefusals, trimRefusals,
-  SKIPPED, isDryId,
+  SKIPPED, isDryId, changeCode,
 } from './_accred.js';
 
 /* The caller, or null. 503 when the secret is unset: an admin route with no
@@ -187,6 +187,14 @@ export async function onRequestPost({ request, env }) {
 
     case 'restore':
       return json(200, await restore(env, kv, { id: String(body.id), approver }));
+
+    /* A different code, by hand. Sends nothing: the approver decides whether
+       to tell them, and the Resend buttons carry the new one. */
+    case 'code_change': {
+      const r = await changeCode(env, kv,
+        { id: String(body.id), code: body.code, approver });
+      return json(r.ok ? 200 : 409, r);
+    }
 
     case 'link_create': {
       const team = teamOf(String(body.team || ''));

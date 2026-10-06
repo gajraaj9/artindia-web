@@ -263,6 +263,11 @@
     if (p.promo && p.promo.code) {
       tail.push('code ' + p.promo.code + (isDry(p.promo.discountId) ? ' (dry run)' : ''));
     }
+    (p.promoHistory || []).forEach(function (h) {
+      tail.push('was ' + h.code
+        + (h.orders == null ? '' : ' (' + h.orders + ' orders)')
+        + (h.changedBy ? ', changed by ' + h.changedBy : ''));
+    });
     return '<div class="steps">' + rows
       + (tail.length ? '<div class="step-tail">' + esc(tail.join(' \u00b7 ')) + '</div>' : '')
       + '</div>';
@@ -286,6 +291,11 @@
     who += history(p);
     /* What Ticket Tailor said, at the top of the card and in red, because it
        is the thing the approver has to act on. */
+    if (p.staleCode) {
+      who += '<div class="refusal">The old code ' + esc(p.staleCode)
+        + ' could not be deleted and is still live in Ticket Tailor. '
+        + 'Delete it there by hand.</div>';
+    }
     if (p.ttError && p.ttError.detail) {
       who += '<div class="refusal">Ticket Tailor refused'
         + (p.ttError.where === 'discount' ? ' the discount' : ' the ticket') + ': '
@@ -394,6 +404,8 @@
         + '<div class="acts">'
         + (p.status === 'pending' ? '<button type="button" class="go" data-act="approve">Approve</button>' : '')
         + (p.status === 'approved' ? '<button type="button" data-act="retry">Retry failed steps</button>' : '')
+        + (p.status === 'approved' && p.promo && p.promo.code && !isDry(p.promo.discountId)
+          ? '<button type="button" data-act="code_change">Change code</button>' : '')
         + (p.status === 'approved' ? '<button type="button" data-act="resend" data-step="email">Resend email</button>' : '')
         + (p.status === 'approved' && p.phone ? '<button type="button" data-act="resend" data-step="whatsapp">Resend WhatsApp</button>' : '')
         + (p.status === 'approved' ? '<button type="button" class="no" data-act="revoke">Revoke</button>' : '')
@@ -542,7 +554,7 @@
     var cols = ['firstName', 'lastName', 'email', 'phone', 'team', 'label', 'role',
       'childFirstName', 'childLastName', 'childDob', 'salutation', 'title',
       'organisation', 'rsvp', 'status', 'approver', 'registered', 'decided',
-      'promoCode', 'ticketsSold'];
+      'promoCode', 'previousCodes', 'ticketsSold'];
     function cell(v) {
       var s = String(v == null ? '' : v);
       return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
@@ -556,7 +568,9 @@
         v.salutation || '', v.jobTitle || '', v.organisation || '',
         v.attending == null ? '' : (v.attending ? 'accepted' : 'declined'),
         p.status, p.decidedBy || '', when(p.createdAt), when(p.decidedAt),
-        (p.promo && p.promo.code) || '', p.ticketsSold == null ? '' : p.ticketsSold
+        (p.promo && p.promo.code) || '',
+        (p.promoHistory || []).map(function (h) { return h.code; }).join(' '),
+        p.ticketsSold == null ? '' : p.ticketsSold
       ].map(cell).join(','));
     });
     var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
@@ -680,6 +694,17 @@
       var note2 = window.prompt('Revoke this pass. Why?');
       if (note2 === null) return;
       act({ action: 'revoke', id: id, note: note2 });
+      return;
+    }
+    if (a === 'code_change') {
+      var p = personOf(id);
+      var next = window.prompt(
+        'New code for ' + (p ? p.firstName : 'this person')
+        + '. Letters and digits, 4 to 16 characters.\n\n'
+        + 'Nothing is sent: use Resend email or Resend WhatsApp afterwards.',
+        (p && p.promo && p.promo.code) || '');
+      if (next === null) return;
+      act({ action: 'code_change', id: id, code: next });
       return;
     }
     if (a === 'resend') {

@@ -24,6 +24,7 @@ import {
   restore, htmlMail, ticketFacts, rejectedEmailKey, qrFileName, fetchQrAttachment,
   SKIPPED, isDryId, ttMessage, scrubSecret, logRefusal, allRefusals, trimRefusals,
   oneOf, describeBody, findIssuedTicket, issueTicket, createDiscount,
+  digits, isTeamCode, cleanCode, changeCode, ordersOn, codeHistoryOf,
   clearDryResults, blockedAsRejected, REFUSAL_CAP,
 } from '../functions/api/_accred.js';
 import { onRequestGet as adminGet, onRequestPost as adminPost } from '../functions/api/team-admin.js';
@@ -101,13 +102,15 @@ const ENV = (over = {}) => ({
  * retry-a-step tests are written.
  */
 function world({ fail = '', discountCollision = false, existingTicket = null, buyer = false,
-  shape = 'array' } = {}) {
+  shape = 'array', preTaken = [], redeemed = {} } = {}) {
   /* Four bytes standing in for a PNG. Nothing reads them; what matters is the
      content type, the length and that they come back base64 on the wire. */
   const QR_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
   const calls = [];
   let issued = 0;
   let discounts = 0;
+  const takenCodes = new Set(preTaken);
+  const madeDiscounts = new Map();
   const real = globalThis.fetch;
 
   globalThis.fetch = async (input, init = {}) => {
@@ -159,13 +162,34 @@ function world({ fail = '', discountCollision = false, existingTicket = null, bu
       if (url.includes('/void')) return reply(200, { data: [{ id: 'it_1', status: 'voided' }] });
       if (url.includes('/discounts') && method === 'POST') {
         if (fail === 'discount') return reply(400, { errors: [{ message: 'nope' }] });
+        const sent = new URLSearchParams(body);
+        const wanted = sent.get('code') || '';
+        /* Ticket Tailor refuses a code it already holds, which is the most
+           likely way a hand-picked one bounces. */
+        if (takenCodes.has(wanted)) {
+          return reply(422, { errors: [{ message: 'Discount code already exists' }] });
+        }
         discounts += 1;
-        return reply(201, { id: `dsc_${discounts}`, code: 'X', times_redeemed: 0 });
+        const made = { object: 'discount', id: `dsc_${discounts}`, code: wanted, times_redeemed: 0 };
+        takenCodes.add(wanted);
+        madeDiscounts.set(made.id, made);
+        return reply(201, made);
       }
       if (url.includes('/discounts') && method === 'GET') {
-        return reply(200, { id: 'dsc_1', times_redeemed: 3 });
+        const id = url.split('/discounts/')[1] || '';
+        const known = madeDiscounts.get(id);
+        return reply(200, known
+          ? { ...known, times_redeemed: redeemed[id] ?? known.times_redeemed }
+          : { object: 'discount', id: 'dsc_1', times_redeemed: 3 });
       }
-      if (url.includes('/discounts') && method === 'DELETE') return reply(200, {});
+      if (url.includes('/discounts') && method === 'DELETE') {
+        if (fail === 'delete_discount') return reply(500, { errors: [{ message: 'gone wrong' }] });
+        const id = url.split('/discounts/')[1] || '';
+        const gone = madeDiscounts.get(id);
+        if (gone) takenCodes.delete(gone.code);
+        madeDiscounts.delete(id);
+        return reply(200, {});
+      }
       return reply(200, { data: [] });
     }
 
@@ -190,6 +214,7 @@ function world({ fail = '', discountCollision = false, existingTicket = null, bu
     restore() { globalThis.fetch = real; },
     /* The API, not the CDN the QR image sits on: a retry of the email fetches
        the image again and that is not a Ticket Tailor API call. */
+    discounts: () => madeDiscounts,
     tt: () => calls.filter(c => c.url.includes('api.tickettailor.com')),
     qr: () => calls.filter(c => /tickettailor\.com\/(qr|barcode)\//.test(c.url)),
     brevo: () => calls.filter(c => c.url.includes('brevo')),
@@ -678,7 +703,7 @@ test('approval runs the steps in order and leaves a complete record', async () =
     assert.equal(p.decidedBy, 'keerthi');
     assert.ok(p.decidedAt);
     assert.equal(p.tt.issuedTicketId, 'it_1');
-    assert.match(p.promo.code, /^SHREYA-[A-Z0-9]{4}$/);
+    assert.match(p.promo.code, /^SHREYA[0-9]{3}$/, 'a code somebody can read down a phone');
     assert.equal(p.promo.discountId, 'dsc_1');
     assert.ok(p.plus1Token, 'a main artist gets a +1 token');
     assert.equal(p.plus1Token.length, 20);
@@ -1242,7 +1267,7 @@ test('the lookup by phone tells team from pending from nobody', async () => {
 
 test('the three pass answers say the right things, and the code line is forwardable', async () => {
   const { kv } = await withLink('artist');
-  const w = world();
+  const w = world({ redeemed: { dsc_1: 3 } });
   try {
     const env = ENV({ ACCRED: kv });
     const p = (await approve(env, kv,
@@ -1295,13 +1320,38 @@ test('a token is from the safe alphabet and a promo code reads as a name', () =>
   for (let i = 0; i < 200; i++) {
     assert.match(token(20), /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{20}$/);
   }
-  assert.match(promoCodeFor('Shreya'), /^SHREYA-[A-Z0-9]{4}$/);
-  assert.match(promoCodeFor('Jean-Luc'), /^JEANLUC-[A-Z0-9]{4}$/);
-  assert.match(promoCodeFor('Félix'), /^FELIX-[A-Z0-9]{4}$/);
-  assert.match(promoCodeFor('Bartholomewson'), /^BARTHOLOME-[A-Z0-9]{4}$/,
-    'ten characters of name, then the four random ones');
-  assert.match(promoCodeFor(''), /^TEAM-[A-Z0-9]{4}$/,
+  /* Name then digits, no dash: this gets spelled down a phone and typed into
+     a checkout by somebody's aunt. */
+  assert.match(promoCodeFor('Shreya'), /^SHREYA[0-9]{3}$/);
+  assert.match(promoCodeFor('Jean-Luc'), /^JEANLUC[0-9]{3}$/);
+  assert.match(promoCodeFor('Félix'), /^FELIX[0-9]{3}$/);
+  assert.match(promoCodeFor('Bartholomewson'), /^BARTHOLOME[0-9]{3}$/,
+    'ten characters of name, then the digits');
+  assert.match(promoCodeFor(''), /^TEAM[0-9]{3}$/,
     'a person with no usable first name still gets a code');
+  assert.match(promoCodeFor('Ravi', 4), /^RAVI[0-9]{4}$/, 'the crowded-name fallback');
+
+  for (let i = 0; i < 300; i++) assert.match(digits(3), /^[0-9]{3}$/);
+});
+
+test('both code formats are recognised, and a new one is letters and digits', () => {
+  /* RAVI123 is what we mint now. SHREYA-7KQ4 is in people's hands, in Ticket
+     Tailor and in Brevo, and stays valid for as long as a 2026 code can be
+     redeemed. */
+  for (const good of ['RAVI123', 'TEAM7890', 'SHREYA-7KQ4', 'B-A1B2', 'BARTHOLOME151']) {
+    assert.ok(isTeamCode(good), `${good} should be recognised`);
+  }
+  for (const bad of ['ravi123', 'RAVI', '12345', 'RAVI 123', '', 'TOOLONGANAME123']) {
+    assert.ok(!isTeamCode(bad), `${bad} should not be`);
+  }
+
+  assert.deepEqual(cleanCode(' ravi123 '), { ok: true, code: 'RAVI123' });
+  assert.equal(cleanCode('SHREYA-7KQ4').ok, false, 'a new code by hand carries no dash');
+  assert.equal(cleanCode('ABC').ok, false);
+  assert.equal(cleanCode('A'.repeat(17)).ok, false);
+  assert.equal(cleanCode('').reason, 'Enter a code.');
+  assert.match(cleanCode('a b').reason, /no spaces or dashes/);
+  assert.match(cleanCode('ABC').reason, /4 and 16/);
 });
 
 test('the emails say what they are for and sign as the festival', () => {
@@ -2465,4 +2515,311 @@ test('the discount is read the same way, in every shape', async () => {
     assert.match(e.detail, /without a usable discount id/);
     assert.match(e.detail, /201, keys: meta/);
   } finally { globalThis.fetch = real; }
+});
+
+/* ------------------------------------------------------ changing a code */
+
+/* People ask: a code minted from a nickname, one already printed on a flyer,
+   one that reads badly out loud. The order of work is chosen so the worst
+   outcome is two working codes rather than none. */
+
+async function approvedArtist(kv, env, over = {}) {
+  const r = await register(env, kv, FORM(over), {});
+  return (await approve(env, kv, { id: r.person.id, approver: 'ravi' })).person;
+}
+
+test('a changed code replaces the old one everywhere', async () => {
+  const { kv } = await withLink('artist');
+  const w = world({ redeemed: {} });
+  try {
+    const env = ENV({ ACCRED: kv });
+    const p = await approvedArtist(kv, env);
+    const oldCode = p.promo.code;
+    const oldId = p.promo.discountId;
+    w.calls.length = 0;
+
+    const r = await changeCode(env, kv, { id: p.id, code: ' ravi123 ', approver: 'keerthi' });
+
+    assert.ok(r.ok);
+    assert.equal(r.oldCode, oldCode);
+    assert.equal(r.person.promo.code, 'RAVI123', 'uppercased and trimmed');
+    assert.notEqual(r.person.promo.discountId, oldId);
+    assert.equal(r.person.codeChangedBy, 'keerthi');
+    assert.ok(r.person.codeChangedAt);
+    assert.equal(r.person.staleCode, null);
+
+    /* The new key points at them; the old one is gone. */
+    assert.deepEqual(await kv.get(promoKey('RAVI123'), 'json'),
+      { id: p.id, discountId: r.person.promo.discountId });
+    assert.equal(await kv.get(promoKey(oldCode)), null);
+
+    /* The old one is kept with what it sold, so the count stays honest. */
+    assert.equal(r.person.promoHistory.length, 1);
+    assert.equal(r.person.promoHistory[0].code, oldCode);
+    assert.equal(r.person.promoHistory[0].discountId, oldId);
+    assert.equal(r.person.promoHistory[0].changedBy, 'keerthi');
+
+    /* Read, then create, then delete. Never delete first. */
+    const order = w.tt().map(c => `${c.method} ${c.url.includes('/discounts/') ? 'one' : 'discounts'}`);
+    assert.deepEqual(order, ['GET one', 'POST discounts', 'DELETE one']);
+
+    /* And Brevo is told. */
+    const sent = w.brevo().filter(c => c.method === 'POST' && c.url.endsWith('/contacts'))
+      .map(c => JSON.parse(c.body).attributes.PROMO_CODE);
+    assert.equal(sent[sent.length - 1], 'RAVI123');
+
+    assert.equal(w.wa().length, 0, 'nothing is sent automatically');
+    assert.equal(w.brevo().filter(c => c.url.includes('/smtp/email')).length, 0);
+  } finally { w.restore(); }
+});
+
+test('the new code gets only the orders the old one had left', async () => {
+  const { kv } = await withLink('artist');
+  const w = world({ redeemed: { dsc_1: 7 } });
+  try {
+    const env = ENV({ ACCRED: kv, TEAM_CODE_MAX_ORDERS: '10' });
+    const p = await approvedArtist(kv, env);
+    const r = await changeCode(env, kv, { id: p.id, code: 'RAVI123', approver: 'ravi' });
+
+    assert.equal(r.maxRedemptions, 3, '10 allowed, 7 already used');
+    /* The last mint, not the first: the first was the original approval. */
+    const made = w.tt().filter(c => c.method === 'POST' && c.url.endsWith('/discounts'))
+      .find(c => c.body.includes('code=RAVI123'));
+    assert.match(made.body, /max_redemptions=3/);
+    assert.equal(r.person.promoHistory[0].orders, 7);
+  } finally { w.restore(); }
+});
+
+test('a code that has used its whole allowance still gets one order', async () => {
+  const { kv } = await withLink('artist');
+  const w = world({ redeemed: { dsc_1: 40 } });
+  try {
+    const env = ENV({ ACCRED: kv, TEAM_CODE_MAX_ORDERS: '10' });
+    const p = await approvedArtist(kv, env);
+    const r = await changeCode(env, kv, { id: p.id, code: 'RAVI123', approver: 'ravi' });
+    assert.equal(r.maxRedemptions, 1, 'a dead code is worse than a generous one');
+  } finally { w.restore(); }
+});
+
+test('Ticket Tailor refusing the new code changes nothing at all', async () => {
+  const { kv } = await withLink('artist');
+  const w = world({ preTaken: ['RAVI123'] });
+  try {
+    const env = ENV({ ACCRED: kv });
+    const p = await approvedArtist(kv, env);
+    const oldCode = p.promo.code;
+    const oldId = p.promo.discountId;
+    w.calls.length = 0;
+
+    const r = await changeCode(env, kv, { id: p.id, code: 'RAVI123', approver: 'ravi' });
+
+    assert.equal(r.ok, false);
+    assert.equal(r.error, 'tt_refused');
+    assert.equal(r.status, 422);
+    assert.equal(r.detail, 'Discount code already exists', 'their reason, on the card');
+
+    const after = await kv.get(personKey(p.id), 'json');
+    assert.equal(after.promo.code, oldCode, 'the old code still stands');
+    assert.equal(after.promo.discountId, oldId);
+    assert.ok(!after.promoHistory || !after.promoHistory.length);
+    assert.equal(after.ttError.where, 'code_change');
+    assert.ok(await kv.get(promoKey(oldCode)), 'the old key is untouched');
+    assert.equal(w.tt().filter(c => c.method === 'DELETE').length, 0, 'nothing was deleted');
+  } finally { w.restore(); }
+});
+
+test('a delete that fails leaves two live codes and says so, loudly', async () => {
+  const { kv } = await withLink('artist');
+  const w = world({ fail: 'delete_discount' });
+  try {
+    const env = ENV({ ACCRED: kv });
+    const p = await approvedArtist(kv, env);
+    const oldCode = p.promo.code;
+
+    const r = await changeCode(env, kv, { id: p.id, code: 'RAVI123', approver: 'ravi' });
+
+    assert.ok(r.ok, 'the new code works, so this is not a failure');
+    assert.equal(r.staleCode, oldCode);
+    assert.equal(r.person.staleCode, oldCode);
+    assert.equal(r.person.promo.code, 'RAVI123');
+    assert.equal(r.person.promoHistory[0].stillLive, true);
+
+    /* The old key stays, because the old code really is still out there and
+       nobody else may be handed it. */
+    assert.ok(await kv.get(promoKey(oldCode)), 'the old code was freed while still live');
+  } finally { w.restore(); }
+});
+
+test('a code is refused when it is not ours to give or not a code at all', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const p = await approvedArtist(kv, env);
+    const other = await approvedArtist(kv, env, {
+      firstName: 'Tom', lastName: 'Peeters', phone: '+32470111222', email: 'tom@example.com',
+    });
+
+    const taken = await changeCode(env, kv,
+      { id: p.id, code: other.promo.code, approver: 'ravi' });
+    assert.equal(taken.error, 'code_taken');
+    assert.match(taken.detail, /Another person already has that code/);
+
+    for (const [bad, where] of [['ab', /4 and 16/], ['RAVI-123', /no spaces or dashes/]]) {
+      const r = await changeCode(env, kv, { id: p.id, code: bad, approver: 'ravi' });
+      assert.equal(r.error, 'bad_code');
+      assert.match(r.detail, where);
+    }
+
+    /* Their own code back again is a no-op, not an error. */
+    const same = await changeCode(env, kv,
+      { id: p.id, code: p.promo.code.toLowerCase(), approver: 'ravi' });
+    assert.ok(same.ok);
+    assert.equal(same.skipped, 'same_code');
+  } finally { w.restore(); }
+});
+
+test('only an approved person with a real code can have it changed', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+
+    const pending = await register(env, kv, FORM(), {});
+    const no = await changeCode(env, kv,
+      { id: pending.person.id, code: 'RAVI123', approver: 'ravi' });
+    assert.equal(no.error, 'not_approved');
+
+    const crew = await withLink('crew');
+    const crewEnv = ENV({ ACCRED: crew.kv });
+    const stijn = (await approve(crewEnv, crew.kv, {
+      id: (await register(crewEnv, crew.kv, FORM({ role: 'Stage' }), {})).person.id,
+      approver: 'ravi',
+    })).person;
+    const none = await changeCode(crewEnv, crew.kv,
+      { id: stijn.id, code: 'RAVI123', approver: 'ravi' });
+    assert.equal(none.error, 'no_code', 'the technical crew has no code to change');
+
+    assert.equal((await changeCode(env, kv, { id: 'p_nope', code: 'RAVI123', approver: 'ravi' })).error,
+      'unknown_person');
+  } finally { w.restore(); }
+
+  /* A code a dry run invented is not a code. */
+  const dry = await withLink('artist');
+  const w2 = world();
+  try {
+    const env = ENV({ ACCRED: dry.kv, TEAM_DRY_RUN: 'true' });
+    const p = await approvedArtist(dry.kv, env);
+    const r = await changeCode(ENV({ ACCRED: dry.kv }), dry.kv,
+      { id: p.id, code: 'RAVI123', approver: 'ravi' });
+    assert.equal(r.error, 'dry_code');
+    assert.match(r.detail, /Approve them for real first/);
+  } finally { w2.restore(); }
+});
+
+test('tickets sold counts every code the person has ever held', async () => {
+  const { kv } = await withLink('artist');
+  const w = world({ redeemed: { dsc_1: 4, dsc_2: 2 } });
+  try {
+    const env = ENV({ ACCRED: kv });
+    const p = await approvedArtist(kv, env);
+    await changeCode(env, kv, { id: p.id, code: 'RAVI123', approver: 'ravi' });
+
+    const member = await teamMemberFor(kv, '+32474919900');
+    const said = await salesAnswer(env, kv, member.person);
+    assert.equal(said, COPY.bot_sales.en.replace('{ORDERS}', '6'),
+      'four on the old code and two on the new one');
+
+    /* And they are told nothing about the old code existing. */
+    assert.ok(!said.includes(p.promo.code));
+  } finally { w.restore(); }
+});
+
+test('a count we cannot read makes the answer unknown, never short', async () => {
+  const kv = memoryKv();
+  const real = globalThis.fetch;
+  globalThis.fetch = async () => new Response('{}', { status: 500 });
+  try {
+    const person = {
+      lang: 'en',
+      promo: { code: 'RAVI123', discountId: 'dsc_2' },
+      promoHistory: [{ code: 'RAVI456', discountId: 'dsc_1', orders: 4 }],
+    };
+    assert.equal(await salesAnswer(ENV(), kv, person), COPY.bot_sales_unknown.en,
+      'an undercount is worse than an apology');
+  } finally { globalThis.fetch = real; }
+
+  /* A dry id is nought, not unknown: nothing was ever asked of them. */
+  assert.equal(await ordersOn(ENV(), memoryKv(), 'dry_dsc_1'), 0);
+  assert.equal(await ordersOn(ENV(), memoryKv(), ''), 0);
+  assert.deepEqual(codeHistoryOf({ promoHistory: [{ code: 'X' }, { code: 'Y', discountId: 'd' }] }),
+    [{ code: 'Y', discountId: 'd' }]);
+});
+
+test('the email and the WhatsApp carry whatever code the record now holds', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const p = await approvedArtist(kv, env);
+    await changeCode(env, kv, { id: p.id, code: 'RAVI123', approver: 'ravi' });
+    w.calls.length = 0;
+
+    await approve(env, kv, { id: p.id, approver: 'ravi', only: ['email'], force: true });
+    const mail = JSON.parse(w.brevo().find(c => c.url.includes('/smtp/email')).body);
+    assert.ok(mail.textContent.includes('RAVI123'), 'the resent email has the old code');
+    assert.ok(!mail.textContent.includes(p.promo.code));
+
+    await approve(env, kv, { id: p.id, approver: 'ravi', only: ['whatsapp'], force: true });
+    const wa = JSON.parse(w.wa().pop().body);
+    const params = wa.template.components[0].parameters.map(x => x.text);
+    assert.ok(params.includes('RAVI123'));
+
+    /* And Diya says the same thing. */
+    const member = await teamMemberFor(kv, '+32474919900');
+    assert.match(codeAnswer(member.person), /RAVI123/);
+  } finally { w.restore(); }
+});
+
+test('the admin route changes a code and records who did it', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const p = await approvedArtist(kv, env);
+
+    const res = await adminPost({
+      request: req('POST', { action: 'code_change', id: p.id, code: 'ravi123' },
+        { 'x-admin-token': ADMIN.keerthi }),
+      env,
+    });
+    assert.equal(res.status, 200);
+    const d = await res.json();
+    assert.equal(d.person.promo.code, 'RAVI123');
+    assert.equal(d.person.codeChangedBy, 'keerthi');
+
+    /* A refusal answers with the record too, so the card can draw itself. */
+    const bad = await adminPost({
+      request: req('POST', { action: 'code_change', id: p.id, code: '!!' },
+        { 'x-admin-token': ADMIN.ravi }),
+      env,
+    });
+    assert.equal(bad.status, 409);
+    const bd = await bad.json();
+    assert.equal(bd.ok, false);
+    assert.ok(bd.person);
+    assert.ok(bd.detail);
+  } finally { w.restore(); }
+});
+
+test('the admin page offers Change code only where there is one to change', () => {
+  const html = readFileSync(join(ROOT, 'diwali-admin/team.html'), 'utf8');
+  assert.match(html, /p\.status === 'approved' && p\.promo && p\.promo\.code && !isDry\(p\.promo\.discountId\)/,
+    'the button must not appear on a dry-run code or an unapproved person');
+  assert.match(html, /action: 'code_change'/);
+  assert.match(html, /Nothing is sent: use Resend email or Resend WhatsApp afterwards/,
+    'the prompt has to say that nothing goes out');
+  assert.match(html, /could not be deleted and is still live/,
+    'a stale code has to be loud');
+  assert.match(html, /previousCodes/, 'the export keeps the old codes');
 });

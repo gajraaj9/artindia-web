@@ -368,11 +368,59 @@ export const codeExpiryUnix = env =>
  * SHREYA-7KQ4: the first name in ASCII capitals so it is recognisably theirs,
  * then four random characters so two Shreyas never collide.
  */
-export function promoCodeFor(firstName) {
+/** Digits only, for the tail of a promo code. */
+export function digits(n) {
+  const bytes = new Uint8Array(n);
+  crypto.getRandomValues(bytes);
+  let out = '';
+  /* 250 is the largest multiple of 10 under 256, so anything above it is
+     thrown away rather than making 0 to 5 more likely than 6 to 9. */
+  for (let i = 0; i < n; i++) {
+    let b = bytes[i];
+    while (b >= 250) { const one = new Uint8Array(1); crypto.getRandomValues(one); b = one[0]; }
+    out += String(b % 10);
+  }
+  return out;
+}
+
+/**
+ * The code a person reads out: their own first name and three digits.
+ *
+ * No dash, because this gets spelled down a phone and typed into a checkout
+ * by somebody's aunt. RAVI123 survives that; RAVI-7KQ4 does not.
+ */
+export function promoCodeFor(firstName, n = 3) {
   const base = String(firstName || '')
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 10) || 'TEAM';
-  return `${base}-${token(4)}`;
+  return `${base}${digits(n)}`;
+}
+
+/* Both shapes are live. RAVI123 is what this mints now; SHREYA-7KQ4 is what
+   it minted before, and those codes are in people's hands, in Ticket Tailor
+   and in Brevo. Anything that asks "is this one of ours" has to say yes to
+   both, for as long as a 2026 code can be redeemed. */
+export const isTeamCode = v =>
+  /^[A-Z]{1,10}[0-9]{3,4}$/.test(String(v || ''))
+  || /^[A-Z]{1,10}-[A-Z0-9]{4}$/.test(String(v || ''));
+
+/**
+ * A code an approver typed, cleaned up, or '' with a reason.
+ *
+ * Deliberately stricter than isTeamCode: a person choosing a code by hand gets
+ * letters and digits only. The old dashed shape still works everywhere it
+ * already exists, but nobody is going to be handed a new one.
+ */
+export function cleanCode(raw) {
+  const code = String(raw || '').trim().toUpperCase();
+  if (!code) return { ok: false, reason: 'Enter a code.' };
+  if (!/^[A-Z0-9]+$/.test(code)) {
+    return { ok: false, reason: 'Letters A to Z and digits only, with no spaces or dashes.' };
+  }
+  if (code.length < 4 || code.length > 16) {
+    return { ok: false, reason: 'Between 4 and 16 characters.' };
+  }
+  return { ok: true, code };
 }
 
 /* ------------------------------------------------------------------ people */
@@ -1016,20 +1064,26 @@ export async function approve(env, kv, { id, approver, only = null, log = null, 
         person.promo = { code: promoCodeFor(person.firstName), discountId: `dry_dsc_${token(10)}` };
         markStep(person, 'discount', SKIPPED);
       } else {
+        /* Three digits give a thousand codes per first name, so twenty tries
+           is plenty until a name is genuinely crowded. When it is, a fourth
+           digit buys ten times the room rather than failing the approval. */
         let made = null;
-        for (let attempt = 0; attempt < 5 && !made; attempt++) {
-          const code = promoCodeFor(person.firstName);
-          if (await kv.get(promoKey(code))) continue;
-          const d = await createDiscount(env, {
-            code,
-            name: `${person.firstName} ${person.lastName} (${person.team})`,
-            ticketTypes: discountTicketTypes(env),
-            maxRedemptions: Number(env.TEAM_CODE_MAX_ORDERS) || 10,
-            expiresUnix: codeExpiryUnix(env),
-          });
-          made = { code, discountId: d.id };
+        for (const [tries, n] of [[20, 3], [20, 4]]) {
+          for (let attempt = 0; attempt < tries && !made; attempt++) {
+            const code = promoCodeFor(person.firstName, n);
+            if (await kv.get(promoKey(code))) continue;
+            const d = await createDiscount(env, {
+              code,
+              name: `${person.firstName} ${person.lastName} (${person.team})`,
+              ticketTypes: discountTicketTypes(env),
+              maxRedemptions: Number(env.TEAM_CODE_MAX_ORDERS) || 10,
+              expiresUnix: codeExpiryUnix(env),
+            });
+            made = { code, discountId: d.id };
+          }
+          if (made) break;
         }
-        if (!made) throw new Error('could not find a free code in five tries');
+        if (!made) throw new Error('no free code for this first name after forty tries');
         person.promo = made;
         await kv.put(promoKey(made.code), JSON.stringify({ id: person.id, discountId: made.discountId }));
         markStep(person, 'discount', 'done');
@@ -1183,6 +1237,122 @@ export async function reject(env, kv, { id, approver, note = '' }) {
   }
 
   return { ok: true, person };
+}
+
+/**
+ * Give somebody a different code.
+ *
+ * People ask. A code minted from a nickname, a code somebody has already
+ * printed on a flyer, a code that reads badly out loud. The order below is
+ * chosen so that the worst outcome is two working codes rather than none:
+ *
+ *   1. read the old one, to find out how many orders it has already taken
+ *   2. mint the new one, with the remaining orders as its ceiling
+ *   3. only then delete the old one
+ *
+ * If step 3 fails, the new code still works and the old one still works. That
+ * is said out loud on the card rather than quietly undone: deleting a code
+ * somebody is holding, to recover from a delete that did not happen, is how
+ * you end up with neither.
+ *
+ * Nothing is sent. The approver decides whether to tell them, with the Resend
+ * buttons, which read the record and so carry the new code.
+ */
+export async function changeCode(env, kv, { id, code: raw, approver }) {
+  const person = await getPerson(kv, id);
+  if (!person) return { ok: false, error: 'unknown_person' };
+  if (person.status !== 'approved') {
+    return { ok: false, error: 'not_approved', detail: 'Only an approved person has a code.', person };
+  }
+  if (!person.promo || !person.promo.discountId) {
+    return { ok: false, error: 'no_code', detail: 'This person has no code to change.', person };
+  }
+  if (isDryId(person.promo.discountId)) {
+    return {
+      ok: false, error: 'dry_code', person,
+      detail: 'That code was invented by a dry run. Approve them for real first.',
+    };
+  }
+
+  const clean = cleanCode(raw);
+  if (!clean.ok) return { ok: false, error: 'bad_code', detail: clean.reason, person };
+  const code = clean.code;
+  if (code === person.promo.code) {
+    return { ok: true, person, skipped: 'same_code' };
+  }
+
+  /* Ours, on somebody else. Ticket Tailor would refuse it too, but this
+     answer names the problem instead of quoting theirs. */
+  const held = await kv.get(promoKey(code), 'json');
+  if (held && held.id && held.id !== person.id) {
+    return { ok: false, error: 'code_taken', detail: 'Another person already has that code.', person };
+  }
+
+  const oldCode = person.promo.code;
+  const oldId = person.promo.discountId;
+
+  /* a. What the old one has already taken. Unknown counts as nought used, so
+        the new ceiling is generous rather than short: a code that stops
+        working early is a sale lost. */
+  const used = await ordersOn(env, kv, oldId);
+  const cap = Number(env.TEAM_CODE_MAX_ORDERS) || 10;
+  const left = Math.max(1, cap - (Number.isFinite(used) && used !== null ? used : 0));
+
+  /* b. The new one. A refusal here changes nothing at all. */
+  let made;
+  try {
+    made = await createDiscount(env, {
+      code,
+      name: `${person.firstName} ${person.lastName} (${person.team})`,
+      ticketTypes: discountTicketTypes(env),
+      maxRedemptions: left,
+      expiresUnix: codeExpiryUnix(env),
+    });
+  } catch (e) {
+    const status = Number(e.status) || 0;
+    const detail = scrubSecret(e.detail || e.message || e);
+    person.ttError = { where: 'code_change', status, detail: String(detail).slice(0, 300), at: nowIso() };
+    await putPerson(kv, person);
+    return { ok: false, error: 'tt_refused', status, detail: person.ttError.detail, person };
+  }
+
+  /* c. The old one goes, and if it will not go it stays live and says so. */
+  let staleCode = '';
+  try {
+    await deleteDiscount(env, oldId);
+  } catch (e) {
+    staleCode = oldCode;
+    console.error('accred: old discount not deleted', oldId, String(e).slice(0, 160));
+  }
+
+  /* d. The record, the keys and Brevo. The old code keeps its place in the
+        history with what it sold, so "tickets sold" stays honest. */
+  person.promoHistory = [...codeHistoryOf(person), {
+    code: oldCode,
+    discountId: oldId,
+    orders: Number.isFinite(used) && used !== null ? used : null,
+    stillLive: Boolean(staleCode),
+    changedBy: approver,
+    changedAt: nowIso(),
+  }];
+  person.promo = { code, discountId: made.id };
+  person.codeChangedBy = approver;
+  person.codeChangedAt = nowIso();
+  person.staleCode = staleCode || null;
+  person.ttError = null;
+  await putPerson(kv, person);
+
+  await kv.put(promoKey(code), JSON.stringify({ id: person.id, discountId: made.id }));
+  /* The old key only goes when the old code really went with it. */
+  if (!staleCode) await kv.delete(promoKey(oldCode));
+
+  const team = teamOf(person.team);
+  const brevo = await pushToBrevo(env, person, team);
+  if (!brevo.ok) markStep(person, 'brevo', failed(brevo.reason));
+  else markStep(person, 'brevo', 'done');
+  await putPerson(kv, person);
+
+  return { ok: true, person, oldCode, staleCode, maxRedemptions: left };
 }
 
 /**
@@ -1619,32 +1789,61 @@ export function codeAnswer(person) {
  * for ten minutes: this is a vanity number somebody taps four times in a row,
  * and it is not worth a Ticket Tailor call each time.
  */
+/**
+ * Orders on one discount, cached, or null when we could not find out.
+ *
+ * A dry-run id counts as nought rather than as unknown: nothing was ever
+ * asked of Ticket Tailor, so there is nothing to be uncertain about.
+ */
+export async function ordersOn(env, kv, discountId) {
+  if (!discountId) return 0;
+  if (isDryId(discountId)) return 0;
+
+  const cached = await kv.get(salesKey(discountId), 'json');
+  if (cached && typeof cached.orders === 'number') return cached.orders;
+
+  try {
+    const d = await getDiscount(env, discountId);
+    const n = Number(d && d.times_redeemed);
+    if (!Number.isFinite(n)) return null;
+    await kv.put(salesKey(discountId), JSON.stringify({ orders: n }),
+      { expirationTtl: SALES_CACHE_SECONDS });
+    return n;
+  } catch (e) {
+    console.error('accred sales lookup failed', discountId, String(e).slice(0, 160));
+    return null;
+  }
+}
+
+/* Every code this person has held, oldest first. A changed code does not
+   erase what the old one sold. */
+export const codeHistoryOf = person =>
+  (Array.isArray(person.promoHistory) ? person.promoHistory : [])
+    .filter(h => h && h.discountId);
+
+/**
+ * "Tickets sold": how far their code has travelled.
+ *
+ * Their codes, plural, once one has been changed. The person asking has one
+ * code in their hand and no idea the old one existed, so the number they are
+ * told is everything they have ever sold.
+ *
+ * A code whose count cannot be read makes the whole answer unknown rather
+ * than quietly short: an undercount is worse than an apology.
+ */
 export async function salesAnswer(env, kv, person) {
   const lang = person.lang;
-  const id = person.promo && person.promo.discountId;
-  if (!id) return say('bot_sales_none', lang);
+  const current = person.promo && person.promo.discountId;
+  const ids = [...codeHistoryOf(person).map(h => h.discountId), current].filter(Boolean);
+  if (!ids.length) return say('bot_sales_none', lang);
 
-  let orders = null;
-  const cached = await kv.get(salesKey(id), 'json');
-  if (cached && typeof cached.orders === 'number') {
-    orders = cached.orders;
-  } else if (String(id).startsWith('dry_')) {
-    orders = 0;
-  } else {
-    try {
-      const d = await getDiscount(env, id);
-      const n = Number(d && d.times_redeemed);
-      if (Number.isFinite(n)) {
-        orders = n;
-        await kv.put(salesKey(id), JSON.stringify({ orders }),
-          { expirationTtl: SALES_CACHE_SECONDS });
-      }
-    } catch (e) {
-      console.error('accred sales lookup failed', id, String(e).slice(0, 160));
-    }
+  let orders = 0;
+  for (const id of new Set(ids)) {
+    const n = await ordersOn(env, kv, id);
+    if (n === null) return say('bot_sales_unknown', lang);
+    orders += n;
   }
 
-  if (orders === null) return say('bot_sales_unknown', lang);
   if (orders === 0) return say('bot_sales_none', lang);
   return say('bot_sales', lang).replace('{ORDERS}', String(orders));
 }
