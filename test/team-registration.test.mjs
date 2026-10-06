@@ -23,6 +23,7 @@ import {
   allowedOrigin, brevoAttributesFor, approvedMail, receivedMail, IP_CAP_PER_DAY,
   restore, htmlMail, ticketFacts, rejectedEmailKey, qrFileName, fetchQrAttachment,
   SKIPPED, isDryId, ttMessage, scrubSecret, logRefusal, allRefusals, trimRefusals,
+  oneOf, describeBody, findIssuedTicket, issueTicket, createDiscount,
   clearDryResults, blockedAsRejected, REFUSAL_CAP,
 } from '../functions/api/_accred.js';
 import { onRequestGet as adminGet, onRequestPost as adminPost } from '../functions/api/team-admin.js';
@@ -66,6 +67,7 @@ function memoryKv(seed = {}) {
 
 const ADMIN = { ravi: 'tok-ravi-123', keerthi: 'tok-keerthi-456' };
 const STEPS_ALL = ['ticket', 'discount', 'brevo', 'email', 'whatsapp'];
+const getPersonForTest = (kv, id) => kv.get(personKey(id), 'json');
 
 /** Live settings: everything on, nothing dry. The default for most tests. */
 const ENV = (over = {}) => ({
@@ -98,7 +100,8 @@ const ENV = (over = {}) => ({
  * `fail` names a host to break, which is how the ticket-failure and
  * retry-a-step tests are written.
  */
-function world({ fail = '', discountCollision = false, existingTicket = null, buyer = false } = {}) {
+function world({ fail = '', discountCollision = false, existingTicket = null, buyer = false,
+  shape = 'array' } = {}) {
   /* Four bytes standing in for a PNG. Nothing reads them; what matters is the
      content type, the length and that they come back base64 on the wire. */
   const QR_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
@@ -129,16 +132,29 @@ function world({ fail = '', discountCollision = false, existingTicket = null, bu
     if (url.includes('api.tickettailor.com')) {
       if (fail === 'tt') return reply(422, { errors: [{ message: 'Ticket type is sold out' }] });
       if (url.includes('/issued_tickets') && method === 'GET') {
-        return reply(200, { data: existingTicket ? [existingTicket] : [] });
+        /* Ticket Tailor echoes the reference it was filtered on. A fixture
+           that sets its own is deliberately answering about somebody else. */
+        const asked = new URL(url).searchParams.get('reference') || '';
+        const hit = existingTicket
+          ? { reference: asked, ...existingTicket }
+          : null;
+        return reply(200, { data: hit ? [hit] : [] });
       }
       if (url.includes('/issued_tickets') && method === 'POST') {
         issued += 1;
-        return reply(201, { data: [{
+        const ticket = {
+          object: 'issued_ticket',
           id: `it_${issued}`,
           barcode: `bc_${issued}`,
           barcode_url: `https://www.tickettailor.com/barcode/${issued}.png`,
           qr_code_url: `https://www.tickettailor.com/qr/${issued}.png`,
-        }] });
+        };
+        /* All three shapes they answer in. The live one that broke the first
+           approval was 'bare'. */
+        if (shape === 'bare') return reply(201, ticket);
+        if (shape === 'object') return reply(201, { data: ticket });
+        if (shape === 'empty') return reply(201, { data: [] });
+        return reply(201, { data: [ticket] });
       }
       if (url.includes('/void')) return reply(200, { data: [{ id: 'it_1', status: 'voided' }] });
       if (url.includes('/discounts') && method === 'POST') {
@@ -2251,4 +2267,202 @@ test('hidden means hidden, whatever the page says about display', () => {
     assert.ok(at > 0, `${sel} is not in the sheet at all`);
     assert.ok(i < at, `${sel} is declared before the hidden rule`);
   }
+});
+
+/* ----------------------------- reading what Ticket Tailor actually answers */
+
+/* The first live approval failed here. Ticket Tailor accepted the POST, a
+   ticket existed and a credit was spent, and the reader looked only for a
+   `data` key and reported that no id had come back. */
+
+test('one object is found whichever way they wrapped it', () => {
+  const T = { object: 'issued_ticket', id: 'it_1', barcode: 'b' };
+
+  assert.equal(oneOf({ data: [T] }).id, 'it_1', 'the documented shape');
+  assert.equal(oneOf({ data: T }).id, 'it_1', 'wrapped, not listed');
+  assert.equal(oneOf(T).id, 'it_1', 'bare, which is what the live call sent');
+  assert.equal(oneOf([T]).id, 'it_1', 'a top-level array');
+
+  /* And nothing invented out of nothing. */
+  assert.equal(oneOf({ data: [] }), null);
+  assert.equal(oneOf({ data: null }), null);
+  assert.equal(oneOf({ object: 'issued_ticket' }), null, 'no id is no ticket');
+  assert.equal(oneOf(null), null);
+  assert.equal(oneOf('it_1'), null);
+  assert.equal(oneOf(42), null);
+
+  /* The first entry that actually has an id, not merely the first entry. */
+  assert.equal(oneOf({ data: [{ note: 'x' }, T] }).id, 'it_1');
+});
+
+for (const shape of ['array', 'object', 'bare']) {
+  test(`an approval reads a ${shape} response and issues one ticket`, async () => {
+    const { kv } = await withLink('artist');
+    const w = world({ shape });
+    try {
+      const env = ENV({ ACCRED: kv });
+      const r = await register(env, kv, FORM(), {});
+      const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+
+      assert.ok(done.ok, `a ${shape} response was not read`);
+      assert.equal(done.person.status, 'approved');
+      assert.equal(done.person.tt.issuedTicketId, 'it_1');
+      assert.equal(done.person.tt.barcode, 'bc_1');
+      assert.equal(done.person.tt.qrUrl, 'https://www.tickettailor.com/qr/1.png');
+      assert.equal(done.person.steps.ticket, 'done');
+      assert.equal(w.tt().filter(c => c.method === 'POST' && c.url.includes('issued_tickets')).length, 1);
+    } finally { w.restore(); }
+  });
+}
+
+test('a 2xx with no id in it says what came back, and no values', async () => {
+  const { kv } = await withLink('artist');
+  const w = world({ shape: 'empty' });
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM(), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+
+    assert.equal(done.ok, false);
+    assert.equal(done.error, 'ticket_failed');
+    assert.equal(done.status, 201, 'the HTTP status it answered with');
+    assert.match(done.detail, /without a usable issued ticket id/);
+    assert.match(done.detail, /201, keys: data/, 'the card must say what came back');
+    assert.equal(done.person.status, 'pending', 'and it goes back in the queue');
+  } finally { w.restore(); }
+});
+
+test('what came back is described by its keys and never by its values', () => {
+  assert.equal(describeBody(201, { object: 'issued_ticket', id: 'it_1', email: 'anouk@example.com' }),
+    '201, keys: object, id, email');
+  assert.equal(describeBody(200, null), '200, no JSON body');
+  assert.equal(describeBody(200, []), '200, array of 0');
+  assert.equal(describeBody(200, [1, 2]), '200, array of 2');
+  assert.equal(describeBody(200, {}), '200, keys: (none)');
+  assert.equal(describeBody(200, 'ok'), '200, a string');
+
+  /* The thing this is for: a body we could not read may still hold somebody's
+     address or a barcode, and this string goes on a card and into a log. */
+  const said = describeBody(201, { email: 'anouk@example.com', barcode: 'al4R5' });
+  assert.ok(!said.includes('anouk@example.com'));
+  assert.ok(!said.includes('al4R5'));
+});
+
+/* ------------------------------------------------- adopting the right one */
+
+test('a ticket is adopted only when the reference is ours', async () => {
+  const { kv } = await withLink('press');
+  const w = world({ existingTicket: { id: 'it_old', barcode: 'bc_old', status: 'valid' } });
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM({ role: 'Photographer' }), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+
+    assert.equal(done.person.tt.issuedTicketId, 'it_old');
+    assert.ok(done.person.adoptedTicket);
+    assert.equal(w.tt().filter(c => c.method === 'POST' && c.url.includes('issued_tickets')).length, 0,
+      'it issued a second ticket instead of adopting its own');
+  } finally { w.restore(); }
+});
+
+test("somebody else's ticket is never adopted, however the filter behaved", async () => {
+  const { kv } = await withLink('press');
+  /* Ticket Tailor ignoring the reference filter and answering with a paying
+     buyer's ticket. A missed adoption costs a spare ticket; a wrong one costs
+     that buyer their seat. */
+  const w = world({ existingTicket: { id: 'it_buyer', barcode: 'bc_buyer', reference: 'or_99887766' } });
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM({ role: 'Photographer' }), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+
+    assert.ok(done.ok);
+    assert.notEqual(done.person.tt.issuedTicketId, 'it_buyer', "it took a buyer's ticket");
+    assert.equal(done.person.tt.issuedTicketId, 'it_1', 'it issued its own instead');
+    assert.ok(!done.person.adoptedTicket);
+  } finally { w.restore(); }
+});
+
+test('a voided ticket of ours is not adopted either', async () => {
+  const { kv } = await withLink('press');
+  const w = world({
+    existingTicket: { id: 'it_dead', barcode: 'x', voided_at: '2026-10-01T00:00:00Z' },
+  });
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM({ role: 'Photographer' }), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+    assert.equal(done.person.tt.issuedTicketId, 'it_1', 'a voided pass is not a pass');
+  } finally { w.restore(); }
+});
+
+test('a retry after a later failure adopts the ticket instead of issuing a second', async () => {
+  const { kv } = await withLink('artist');
+  let id, first;
+
+  /* The WhatsApp bounces, so the record is approved with a step to retry. */
+  const bad = world({ fail: 'wa' });
+  try {
+    const env = ENV({ ACCRED: kv });
+    id = (await register(env, kv, FORM(), {})).person.id;
+    const done = await approve(env, kv, { id, approver: 'ravi' });
+    first = done.person.tt.issuedTicketId;
+    assert.equal(first, 'it_1');
+    assert.match(done.person.steps.whatsapp, /^failed:/);
+  } finally { bad.restore(); }
+
+  /* Now a full retry, as the Retry button does when the ticket step was also
+     cleared. Ticket Tailor already holds our ticket and must hand it back. */
+  const w = world({ existingTicket: { id: 'it_1', barcode: 'bc_1', status: 'valid' } });
+  try {
+    const env = ENV({ ACCRED: kv });
+    const p = await getPersonForTest(kv, id);
+    p.steps.ticket = null;
+    p.tt = null;
+    await kv.put(personKey(id), JSON.stringify(p));
+
+    const again = await approve(env, kv, { id, approver: 'keerthi', only: STEPS_ALL });
+
+    assert.ok(again.ok);
+    assert.equal(again.person.tt.issuedTicketId, 'it_1', 'the same ticket came back');
+    assert.ok(again.person.adoptedTicket);
+    assert.equal(w.tt().filter(c => c.method === 'POST' && c.url.includes('issued_tickets')).length, 0,
+      'a second ticket was issued and a second credit spent');
+    assert.equal(again.person.steps.whatsapp, 'done');
+  } finally { w.restore(); }
+});
+
+test('the discount is read the same way, in every shape', async () => {
+  for (const [name, body] of [
+    ['bare', { object: 'discount', id: 'dsc_1', code: 'X' }],
+    ['wrapped', { data: { object: 'discount', id: 'dsc_1' } }],
+    ['listed', { data: [{ object: 'discount', id: 'dsc_1' }] }],
+  ]) {
+    const real = globalThis.fetch;
+    globalThis.fetch = async () => new Response(JSON.stringify(body), {
+      status: 201, headers: { 'content-type': 'application/json' },
+    });
+    try {
+      const d = await createDiscount(ENV(), {
+        code: 'X-1', name: 'n', ticketTypes: ['tt_1'], maxRedemptions: 10, expiresUnix: 1,
+      });
+      assert.equal(d.id, 'dsc_1', `the ${name} shape was not read`);
+    } finally { globalThis.fetch = real; }
+  }
+
+  /* And a 2xx with nothing usable in it explains itself. */
+  const real = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({ meta: {} }), {
+    status: 201, headers: { 'content-type': 'application/json' },
+  });
+  try {
+    await createDiscount(ENV(), {
+      code: 'X-1', name: 'n', ticketTypes: ['tt_1'], maxRedemptions: 10, expiresUnix: 1,
+    });
+    assert.fail('it should have thrown');
+  } catch (e) {
+    assert.equal(e.status, 201);
+    assert.match(e.detail, /without a usable discount id/);
+    assert.match(e.detail, /201, keys: meta/);
+  } finally { globalThis.fetch = real; }
 });

@@ -143,7 +143,7 @@ export function approverFor(env, presented) {
  * Arrays go out as repeated `name[]=value` pairs, which is how PHP style form
  * encoding carries a list and what ticket_types expects.
  */
-export async function tt(env, path, { method = 'GET', form = null, query = null } = {}) {
+export async function tt(env, path, { method = 'GET', form = null, query = null, raw = false } = {}) {
   if (!env.TT_API_KEY) throw new Error('TT_API_KEY is not set');
   const url = new URL(`https://api.tickettailor.com${path}`);
   for (const [k, v] of Object.entries(query || {})) {
@@ -170,6 +170,8 @@ export async function tt(env, path, { method = 'GET', form = null, query = null 
     },
     ...(body ? { body } : {}),
   });
+  /* `raw` is for the two calls that have to explain a 2xx they could not read.
+     Everyone else gets the parsed body and nothing to think about. */
 
   const text = await res.text();
   let parsed = null;
@@ -181,7 +183,7 @@ export async function tt(env, path, { method = 'GET', form = null, query = null 
     e.where = path;
     throw e;
   }
-  return parsed;
+  return raw ? { status: res.status, body: parsed } : parsed;
 }
 
 /**
@@ -210,13 +212,59 @@ export const scrubSecret = v => String(v || '')
 /* POST /v1/issued_tickets answers { data: [ticket] }; POST /v1/discounts
    answers the discount object itself. The asymmetry is theirs, so it is
    absorbed here rather than at every call site. */
-const firstOf = r => (Array.isArray(r?.data) ? r.data[0] : r?.data) || null;
+/**
+ * The one object in a Ticket Tailor response, whichever way they wrapped it.
+ *
+ * Three shapes are in the wild and we have now met all three:
+ *   { data: [ticket] }   the documented issued_tickets 201
+ *   { data: ticket }
+ *   ticket               a bare object with a top-level id
+ *
+ * The first live approval failed on the third. The ticket had been created and
+ * a credit spent; the reader looked for `data`, found nothing, and reported
+ * that Ticket Tailor had returned no id. Anything that costs money on the way
+ * in has to be read generously on the way out.
+ */
+export function oneOf(r) {
+  if (!r || typeof r !== 'object') return null;
+  if (Array.isArray(r)) return r.find(x => x && x.id) || null;
+  if (Array.isArray(r.data)) return r.data.find(x => x && x.id) || null;
+  if (r.data && typeof r.data === 'object' && r.data.id) return r.data;
+  return r.id ? r : null;
+}
 
-/** An unvoided ticket already issued against this person, or null. */
+/**
+ * What came back, for an error message: the status and the names of the
+ * top-level keys. Never a value. A response we could not read may still hold
+ * somebody's email address or a barcode, and this string ends up on a card,
+ * in a log and in a report.
+ */
+export function describeBody(status, parsed) {
+  if (parsed === null || parsed === undefined) return `${status}, no JSON body`;
+  if (Array.isArray(parsed)) return `${status}, array of ${parsed.length}`;
+  if (typeof parsed !== 'object') return `${status}, a ${typeof parsed}`;
+  const keys = Object.keys(parsed);
+  return `${status}, keys: ${keys.length ? keys.join(', ') : '(none)'}`;
+}
+
+/**
+ * An unvoided ticket already issued against this person, or null.
+ *
+ * The reference is checked here as well as asked for. There used to be a
+ * `|| list[0]` behind the match, which meant that if Ticket Tailor ever
+ * ignored the filter we would adopt whatever came back first and hand a
+ * paying buyer's ticket to a member of the team. A missed adoption costs one
+ * spare ticket; a wrong one costs somebody their seat.
+ */
 export async function findIssuedTicket(env, reference) {
   const r = await tt(env, '/v1/issued_tickets', { query: { reference, status: 'valid' } });
-  const list = Array.isArray(r?.data) ? r.data : [];
-  return list.find(t => !t.voided_at) || list[0] || null;
+  const list = Array.isArray(r?.data) ? r.data : (Array.isArray(r) ? r : (oneOf(r) ? [oneOf(r)] : []));
+  const mine = list.filter(t => t && String(t.reference || '') === String(reference));
+  if (mine.length !== list.length) {
+    console.warn('accred: Ticket Tailor returned tickets for another reference, ignored',
+      list.length - mine.length);
+  }
+  return mine.find(t => !t.voided_at) || null;
 }
 
 /**
@@ -250,8 +298,25 @@ export async function issueTicket(env, { eventId, ticketTypeId, fullName, email,
       send_email: true,
       reference,
     },
+    raw: true,
   });
-  return firstOf(r);
+  const ticket = oneOf(r.body);
+  if (!ticket || !ticket.id) throw ttUnreadable('issued ticket', r);
+  return ticket;
+}
+
+/**
+ * A 2xx we could not find an id in.
+ *
+ * Carries the shape of what came back so the card can say it, and keeps the
+ * HTTP status so the queue reads the same as a refusal does.
+ */
+function ttUnreadable(what, r) {
+  const e = new Error(`no ${what} id in the response (${describeBody(r.status, r.body)})`);
+  e.status = r.status;
+  e.detail = `Ticket Tailor answered without a usable ${what} id. `
+    + `It returned ${describeBody(r.status, r.body)}.`;
+  return e;
 }
 
 export const voidTicket = (env, id) =>
@@ -265,7 +330,7 @@ export const voidTicket = (env, id) =>
  * second cut.
  */
 export async function createDiscount(env, { code, name, ticketTypes, maxRedemptions, expiresUnix }) {
-  return tt(env, '/v1/discounts', {
+  const r = await tt(env, '/v1/discounts', {
     method: 'POST',
     form: {
       code,
@@ -276,11 +341,17 @@ export async function createDiscount(env, { code, name, ticketTypes, maxRedempti
       expires: expiresUnix,
       ticket_types: ticketTypes,
     },
+    raw: true,
   });
+  /* The discounts endpoint answers with the object itself where
+     issued_tickets wraps it in an array. Read both, the same way. */
+  const discount = oneOf(r.body);
+  if (!discount || !discount.id) throw ttUnreadable('discount', r);
+  return discount;
 }
 
-export const getDiscount = (env, id) =>
-  tt(env, `/v1/discounts/${encodeURIComponent(id)}`);
+export const getDiscount = async (env, id) =>
+  oneOf(await tt(env, `/v1/discounts/${encodeURIComponent(id)}`));
 
 export const deleteDiscount = (env, id) =>
   tt(env, `/v1/discounts/${encodeURIComponent(id)}`, { method: 'DELETE' });
@@ -910,7 +981,9 @@ export async function approve(env, kv, { id, approver, only = null, log = null, 
           email: person.email,
           reference: person.id,
         });
-        if (!issued || !issued.id) throw new Error('no issued ticket id in the response');
+        /* issueTicket and findIssuedTicket both answer with a ticket that has
+           an id, or they throw with what came back. Nothing reaches here
+           without one. */
         person.tt = ticketFacts(issued);
         markStep(person, 'ticket', 'done');
         person.ttError = null;
@@ -954,7 +1027,6 @@ export async function approve(env, kv, { id, approver, only = null, log = null, 
             maxRedemptions: Number(env.TEAM_CODE_MAX_ORDERS) || 10,
             expiresUnix: codeExpiryUnix(env),
           });
-          if (!d || !d.id) throw new Error('no discount id in the response');
           made = { code, discountId: d.id };
         }
         if (!made) throw new Error('could not find a free code in five tries');
