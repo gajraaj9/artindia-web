@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Dashboard — Brussels Diwali Festival 2026</title>
+<!--
+  How the festival is doing, on one screen.
+
+  Read only: there is nothing on this page that writes anything anywhere. The
+  one button reloads the figures.
+
+  Same shell as /admin/team, because it gets opened on the same phone by the
+  same people. Revenue appears only for a token the server decided may see it;
+  for anyone else the fields are not in the response at all.
+-->
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #faf7f2; --card: #fff; --ink: #1b1714; --muted: #6b625a;
+    --line: #e4ddd3; --accent: #b4381f; --ok: #1d6b45; --bad: #9c2323;
+    --warm: #b47a1f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17140f; --card: #211c16; --ink: #f2ece4; --muted: #a2988c;
+      --line: #342c23; --accent: #e2673f; --ok: #5fc191; --bad: #f08a7c;
+      --warm: #e0ad5a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 1rem .9rem 4rem; background: var(--bg); color: var(--ink);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 60rem; margin: 0 auto; }
+  header { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; margin-bottom: .2rem; }
+  h1 { font-size: 1.15rem; margin: 0; }
+  h2 { font-size: .8rem; margin: 2rem 0 .6rem; letter-spacing: .1em;
+       text-transform: uppercase; color: var(--muted); }
+  .sub { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+         margin: 0 0 1rem; color: var(--muted); font-size: .9rem; }
+  .pill {
+    font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    padding: .25rem .55rem; border-radius: 999px; border: 1px solid var(--line);
+  }
+  .pill.on { border-color: var(--ok); color: var(--ok); }
+  .pill.warm { border-color: var(--warm); color: var(--warm); }
+  button {
+    font: inherit; padding: .4rem .8rem; border-radius: .4rem; cursor: pointer;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  }
+  button[disabled] { opacity: .45; cursor: default; }
+  a { color: var(--accent); }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: .7rem;
+    padding: .85rem .9rem; margin: 0 0 .7rem;
+  }
+  .notice { border-color: var(--warm); color: var(--warm); font-weight: 600; }
+  .notice.bad { border-color: var(--bad); color: var(--bad); }
+
+  .grid { display: grid; gap: .7rem; grid-template-columns: 1fr 1fr; margin: 0 0 .7rem; }
+  .grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  @media (max-width: 34rem) { .grid, .grid.three { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 22rem) { .grid, .grid.three { grid-template-columns: 1fr; } }
+  .kpi { background: var(--card); border: 1px solid var(--line); border-radius: .7rem; padding: .8rem .9rem; }
+  .kpi .k { font-size: .7rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .kpi .v { font-size: 1.9rem; font-weight: 700; line-height: 1.1; margin: .25rem 0 0;
+            font-variant-numeric: tabular-nums; }
+  .kpi.big { grid-column: 1 / -1; }
+  .kpi.big .v { font-size: 3rem; }
+  .kpi .n { font-size: .82rem; color: var(--muted); margin: .25rem 0 0; }
+
+  .bars { display: grid; gap: .3rem; }
+  .bar { display: grid; grid-template-columns: 7.5rem 1fr 3rem; gap: .5rem; align-items: center;
+         font-size: .85rem; }
+  .bar .t { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar .r { height: .75rem; border-radius: 999px; background: var(--accent); min-width: 2px; }
+  .bar .n { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* The columns stretch to the row's height so a bar's percentage has
+     something to be a percentage of. Without it the bars resolve to nothing
+     and the chart is a row of numbers over a row of dates. */
+  .cols { display: flex; align-items: stretch; gap: .25rem; height: 9rem; margin: .4rem 0 0; }
+  .col { flex: 1 1 0; height: 100%; display: flex; flex-direction: column;
+         justify-content: flex-end; align-items: center; gap: .2rem; min-width: 0; }
+  .col .v { font-size: .7rem; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .col .b { width: 100%; background: var(--accent); border-radius: .2rem .2rem 0 0; min-height: 2px; }
+  .col .d { font-size: .62rem; color: var(--muted); white-space: nowrap; }
+
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  th, td { text-align: left; padding: .4rem .3rem; border-bottom: 1px solid var(--line); }
+  th { font-size: .7rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.tot td { font-weight: 700; border-bottom: 0; }
+  .wrapx { overflow-x: auto; }
+
+  .row { display: flex; justify-content: space-between; gap: .6rem; align-items: baseline;
+         padding: .35rem 0; border-bottom: 1px solid var(--line); font-size: .9rem; }
+  .row:last-child { border-bottom: 0; }
+  .row .m { color: var(--muted); font-variant-numeric: tabular-nums; }
+  label { display: block; font-size: .85rem; margin: .5rem 0 .15rem; color: var(--muted); }
+  input { font: inherit; width: 100%; padding: .5rem .6rem; border-radius: .4rem;
+          border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .foot { margin: .4rem 0 0; font-size: .78rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Brussels Diwali Festival 2026</h1>
+    <span class="pill" id="who" hidden></span>
+  </header>
+  <p class="sub">
+    <span id="days">Dashboard</span>
+    <span id="asof"></span>
+    <button type="button" id="refresh" hidden>Refresh</button>
+    <a href="/admin/team">Team passes</a>
+    <a href="/admin/wa">WhatsApp</a>
+  </p>
+
+  <div class="card" id="unlock" hidden>
+    <label for="token">Admin token</label>
+    <input id="token" type="password" autocomplete="off" spellcheck="false">
+    <p><button type="button" id="save">Unlock</button></p>
+    <p class="foot" id="unlockmsg"></p>
+  </div>
+
+  <div id="app" hidden></div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var KEY = 'artindia.team.token';
+  var D = null;
+  var busy = false;
+
+  function $(id) { return document.getElementById(id); }
+  function readToken() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
+  function writeToken(v) {
+    try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch (e) {}
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  var n = function (v) { return Number(v || 0).toLocaleString('en-GB'); };
+
+  var WHEN = null;
+  try {
+    WHEN = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Brussels', day: 'numeric', month: 'short',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    });
+  } catch (e) { WHEN = null; }
+  function when(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d)) return '';
+    if (!WHEN) return String(iso).slice(0, 16).replace('T', ' ');
+    var p = {};
+    WHEN.formatToParts(d).forEach(function (x) { p[x.type] = x.value; });
+    return p.day + ' ' + p.month + ', ' + p.hour + ':' + p.minute;
+  }
+  /* "24 Oct" from "2026-10-24", without parsing a date in the wrong zone. */
+  var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function shortDay(iso) {
+    var p = String(iso).split('-');
+    return Number(p[2]) + ' ' + MON[Number(p[1]) - 1];
+  }
+  var money = function (cents) {
+    return '€' + (Number(cents || 0) / 100).toLocaleString('en-GB',
+      { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  };
+
+  /* ------------------------------------------------------------- sections */
+
+  function kpi(label, value, note, cls) {
+    return '<div class="kpi' + (cls ? ' ' + cls : '') + '">'
+      + '<div class="k">' + esc(label) + '</div>'
+      + '<p class="v">' + esc(value) + '</p>'
+      + (note ? '<p class="n">' + esc(note) + '</p>' : '') + '</div>';
+  }
+
+  function headline() {
+    var h = D.headline;
+    var foot = D.groups && D.groups.deals
+      ? n(D.groups.deals) + ' group deals, ' + n(D.groups.people)
+        + ' people, each counted once above'
+      : 'No group deals are on sale';
+    var out = '<div class="grid">'
+      + kpi('Paid tickets', n(h.paid), foot, 'big')
+      + kpi('Today', n(h.today), 'yesterday ' + n(h.yesterday))
+      + kpi('Last 7 days', n(h.last7), 'the 7 before, ' + n(h.prev7));
+    if (D.revenue) {
+      out += kpi('Revenue', money(D.revenue.total),
+        'order totals, after discount codes · ' + n(D.revenue.orders) + ' orders', 'big');
+    }
+    return out + '</div>';
+  }
+
+  function small() {
+    var s = D.small;
+    return '<div class="grid three">'
+      + kpi('Free child tickets', n(s.free), '')
+      + kpi('Team passes', n(s.team), 'of ' + n(s.teamExpected) + ' expected')
+      + kpi('All tickets', n(s.all), 'the number Ticket Tailor shows')
+      + '</div>';
+  }
+
+  function perDay() {
+    var days = Object.keys(D.perDay);
+    /* Fourteen days is a fortnight of history on a laptop; on a phone the
+       bars would be two pixels wide, so it shows a week. */
+    if (window.innerWidth < 640) days = days.slice(-7);
+    var top = days.reduce(function (m, d) { return Math.max(m, D.perDay[d]); }, 0) || 1;
+    return '<h2>Paid tickets per day</h2><div class="card"><div class="cols">'
+      + days.map(function (d) {
+        var v = D.perDay[d];
+        return '<div class="col"><span class="v">' + n(v) + '</span>'
+          + '<span class="b" style="height:' + Math.round((v / top) * 100) + '%"></span>'
+          + '<span class="d">' + esc(shortDay(d)) + '</span></div>';
+      }).join('') + '</div></div>';
+  }
+
+  function byType() {
+    var rows = D.byType;
+    var tot = { sold: 0, revenue: 0 };
+    rows.forEach(function (t) { tot.sold += t.sold; tot.revenue += (t.revenue || 0); });
+    return '<h2>By ticket type</h2><div class="card wrapx"><table>'
+      + '<thead><tr><th>Ticket</th><th class="n">Price</th><th class="n">Sold</th>'
+      + (D.revenue ? '<th class="n">Revenue</th>' : '') + '</tr></thead><tbody>'
+      + rows.map(function (t) {
+        return '<tr><td>' + esc(t.name) + '</td>'
+          + '<td class="n">' + (t.price == null ? '' : money(t.price)) + '</td>'
+          + '<td class="n">' + n(t.sold) + '</td>'
+          + (D.revenue ? '<td class="n">' + money(t.revenue || 0) + '</td>' : '')
+          + '</tr>';
+      }).join('')
+      + '<tr class="tot"><td>Total</td><td></td><td class="n">' + n(tot.sold) + '</td>'
+      + (D.revenue ? '<td class="n">' + money(tot.revenue) + '</td>' : '')
+      + '</tr></tbody></table></div>';
+  }
+
+  var SOURCE = {
+    none: 'No tag', site: 'Website buttons', instagram: 'Instagram posts',
+    referral: "Buyers' draw links", team: "Team members' links", other: 'Other'
+  };
+
+  function bars(title, rows, label) {
+    var top = rows.reduce(function (m, r) { return Math.max(m, r.v); }, 0) || 1;
+    return '<h2>' + esc(title) + '</h2><div class="card"><div class="bars">'
+      + rows.map(function (r) {
+        return '<div class="bar"><span class="t">' + esc(r.t) + '</span>'
+          + '<span class="r" style="width:' + Math.round((r.v / top) * 100) + '%"></span>'
+          + '<span class="n">' + n(r.v) + '</span></div>';
+      }).join('')
+      + '</div>' + (label ? '<p class="foot">' + esc(label) + '</p>' : '') + '</div>';
+  }
+
+  function teams() {
+    return '<h2>Team passes</h2><div class="card">'
+      + '<p class="sub" style="margin:0 0 .5rem"><span class="pill warm">'
+      + n(D.waiting) + ' waiting for approval</span></p>'
+      + D.team.map(function (t) {
+        return '<div class="row"><span>' + esc(t.name) + '</span>'
+          + '<span class="m">' + n(t.approved) + ' / ' + n(t.expected)
+          + (t.waiting ? ' · ' + n(t.waiting) + ' waiting' : '') + '</span></div>';
+      }).join('') + '</div>';
+  }
+
+  function codes() {
+    if (!D.topCodes.length) {
+      return '<h2>Top personal codes</h2><div class="card"><p class="foot">'
+        + 'No orders have used a personal code yet.</p></div>';
+    }
+    return '<h2>Top personal codes</h2><div class="card">'
+      + D.topCodes.map(function (c) {
+        return '<div class="row"><span>' + esc(c.first) + ' · <strong>' + esc(c.code)
+          + '</strong></span><span class="m">' + n(c.orders) + ' orders</span></div>';
+      }).join('') + '</div>';
+  }
+
+  function draw() {
+    if (!D.draw) return '';
+    return '<h2>Lucky draw</h2><div class="card">'
+      + '<div class="row"><span>Entries in the draw</span><span class="m">'
+      + n(D.draw.referred) + '</span></div>'
+      + '<div class="row"><span>Buyers who brought a friend</span><span class="m">'
+      + n(D.draw.referrers) + '</span></div></div>';
+  }
+
+  function wa() {
+    if (!D.wa) return '';
+    return '<h2>WhatsApp and Diya</h2><div class="card">'
+      + '<div class="row"><span>Welcome messages delivered</span><span class="m">'
+      + n(D.wa.delivered) + ' of ' + n(D.wa.sent) + ' · ' + n(D.wa.deliveredPercent) + '%</span></div>'
+      + '<div class="row"><span>Conversations</span><span class="m">' + n(D.wa.conversations) + '</span></div>'
+      + '<div class="row"><span>Questions waiting for a person</span><span class="m">'
+      + n(D.wa.waiting) + '</span></div></div>';
+  }
+
+  function onSite() {
+    var c = D.checkIns;
+    if (!c.available) {
+      return '<h2>People on site</h2><div class="card"><p class="foot">'
+        + 'Check-in figures are not available: ' + esc(c.why || 'the API did not answer')
+        + '</p></div>';
+    }
+    if (!c.started) {
+      return '<h2>People on site</h2><div class="card">'
+        + '<p class="v" style="font-size:1.1rem;margin:0">Starts Saturday 24 October at 12:00</p>'
+        + '</div>';
+    }
+    var out = '<h2>People on site</h2>';
+    Object.keys(c.byDay).forEach(function (day) {
+      var d = c.byDay[day];
+      var hours = [];
+      for (var h = 10; h <= 23; h++) hours.push(h);
+      var top = hours.reduce(function (m, h) {
+        return Math.max(m, (d.public[h] || 0) + (d.team[h] || 0));
+      }, 0) || 1;
+      out += '<div class="card"><div class="row"><span><strong>' + esc(shortDay(day))
+        + '</strong></span><span class="m">' + n(d.total) + ' scanned in</span></div>'
+        + '<div class="cols">' + hours.map(function (h) {
+          var v = (d.public[h] || 0) + (d.team[h] || 0);
+          return '<div class="col"><span class="v">' + (v || '') + '</span>'
+            + '<span class="b" style="height:' + Math.round((v / top) * 100) + '%"></span>'
+            + '<span class="d">' + h + '</span></div>';
+        }).join('') + '</div>'
+        + '<p class="foot">Public ' + n(Object.values(d.public).reduce(function (a, b) { return a + b; }, 0))
+        + ' · team ' + n(Object.values(d.team).reduce(function (a, b) { return a + b; }, 0)) + '</p></div>';
+    });
+    return out;
+  }
+
+  function render() {
+    $('who').textContent = D.viewer.revenue ? D.viewer.name : 'View only';
+    $('who').className = 'pill ' + (D.viewer.revenue ? 'on' : '');
+    $('who').hidden = false;
+    $('days').textContent = 'Dashboard · ' + D.daysToGo + ' days to go';
+    $('asof').textContent = D.asOf ? '· As of ' + when(D.asOf) : '';
+    $('refresh').hidden = false;
+
+    var notice = D.note
+      ? '<div class="card notice' + (D.stale ? ' bad' : '') + '">' + esc(D.note) + '</div>'
+      : '';
+
+    var sources = D.bySource.map(function (s) {
+      return { t: SOURCE[s.key] || s.key, v: s.orders };
+    });
+
+    $('app').innerHTML = notice + headline() + small() + perDay() + byType()
+      + bars('Where orders came from', sources, 'By order count, from the referral tag')
+      + teams() + codes() + draw() + wa() + onSite();
+    $('app').hidden = false;
+  }
+
+  /* ---------------------------------------------------------------- load */
+
+  function load(fresh) {
+    if (busy) return;
+    var token = readToken();
+    if (!token) { $('unlock').hidden = false; $('app').hidden = true; return; }
+    busy = true;
+    $('refresh').disabled = true;
+    $('asof').textContent = 'Loading…';
+
+    fetch('/api/dash' + (fresh ? '?refresh=1' : ''), { headers: { 'X-Admin-Token': token } })
+      .then(function (r) { return r.json().then(function (d) { d.httpStatus = r.status; return d; }); })
+      .then(function (d) {
+        busy = false;
+        $('refresh').disabled = false;
+        if (!d.ok) {
+          if (d.httpStatus === 401 || d.httpStatus === 503) {
+            $('unlock').hidden = false;
+            $('app').hidden = true;
+            $('unlockmsg').textContent = d.httpStatus === 503
+              ? 'No dashboard tokens are set on the project.'
+              : 'That token was refused.';
+            return;
+          }
+          $('app').hidden = false;
+          $('app').innerHTML = '<div class="card notice bad">' + esc(d.error || 'No figures.') + '</div>';
+          $('asof').textContent = '';
+          return;
+        }
+        $('unlock').hidden = true;
+        D = d;
+        render();
+      })
+      .catch(function () {
+        busy = false;
+        $('refresh').disabled = false;
+        $('asof').textContent = 'Could not reach the server.';
+      });
+  }
+
+  $('refresh').addEventListener('click', function () { load(true); });
+  $('save').addEventListener('click', function () {
+    var v = $('token').value.trim();
+    if (!v) return;
+    writeToken(v);
+    $('token').value = '';
+    load(false);
+  });
+  /* A phone turned sideways changes how many days fit in the chart. */
+  window.addEventListener('resize', function () { if (D) render(); });
+
+  load(false);
+})();
+</script>
+</body>
+</html>
