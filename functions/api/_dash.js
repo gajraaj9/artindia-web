@@ -11,6 +11,10 @@
  * here but a first name beside a code.
  */
 
+import { AGE_OF, AGE_DEFAULT, AGE_GROUPS } from './_ages.js';
+
+export { AGE_GROUPS };
+
 /* ------------------------------------------------------------------- time */
 
 /* The festival is in Brussels and so is everyone reading this. A day boundary
@@ -106,6 +110,22 @@ export function sourceOf(tag) {
 
 export const SOURCE_ORDER = ['none', 'site', 'instagram', 'referral', 'team', 'other'];
 
+/* -------------------------------------------------------------- the ages */
+
+/**
+ * Which age group a public ticket type admits.
+ *
+ * Anything the mapping does not name counts as an adult, which is the answer
+ * that cannot undercount the site, and the dashboard says which type it was
+ * so the mapping can be corrected rather than quietly drifting.
+ */
+export function ageOf(typeId) {
+  return AGE_OF[String(typeId)] || AGE_DEFAULT;
+}
+
+export const AGE_KEYS = ['adult', 'teen', 'child'];
+export const blankAges = () => ({ adult: 0, teen: 0, child: 0 });
+
 /* ------------------------------------------------------------ the money */
 
 /* `gift_card` is Ticket Tailor's name for a discount or voucher applied to
@@ -196,7 +216,7 @@ export function orderMoney(order) {
 
 /* Bumped whenever the shape of a cached figures object changes. A cache
    written by an older deploy is ignored rather than read and crashed on. */
-export const SHAPE_VERSION = 3;
+export const SHAPE_VERSION = 4;
 
 /** Does this cached object have everything shape() is about to read? */
 export function isCurrentShape(f) {
@@ -205,10 +225,12 @@ export function isCurrentShape(f) {
   const a = f.agg;
   if (!a || typeof a !== 'object') return false;
   for (const k of ['perDay', 'perDayMoney', 'perDayAll', 'perDayOrders',
+    'perDayPeople', 'perDayAge', 'ages', 'unmapped',
     'byType', 'byDeal', 'bySource', 'byCode', 'groups', 'gap']) {
     if (!a[k] || typeof a[k] !== 'object') return false;
   }
-  for (const k of ['paid', 'free', 'team', 'comp', 'all', 'revenue', 'fees', 'insideDeals']) {
+  for (const k of ['paid', 'free', 'team', 'comp', 'all', 'people',
+    'revenue', 'fees', 'insideDeals']) {
     if (typeof a[k] !== 'number') return false;
   }
   return Boolean(f.team && Array.isArray(f.team.teams));
@@ -241,6 +263,8 @@ export function aggregate(orders, typeIssued = {}, {
   const perDayMoney = {};
   const perDayAll = {};
   const perDayOrders = {};
+  const perDayPeople = {};
+  const perDayAge = {};
   const byType = {};
   const byDeal = {};
   const bySource = {};
@@ -300,7 +324,14 @@ export function aggregate(orders, typeIssued = {}, {
     let allHere = 0;
     for (const t of ticketsOf(order)) {
       allHere += 1;
-      bump(issuedHere, String(t.ticket_type_id || 'unknown'));
+      const typeId = String(t.ticket_type_id || 'unknown');
+      bump(issuedHere, typeId);
+      /* Everybody who is coming, whatever they paid and however they got in.
+         A ticket inside a deal takes the age group of its own type. */
+      if (isTeam(typeId)) continue;
+      bump(perDayPeople, day);
+      perDayAge[day] = perDayAge[day] || blankAges();
+      perDayAge[day][ageOf(typeId)] += 1;
     }
     bump(perDayAll, day, allHere);
 
@@ -354,15 +385,29 @@ export function aggregate(orders, typeIssued = {}, {
   /* ---- how many of each type exist, from the event ---- */
   const issuedOf = id => Number(typeIssued[id]) || 0;
   let free = 0, team = 0, all = 0, issuedPaidTypes = 0, listGross = 0;
+  const ages = blankAges();
+  const unmapped = [];
 
   for (const id of new Set([...Object.keys(typeIssued), ...Object.keys(typePrices)])) {
     const n = issuedOf(id);
     all += n;
     if (isTeam(id)) { team += n; continue; }
+
+    /* Everyone coming in on a public ticket, by what their own type admits. */
+    ages[ageOf(id)] += n;
+    if (n > 0 && !AGE_OF[String(id)]) {
+      unmapped.push({ id, name: typeNames[id] || id, issued: n });
+    }
+
     if (isFree(id)) { free += n; continue; }
     issuedPaidTypes += n;
     listGross += n * (Number(typePrices[id]) || 0);
   }
+
+  /* People coming is every public ticket, which is everything that exists
+     less the team's own passes. The three age figures are that number split
+     three ways, so they add up to it by construction. */
+  const people = ages.adult + ages.teen + ages.child;
 
   const paid = paidIndividually + insideDeals;
   /* A paid type that exists and no order accounts for: issued by hand. */
@@ -370,20 +415,25 @@ export function aggregate(orders, typeIssued = {}, {
   const comp = compInOrders + compOutside;
   const compList = issuedPaidTypes > 0 ? Math.round((listGross * comp) / issuedPaidTypes) : 0;
 
-  const types = Object.values(byType)
-    .map(t => ({ ...t, kind: isTeam(t.id) ? 'team' : (isFree(t.id) ? 'free' : 'paid'),
-      issued: issuedOf(t.id) }));
+  const withAge = t => ({
+    ...t,
+    kind: isTeam(t.id) ? 'team' : (isFree(t.id) ? 'free' : 'paid'),
+    age: isTeam(t.id) ? '' : ageOf(t.id),
+    issued: issuedOf(t.id),
+  });
+  const types = Object.values(byType).map(withAge);
   for (const id of Object.keys(typeIssued)) {
     if (types.some(t => t.id === id)) continue;
-    types.push({
-      ...blankType(id, typeNames, typePrices),
-      kind: isTeam(id) ? 'team' : (isFree(id) ? 'free' : 'paid'),
-      issued: issuedOf(id),
-    });
+    types.push(withAge(blankType(id, typeNames, typePrices)));
   }
 
   return {
     paid, free, team, comp, all,
+    people,
+    ages,
+    unmapped,
+    perDayPeople,
+    perDayAge,
     paidIndividually,
     insideDeals,
     orders: orderCount,

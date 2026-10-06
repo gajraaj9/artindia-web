@@ -17,6 +17,7 @@ import {
 import {
   aggregate, lastDays, sumDays, brusselsDay, daysToGo, SOURCE_ORDER,
   checkInsByHour, festivalStarted, viewerFor, SHAPE_VERSION, isCurrentShape,
+  AGE_KEYS, AGE_GROUPS, blankAges,
 } from './_dash.js';
 import { scrubSecret } from './_accred.js';
 
@@ -487,12 +488,23 @@ function shape(f, who, { now, cached = false, stale = false, tooSoon = false, er
   const yesterday = brusselsDay(sec - 86400);
   const last7 = lastDays(7, now);
 
-  const period = (key, label, days) => ({
-    key, label,
-    paid: sumDays(agg.perDay, days),
-    all: sumDays(agg.perDayAll, days),
-    orders: sumDays(agg.perDayOrders, days),
-  });
+  const agesOver = days => days.reduce((out, d) => {
+    const got = agg.perDayAge[d] || {};
+    for (const k of AGE_KEYS) out[k] += Number(got[k]) || 0;
+    return out;
+  }, blankAges());
+
+  const period = (key, label, days) => {
+    const ages = agesOver(days);
+    return {
+      key, label,
+      people: AGE_KEYS.reduce((n, k) => n + ages[k], 0),
+      ages,
+      paid: sumDays(agg.perDay, days),
+      all: sumDays(agg.perDayAll, days),
+      orders: sumDays(agg.perDayOrders, days),
+    };
+  };
 
   const paidTypes = agg.byType.filter(t => t.kind === 'paid');
   const otherTypes = agg.byType.filter(t => t.kind !== 'paid');
@@ -510,7 +522,11 @@ function shape(f, who, { now, cached = false, stale = false, tooSoon = false, er
     degraded: f.degraded || [],
     daysToGo: daysToGo(now),
 
-    headline: { paid: agg.paid },
+    headline: { people: agg.people, ages: agg.ages, paid: agg.paid },
+    ageGroups: AGE_GROUPS.map(g => ({ key: g.key, label: (g.label && g.label.en) || g.key })),
+    /* A public ticket type the mapping does not name. Counted as an adult,
+       and said out loud so the mapping can be corrected. */
+    unmapped: agg.unmapped,
     periods: [
       period('today', 'Today', [today]),
       period('yesterday', 'Yesterday', [yesterday]),
@@ -523,6 +539,8 @@ function shape(f, who, { now, cached = false, stale = false, tooSoon = false, er
       team: agg.team,
       teamApproved: (f.team.teams || []).reduce((n, t) => n + t.approved, 0),
       teamExpected: (f.team.teams || []).reduce((n, t) => n + t.expected, 0),
+      /* Everyone who will be on the site: the public and the people working. */
+      onSite: agg.people + agg.team,
       all: agg.all,
     },
 
@@ -535,10 +553,14 @@ function shape(f, who, { now, cached = false, stale = false, tooSoon = false, er
       defined: (f.deals || []).map(d => ({ name: d.name, status: d.status })),
     },
 
-    perDay: Object.fromEntries(lastDays(14, now).map(d => [d, agg.perDay[d] || 0])),
-    byType: paidTypes.map(t => ({ id: t.id, name: t.name, price: t.price, sold: t.sold })),
+    /* People per day now, not paid tickets: the chart answers the question
+       the headline asks. */
+    perDay: Object.fromEntries(lastDays(14, now).map(d => [d, agg.perDayPeople[d] || 0])),
+    byType: paidTypes.map(t => ({
+      id: t.id, name: t.name, price: t.price, sold: t.sold, age: t.age,
+    })),
     otherTypes: otherTypes.map(t => ({
-      id: t.id, name: t.name, price: t.price, sold: t.issued, kind: t.kind,
+      id: t.id, name: t.name, price: t.price, sold: t.issued, kind: t.kind, age: t.age,
     })),
     complimentary: agg.comp,
 

@@ -78,6 +78,13 @@
   .kpi.lead .v { font-size: 2.8rem; }
   .kpi .v2 { font-size: 1.15rem; font-weight: 700; margin: .1rem 0 0;
              color: var(--muted); font-variant-numeric: tabular-nums; }
+  /* The three age figures, under the number they add up to. */
+  .ages { display: flex; gap: .9rem; flex-wrap: wrap; margin: .5rem 0 0; }
+  .ages div { min-width: 0; }
+  .ages .a { display: block; font-size: .68rem; letter-spacing: .07em;
+             text-transform: uppercase; color: var(--muted); }
+  .ages .b { display: block; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .kpi.lead .ages .b { font-size: 1.15rem; }
   .kpi .n { font-size: .82rem; color: var(--muted); margin: .25rem 0 0; }
 
   .bars { display: grid; gap: .3rem; }
@@ -192,17 +199,30 @@
       + (note ? '<p class="n">' + esc(note) + '</p>' : '') + '</div>';
   }
 
+  /* The three age figures. They are the headline split three ways, so they
+     always add up to it. */
+  function ages(got, big) {
+    return '<div class="ages">' + (D.ageGroups || []).map(function (g) {
+      return '<div><span class="a">' + esc(g.label) + '</span>'
+        + '<span class="b">' + n((got || {})[g.key] || 0) + '</span></div>';
+    }).join('') + '</div>';
+  }
+
   function headline() {
     var h = D.headline;
+    var people = '<div class="kpi lead"><div class="k">People coming</div>'
+      + '<p class="v">' + n(h.people) + '</p>' + ages(h.ages, true) + '</div>';
+
     var row1 = D.revenue
-      ? '<div class="grid two">' + kpi('Paid tickets', n(h.paid), '', 'lead')
+      ? '<div class="grid two">' + people
         + kpi('Revenue', money(h.revenue), 'order totals, after discount codes', 'lead')
         + '</div>'
-      : '<div class="grid one">' + kpi('Paid tickets', n(h.paid), '', 'lead') + '</div>';
+      : '<div class="grid one">' + people + '</div>';
 
     var row2 = '<div class="grid three">' + D.periods.map(function (p) {
       return '<div class="kpi"><div class="k">' + esc(p.label) + '</div>'
-        + '<p class="v">' + n(p.paid) + '</p>'
+        + '<p class="v">' + n(p.people) + '</p>'
+        + ages(p.ages)
         + (D.revenue ? '<p class="v2">' + money(p.revenue || 0) + '</p>' : '')
         /* Ticket Tailor's own analytics count every ticket, so the card says
            that number too and the two can be put side by side. */
@@ -212,15 +232,25 @@
     }).join('') + '</div>';
 
     var s = D.small;
-    var row3 = '<div class="grid four">'
-      + kpi('Free child tickets', n(s.free), '')
-      + kpi('Complimentary', n(s.comp), 'a paid type issued at nothing')
+    var row3 = '<div class="grid three">'
       + kpi('Team passes', n(s.team), 'of ' + n(s.teamExpected) + ' expected'
         + (s.teamApproved !== s.team ? ' · ' + n(s.teamApproved) + ' approved in the queue' : ''))
-      + kpi('All tickets', n(s.all), 'the number Ticket Tailor shows')
+      + kpi('Complimentary', n(s.comp), 'a paid type issued at nothing')
+      + kpi('Everyone on site', n(s.onSite), 'the number Ticket Tailor shows')
       + '</div>';
 
-    return row1 + row2 + row3 + deals();
+    return notices() + row1 + row2 + row3 + deals();
+  }
+
+  /* A public ticket type the mapping does not name. It is counted as an
+     adult, which cannot undercount the site, and named here so the mapping
+     can be corrected in data/ticket-ages.json. */
+  function notices() {
+    if (!D.unmapped || !D.unmapped.length) return '';
+    return '<div class="card notice">Counted as adults because no age group is '
+      + 'set for them: ' + D.unmapped.map(function (t) {
+        return esc(t.name) + ' (' + esc(t.id) + ', ' + n(t.issued) + ')';
+      }).join(', ') + '. Add them to data/ticket-ages.json.</div>';
   }
 
   /* What the orders actually contain. The box office's own definitions
@@ -240,7 +270,7 @@
        bars would be two pixels wide, so it shows a week. */
     if (window.innerWidth < 640) days = days.slice(-7);
     var top = days.reduce(function (m, d) { return Math.max(m, D.perDay[d]); }, 0) || 1;
-    return '<h2>Paid tickets per day</h2><div class="card"><div class="cols">'
+    return '<h2>People per day</h2><div class="card"><div class="cols">'
       + days.map(function (d) {
         var v = D.perDay[d];
         return '<div class="col"><span class="v">' + n(v) + '</span>'
@@ -257,10 +287,11 @@
     deals.forEach(function (d) { sold += d.people; rev += (d.revenue || 0); });
 
     var out = '<h2>By ticket type</h2><div class="card wrapx"><table>'
-      + '<thead><tr><th>Ticket</th><th class="n">Price</th><th class="n">Sold</th>'
+      + '<thead><tr><th>Ticket</th><th>Age</th><th class="n">Price</th><th class="n">Sold</th>'
       + (D.revenue ? '<th class="n">Paid</th>' : '') + '</tr></thead><tbody>'
       + rows.map(function (t) {
         return '<tr><td>' + esc(t.name) + '</td>'
+          + '<td class="m">' + esc(ageLabel(t.age)) + '</td>'
           + '<td class="n">' + (t.price == null ? '' : money(t.price)) + '</td>'
           + '<td class="n">' + n(t.sold) + '</td>'
           + (D.revenue ? '<td class="n">' + money(t.revenue || 0) + '</td>' : '')
@@ -269,6 +300,7 @@
       + deals.map(function (d) {
         return '<tr><td>' + esc(d.name) + ' <span class="m">'
           + n(d.deals) + ' deal' + (d.deals === 1 ? '' : 's') + '</span></td>'
+          + '<td class="m">mixed</td>'
           + '<td class="n"></td>'
           + '<td class="n">' + n(d.people) + '</td>'
           + (D.revenue ? '<td class="n">' + money(d.revenue || 0) + '</td>' : '')
@@ -278,15 +310,15 @@
     /* Only real fee, tax and donation lines, and only when there are any. */
     var fees = D.reconcile ? D.reconcile.fees : 0;
     if (D.revenue && fees) {
-      out += '<tr><td>Fees, tax and other order lines</td><td></td><td class="n"></td>'
+      out += '<tr><td>Fees, tax and other order lines</td><td></td><td></td><td class="n"></td>'
         + '<td class="n">' + money(fees) + '</td></tr>';
     }
     if (D.revenue && D.reconcile && D.reconcile.unexplained) {
-      out += '<tr><td>Not accounted for</td><td></td><td class="n"></td>'
+      out += '<tr><td>Not accounted for</td><td></td><td></td><td class="n"></td>'
         + '<td class="n">' + money(D.reconcile.unexplained) + '</td></tr>';
     }
 
-    out += '<tr class="tot"><td>Total</td><td></td><td class="n">' + n(sold) + '</td>'
+    out += '<tr class="tot"><td>Paid tickets</td><td></td><td></td><td class="n">' + n(sold) + '</td>'
       + (D.revenue ? '<td class="n">' + money(rev + fees
         + ((D.reconcile && D.reconcile.unexplained) || 0)) + '</td>' : '')
       + '</tr></tbody></table>'
@@ -298,7 +330,8 @@
       out += '<div class="card"><p class="foot" style="margin:0 0 .4rem">'
         + 'Not paid tickets</p>'
         + D.otherTypes.map(function (t) {
-          return '<div class="row"><span>' + esc(t.name) + '</span>'
+          return '<div class="row"><span>' + esc(t.name)
+            + (t.age ? ' <span class="m">' + esc(ageLabel(t.age)) + '</span>' : '') + '</span>'
             + '<span class="m">' + n(t.sold) + '</span></div>';
         }).join('')
         + '<div class="row"><span>Complimentary (a paid type issued at nothing, '
@@ -330,6 +363,11 @@
       }).join('')
       + '<div class="row"><span><strong>Money received</strong></span>'
       + '<span class="m"><strong>' + money(g.received) + '</strong></span></div></div>';
+  }
+
+  function ageLabel(key) {
+    var g = (D.ageGroups || []).filter(function (x) { return x.key === key; })[0];
+    return g ? g.label : (key || '');
   }
 
   var SOURCE = {

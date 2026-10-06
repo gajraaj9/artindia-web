@@ -17,6 +17,7 @@ import {
   orderCounts, orderNet, ticketCounts, classify, sourceOf, SOURCE_ORDER,
   checkInsByHour, festivalStarted, viewerFor, revenueNames, FESTIVAL_DAYS,
   orderMoney, isDealLine, isTicketLine, SHAPE_VERSION, isCurrentShape, ticketsOf,
+  ageOf, AGE_KEYS, blankAges, AGE_GROUPS,
 } from '../functions/api/_dash.js';
 import { onRequestGet as dash, onRequestPost as dashPost } from '../functions/api/dash.js';
 import { safeEqual } from '../functions/api/_shared.js';
@@ -62,8 +63,8 @@ const TYPES = [
   { id: 'tt_presale', name: 'Festival Ticket · Presale', price: 1000 },
   { id: 'tt_online', name: 'Festival Ticket - ONLINE OFFER', price: 1200 },
   { id: 'tt_gate', name: 'Festival Ticket (At Gate)', price: 1500 },
-  { id: 'tt_teen', name: 'Child 13-18 ( ID needed )', price: 1000 },
-  { id: 'tt_child', name: 'Child Below 12 ( ID needed )', price: 0 },
+  { id: 'tt_6865730', name: 'Child 13-18 ( ID needed )', price: 1000 },
+  { id: 'tt_6753537', name: 'Child Below 12 ( ID needed )', price: 0 },
   { id: 'tt_core', name: 'Core team pass', price: 0 },
   { id: 'tt_artist', name: 'Artist pass', price: 0 },
 ];
@@ -307,7 +308,7 @@ test('a discount is spread over the lines in proportion, to the last cent', () =
     line_items: [
       { type: 'ticket', item_id: 'tt_gate', quantity: 1, total: 1500 },
       { type: 'ticket', item_id: 'tt_presale', quantity: 1, total: 1000 },
-      { type: 'ticket', item_id: 'tt_teen', quantity: 1, total: 1000 },
+      { type: 'ticket', item_id: 'tt_6865730', quantity: 1, total: 1000 },
       { type: 'gift_card', total: -333 },
     ],
   });
@@ -345,7 +346,7 @@ test('the table adds up to the headline, with fees on their own line', () => {
 /* --------------------------------------------- paid, free and complimentary */
 
 test('the paying teenager counts, the free child does not, the freebie is its own', () => {
-  const sale = order({ lines: [['tt_teen', 1, 1000], ['tt_child', 1, 0]] });
+  const sale = order({ lines: [['tt_6865730', 1, 1000], ['tt_6753537', 1, 0]] });
   /* A paid type that went out at nothing: a complimentary ticket. */
   const comp = order({ lines: [['tt_gate', 1, 0]] });
   const w = world2([sale, comp]);
@@ -399,7 +400,7 @@ test('a group deal is paid tickets, counted from the order\'s own tickets', () =
      counted as complimentary and the deal\'s whole price as a fee. */
   const deal = order({
     lines: [['deal:Family of 4', 1, 3500,
-      ['tt_presale', 'tt_presale', 'tt_child', 'tt_child']]],
+      ['tt_presale', 'tt_presale', 'tt_6753537', 'tt_6753537']]],
   });
   const w = world2([deal]);
   const a = aggregate(w.orders, w.issued, OPTS);
@@ -527,9 +528,9 @@ test('the gap between list price and money received is explained, cause by cause
 /* ---------------------------------------------------------- classification */
 
 test('team, free and paid are told apart by type and by reference', () => {
-  const o = { teamTypes: new Set(['tt_core']), freeTypes: new Set(['tt_child']) };
+  const o = { teamTypes: new Set(['tt_core']), freeTypes: new Set(['tt_6753537']) };
   assert.equal(classify({ ticket_type_id: 'tt_core' }, o), 'team');
-  assert.equal(classify({ ticket_type_id: 'tt_child' }, o), 'free');
+  assert.equal(classify({ ticket_type_id: 'tt_6753537' }, o), 'free');
   assert.equal(classify({ ticket_type_id: 'tt_presale' }, o), 'paid');
   /* A pass issued by the accreditation module, on a type nobody configured. */
   assert.equal(classify({ ticket_type_id: 'tt_unknown', reference: 'p_abc' }, o), 'team',
@@ -865,7 +866,7 @@ test('the table total is the headline revenue, to the cent', async () => {
   const a = order({
     lines: [['tt_gate', 2, 3000], ['gift_card', 1, -300], ['transaction_charge', 1, 500]],
   });
-  const b = order({ lines: [['tt_presale', 1, 1000], ['tt_teen', 1, 1000]] });
+  const b = order({ lines: [['tt_presale', 1, 1000], ['tt_6865730', 1, 1000]] });
   const w = world(world2([a, b]));
   try {
     const d = await (await get(ENV({ ACCRED: kv }))).json();
@@ -882,7 +883,7 @@ test('the table total is the headline revenue, to the cent', async () => {
 
 test('the paid table lists paid types only, and its count is PAID TICKETS', async () => {
   const kv = memoryKv();
-  const sale = order({ lines: [['tt_gate', 1, 1500], ['tt_child', 1, 0]] });
+  const sale = order({ lines: [['tt_gate', 1, 1500], ['tt_6753537', 1, 0]] });
   const comp = order({ lines: [['tt_presale', 1, 0]] });
   const w = world(world2([sale, comp]));
   try {
@@ -1292,4 +1293,177 @@ test('the Refresh button and the navigation survive a failure', () => {
   /* Every failure path puts the chrome back before saying anything. */
   const failFn = html.slice(html.indexOf('function fail(text, detail)'));
   assert.match(failFn.slice(0, 200), /chrome\(\);/);
+});
+
+/* -------------------------------------------------------------- the ages */
+
+test('the mapping names the two child types and everything else is an adult', () => {
+  assert.equal(ageOf('tt_6865730'), 'teen', 'Child 13-18');
+  assert.equal(ageOf('tt_6753537'), 'child', 'Child Below 12');
+  for (const id of ['tt_presale', 'tt_online', 'tt_gate', 'tt_anything_new', '']) {
+    assert.equal(ageOf(id), 'adult', `${id} should fall back to adult`);
+  }
+  /* Adult is the fallback because it cannot undercount the site. */
+  assert.deepEqual(AGE_KEYS, ['adult', 'teen', 'child']);
+  assert.deepEqual(AGE_GROUPS.map(g => g.key), ['adult', 'teen', 'child']);
+  assert.deepEqual(blankAges(), { adult: 0, teen: 0, child: 0 });
+
+  /* The mapping is a data file, not an environment variable. */
+  const cfg = JSON.parse(readFileSync(join(ROOT, 'data/ticket-ages.json'), 'utf8'));
+  assert.equal(cfg.ages.tt_6865730, 'teen');
+  assert.equal(cfg.ages.tt_6753537, 'child');
+  assert.equal(cfg.default, 'adult');
+});
+
+test('the three age figures always add up to people coming', () => {
+  const w = world2([
+    order({ lines: [['tt_gate', 2, 3000], ['tt_6865730', 1, 1000], ['tt_6753537', 2, 0]] }),
+    order({ lines: [['tt_presale', 1, 1000]] }),
+  ]);
+  const a = aggregate(w.orders, w.issued, OPTS);
+
+  assert.deepEqual(a.ages, { adult: 3, teen: 1, child: 2 });
+  assert.equal(a.people, 6);
+  assert.equal(a.ages.adult + a.ages.teen + a.ages.child, a.people,
+    'the split is the total split three ways, by construction');
+  /* And the public total is everything that exists less the team's passes. */
+  assert.equal(a.people, a.all - a.team);
+});
+
+test('somebody inside a group deal is counted in their own age group', () => {
+  const deal = order({
+    lines: [['deal:Family of 4', 1, 3500,
+      ['tt_gate', 'tt_gate', 'tt_6865730', 'tt_6753537']]],
+  });
+  const w = world2([deal]);
+  const a = aggregate(w.orders, w.issued, OPTS);
+
+  assert.deepEqual(a.ages, { adult: 2, teen: 1, child: 1 },
+    'a deal admits people, and each takes the age group of their own type');
+  assert.equal(a.people, 4);
+  assert.equal(a.insideDeals, 3, 'three of them are of a paid type');
+  assert.equal(a.comp, 0);
+
+  /* And they are in the day's figures too. */
+  const day = Object.keys(a.perDayAge)[0];
+  assert.deepEqual(a.perDayAge[day], { adult: 2, teen: 1, child: 1 });
+  assert.equal(a.perDayPeople[day], 4);
+});
+
+test('team passes are never in the age figures', () => {
+  const sale = order({ lines: [['tt_gate', 1, 1500]] });
+  const a = aggregate([sale.order], { tt_gate: 1, tt_core: 9, tt_artist: 4 }, OPTS);
+
+  assert.equal(a.team, 13);
+  assert.equal(a.people, 1, 'the public, and only the public');
+  assert.deepEqual(a.ages, { adult: 1, teen: 0, child: 0 });
+  assert.equal(a.ages.adult + a.ages.teen + a.ages.child, a.people);
+});
+
+test('a public type with no age group counts as an adult and is named', () => {
+  const sale = order({ lines: [['tt_gate', 2, 3000]] });
+  const w = world2([sale]);
+  const a = aggregate(w.orders, w.issued,
+    { ...OPTS, typeNames: { ...OPTS.typeNames, tt_gate: 'Festival Ticket (At Gate)' } });
+
+  assert.equal(a.ages.adult, 2, 'adult cannot undercount the site');
+  assert.deepEqual(a.unmapped, [{ id: 'tt_gate', name: 'Festival Ticket (At Gate)', issued: 2 }]);
+
+  /* A type that is in the mapping is not named, and nor is one nobody bought. */
+  const b = aggregate(...[[], { tt_6865730: 3, tt_gate: 0 }], OPTS);
+  assert.deepEqual(b.unmapped, []);
+  assert.equal(b.ages.teen, 3);
+});
+
+/* ----------------------------------------------- the people on the page */
+
+test('the headline and the period cards lead with people, split three ways', async () => {
+  const kv = memoryKv();
+  const w = world(world2([
+    order({ lines: [['tt_gate', 2, 3000], ['tt_6753537', 1, 0]] }),
+    order({ lines: [['deal:Family of 4', 1, 3500, ['tt_presale', 'tt_6865730']]] }),
+  ]));
+  try {
+    const d = await (await get(ENV({ ACCRED: kv }))).json();
+
+    assert.equal(d.headline.people, 5);
+    assert.deepEqual(d.headline.ages, { adult: 3, teen: 1, child: 1 });
+    assert.equal(Object.values(d.headline.ages).reduce((a, b) => a + b, 0), d.headline.people);
+    assert.deepEqual(d.ageGroups.map(g => g.label), ['Adults', '13 to 18', 'Under 12']);
+
+    for (const p of d.periods) {
+      assert.equal(typeof p.people, 'number');
+      assert.equal(Object.values(p.ages).reduce((a, b) => a + b, 0), p.people,
+        `${p.key} does not add up`);
+      assert.equal(typeof p.all, 'number');
+      assert.equal(typeof p.orders, 'number');
+    }
+    /* Everything was bought today, so today is the whole of it. */
+    const today = d.periods.find(p => p.key === 'today');
+    assert.equal(today.people, 5);
+    assert.deepEqual(today.ages, d.headline.ages);
+
+    /* Everyone on site is the public plus the people working. */
+    assert.equal(d.small.onSite, d.headline.people + d.small.team);
+
+    /* The chart is people per day now, not paid tickets. */
+    assert.equal(Object.values(d.perDay).reduce((a, b) => a + b, 0), 5);
+
+    /* And the table still totals to the paid part and to the headline money. */
+    const sold = d.byType.reduce((n, t) => n + t.sold, 0)
+      + d.deals.rows.reduce((n, x) => n + x.people, 0);
+    assert.equal(sold, d.headline.people - d.small.free - d.small.comp,
+      'the paid part of the table is people less the free and the given away');
+    const table = d.byType.reduce((n, t) => n + t.revenue, 0)
+      + d.deals.rows.reduce((n, x) => n + x.revenue, 0) + d.reconcile.fees;
+    assert.equal(table, d.headline.revenue);
+  } finally { w.restore(); }
+});
+
+test('the type table says which age group each ticket admits', async () => {
+  const kv = memoryKv();
+  const w = world(world2([
+    order({ lines: [['tt_gate', 1, 1500], ['tt_6865730', 1, 1000], ['tt_6753537', 1, 0]] }),
+  ]));
+  try {
+    const d = await (await get(ENV({ ACCRED: kv }))).json();
+    const byId = Object.fromEntries([...d.byType, ...d.otherTypes].map(t => [t.id, t.age]));
+    assert.equal(byId.tt_gate, 'adult');
+    assert.equal(byId.tt_6865730, 'teen');
+    assert.equal(byId.tt_6753537, 'child');
+  } finally { w.restore(); }
+});
+
+test('a view-only token gets the people figures and no money at all', async () => {
+  const kv = memoryKv();
+  const w = world(world2([order({ lines: [['tt_gate', 3, 4500], ['tt_6753537', 1, 0]] })]));
+  try {
+    const env = ENV({ ACCRED: kv });
+    const body = await (await get(env, { token: VIEWERS.stijn })).text();
+    const d = JSON.parse(body);
+
+    assert.equal(d.headline.people, 4, 'they see who is coming');
+    assert.deepEqual(d.headline.ages, { adult: 3, teen: 0, child: 1 });
+    assert.ok(!('revenue' in d.headline), 'and no money in the headline card');
+    assert.ok(!('revenue' in d));
+    for (const p of d.periods) {
+      assert.ok(!('revenue' in p), `the ${p.key} card carries money`);
+      assert.equal(Object.values(p.ages).reduce((a, b) => a + b, 0), p.people);
+    }
+    for (const t of [...d.byType, ...d.otherTypes]) assert.ok(!('revenue' in t));
+    for (const r of d.deals.rows) assert.ok(!('revenue' in r));
+    assert.ok(!body.includes('4500'), 'the amount reached a view-only token');
+  } finally { w.restore(); }
+});
+
+test('the page leads with people and no longer with paid tickets', () => {
+  const html = readFileSync(join(ROOT, 'diwali-admin/dashboard.html'), 'utf8');
+  assert.match(html, /People coming/);
+  assert.match(html, /People per day/);
+  assert.match(html, /Everyone on site/);
+  assert.match(html, /function ages\(/);
+  assert.match(html, /D\.unmapped/, 'an unmapped type has to be named on the page');
+  /* Paid tickets survives as the total of the table, not as a headline. */
+  assert.ok(!/<div class="k">Paid tickets<\/div>/.test(html));
+  assert.match(html, /<td>Paid tickets<\/td>/);
 });

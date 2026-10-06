@@ -1962,6 +1962,22 @@ if (existsSync(join(HERE, 'diwali-admin'))) {
   console.log(`  Teams compiled: ${teams.length} teams, ${Object.keys(copy).length} strings`);
 }
 
+/* Which age group each ticket type admits, the same way and for the same
+   reason: a Worker cannot read a file. data/ticket-ages.json stays the thing
+   anyone edits when the box office gains a ticket type. */
+{
+  const src = join(HERE, 'data/ticket-ages.json');
+  const cfg = existsSync(src) ? JSON.parse(readFileSync(src, 'utf8')) : {};
+  writeFileSync(join(HERE, 'functions/api/_ages.js'),
+    '/* GENERATED from data/ticket-ages.json by build-diwali.mjs. Do not edit.\n'
+    + '   Edit data/ticket-ages.json and rebuild. */\n\n'
+    + `export const AGE_OF = ${JSON.stringify(cfg.ages || {}, null, 2)};\n\n`
+    + `export const AGE_DEFAULT = ${JSON.stringify(cfg.default || 'adult')};\n\n`
+    + `export const AGE_GROUPS = ${JSON.stringify(cfg.groups || [], null, 2)};\n`);
+  console.log(`  Ticket ages compiled: ${Object.keys(cfg.ages || {}).length} mapped,`
+    + ` default ${cfg.default || 'adult'}`);
+}
+
 /* The WhatsApp template header. Meta fetches this itself when a message goes
    out, so it has to be a real, public, unredirected URL — /img/wa-header.jpg,
    1200x628. Drop the file at media/wa-header.jpg and it ships; until it exists
