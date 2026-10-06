@@ -113,19 +113,27 @@ const fetchOrders = (env, sinceUnix, after) => fetchAll(env, '/v1/orders', {
 const fetchCheckIns = env => fetchAll(env, '/v1/check_ins', {}, { max: MAX_CHECKIN_PAGES });
 
 /**
- * The bundles, if the event series has any.
+ * The deals the box office defines, for naming only.
  *
- * A bundle is a deal with a price of its own and a list of what is inside it,
- * which is the only way to know how many people a "Family of 4" admits and
- * what it would have cost one ticket at a time. Keyed by bu_ id, which is what
- * an order line carries as its item_id.
+ * `/v1/event_series/{id}/bundles` has no GET at all: the documented methods
+ * are create, update and delete, which is why asking for it answered 404.
+ * The event series object itself carries a `bundles` list, so that is where
+ * they are read from, in one call.
+ *
+ * Nothing is counted from these. Every figure comes from the order lines and
+ * the order's own issued tickets, so a dashboard still counts correctly when
+ * this call returns nothing at all.
  */
-async function fetchBundles(env, seriesId) {
-  if (!seriesId) return {};
-  const r = await tt(env, `/v1/event_series/${encodeURIComponent(seriesId)}/bundles`,
-    { query: { limit: '100' } });
-  const rows = Array.isArray(r?.data) ? r.data : [];
-  return Object.fromEntries(rows.map(b => [String(b.id), b]));
+async function fetchDeals(env, seriesId) {
+  if (!seriesId) return [];
+  const r = await tt(env, `/v1/event_series/${encodeURIComponent(seriesId)}`);
+  const series = oneOf(r) || {};
+  const rows = Array.isArray(series.bundles) ? series.bundles : [];
+  return rows.map(b => ({
+    id: String(b.id), name: b.name || String(b.id),
+    price: Number(b.price) || 0, status: b.status || '',
+    heads: (b.ticket_types || []).reduce((n, t) => n + (Number(t.quantity) || 0), 0),
+  }));
 }
 
 /** The event's ticket types: what each one is called and what it costs. */
@@ -386,12 +394,10 @@ async function build(env, kv, now) {
   const highWater = all.reduce((n, o) => Math.max(n, Number(o.created_at) || 0), 0);
 
   /* Optional: a bad minute on either of these must not cost the whole page. */
-  const bundlesStage = await optional('bundles', () => fetchBundles(env, seriesId), {});
-  const bundles = bundlesStage.value;
+  /* Names only, and the page works without them. */
+  const dealsStage = await optional('deals', () => fetchDeals(env, seriesId), []);
 
-  const agg = aggregate(all, issued, {
-    teamTypes, typeNames: names, typePrices: prices, bundles,
-  });
+  const agg = aggregate(all, issued, { teamTypes, typeNames: names, typePrices: prices });
 
   let checkIns = { available: false, byDay: null, error: 'not read yet' };
   const ciStage = await optional('check-ins', async () => {
@@ -426,10 +432,7 @@ async function build(env, kv, now) {
     at: now.toISOString(),
     agg,
     types: types.map(t => ({ id: t.id, name: t.name, price: Number(t.price) || 0 })),
-    bundles: Object.values(bundles).map(b => ({
-      id: b.id, name: b.name, price: Number(b.price) || 0, status: b.status,
-      heads: (b.ticket_types || []).reduce((n, t) => n + (Number(t.quantity) || 0), 0),
-    })),
+    deals: dealsStage.value,
     ticketGroups: (groups || []).map(g => ({ id: g.id, name: g.name })),
     checkIns,
     team: teamStage.value,
@@ -437,7 +440,7 @@ async function build(env, kv, now) {
     /* More orders to walk than one build is allowed, so the next one carries
        on. Said out loud rather than quietly showing a short total. */
     catchingUp: !fetched.done,
-    degraded: [bundlesStage, ciStage, teamStage, localStage]
+    degraded: [dealsStage, ciStage, teamStage, localStage]
       .filter(x => !x.ok)
       .map(x => ({ stage: x.stage, status: x.status, reason: x.reason })),
   };
@@ -458,6 +461,13 @@ function slimOrder(o) {
       type: l.type, item_id: l.item_id || null, description: l.description || '',
       quantity: Number(l.quantity) || 1, total: Number(l.total) || 0,
     })),
+    /* The order carries its own issued tickets, so who came in on a deal
+       costs no extra call. Two fields of each, which is all that is read. */
+    issued_tickets: (Array.isArray(o.issued_tickets) ? o.issued_tickets : []).map(t => ({
+      id: String(t.id), ticket_type_id: String(t.ticket_type_id || ''),
+      ...(t.voided_at ? { voided_at: t.voided_at } : {}),
+      ...(t.status ? { status: t.status } : {}),
+    })),
   };
 }
 
@@ -470,12 +480,19 @@ function slimOrder(o) {
  * object that never carried them, so there is nothing to leak in a log, a
  * cache or a console.
  */
-function shape(f, who, { now, cached = false, stale = false, tooSoon = false, error = '' } = {}) {
+function shape(f, who, { now, cached = false, stale = false, tooSoon = false, error = '', stage = '', status = 0 } = {}) {
   const agg = f.agg;
   const sec = Math.floor(now.getTime() / 1000);
   const today = brusselsDay(sec);
   const yesterday = brusselsDay(sec - 86400);
   const last7 = lastDays(7, now);
+
+  const period = (key, label, days) => ({
+    key, label,
+    paid: sumDays(agg.perDay, days),
+    all: sumDays(agg.perDayAll, days),
+    orders: sumDays(agg.perDayOrders, days),
+  });
 
   const paidTypes = agg.byType.filter(t => t.kind === 'paid');
   const otherTypes = agg.byType.filter(t => t.kind !== 'paid');
@@ -487,16 +504,17 @@ function shape(f, who, { now, cached = false, stale = false, tooSoon = false, er
     cached,
     stale,
     note: error || (tooSoon ? 'Refreshed a moment ago. These are the same figures.' : ''),
+    stage,
+    status,
     catchingUp: Boolean(f.catchingUp),
     degraded: f.degraded || [],
     daysToGo: daysToGo(now),
 
-    /* Row 1 and row 2: the two numbers that matter, then the three periods. */
     headline: { paid: agg.paid },
     periods: [
-      { key: 'today', label: 'Today', paid: agg.perDay[today] || 0 },
-      { key: 'yesterday', label: 'Yesterday', paid: agg.perDay[yesterday] || 0 },
-      { key: 'last7', label: 'Last 7 days', paid: sumDays(agg.perDay, last7) },
+      period('today', 'Today', [today]),
+      period('yesterday', 'Yesterday', [yesterday]),
+      period('last7', 'Last 7 days', last7),
     ],
 
     small: {
@@ -508,18 +526,19 @@ function shape(f, who, { now, cached = false, stale = false, tooSoon = false, er
       all: agg.all,
     },
 
-    groups: {
-      ...agg.groups,
-      /* What the box office has, as against what the orders read show. */
-      bundlesOnSale: (f.bundles || []).filter(b => b.status === 'ON_SALE').length,
-      bundlesKnown: (f.bundles || []).length,
-      ticketGroups: (f.ticketGroups || []).map(g => g.name),
+    deals: {
+      sold: agg.groups.deals,
+      people: agg.groups.people,
+      rows: agg.byDeal.map(d => ({ name: d.name, deals: d.deals, people: d.people })),
+      /* What the box office defines, for naming only. Nothing is counted
+         from it, so an empty list means nothing is wrong. */
+      defined: (f.deals || []).map(d => ({ name: d.name, status: d.status })),
     },
 
     perDay: Object.fromEntries(lastDays(14, now).map(d => [d, agg.perDay[d] || 0])),
     byType: paidTypes.map(t => ({ id: t.id, name: t.name, price: t.price, sold: t.sold })),
     otherTypes: otherTypes.map(t => ({
-      id: t.id, name: t.name, price: t.price, sold: t.sold, kind: t.kind,
+      id: t.id, name: t.name, price: t.price, sold: t.issued, kind: t.kind,
     })),
     complimentary: agg.comp,
 
@@ -539,36 +558,38 @@ function shape(f, who, { now, cached = false, stale = false, tooSoon = false, er
     out.revenue = { total: agg.revenue, orders: agg.orders };
 
     const money = days => days.reduce((n, d) => n + (agg.perDayMoney[d] || 0), 0);
-    out.periods[0].revenue = agg.perDayMoney[today] || 0;
-    out.periods[1].revenue = agg.perDayMoney[yesterday] || 0;
+    out.periods[0].revenue = money([today]);
+    out.periods[1].revenue = money([yesterday]);
     out.periods[2].revenue = money(last7);
 
     const byId = Object.fromEntries(agg.byType.map(t => [t.id, t.revenue]));
     out.byType = out.byType.map(t => ({ ...t, revenue: byId[t.id] || 0 }));
     out.otherTypes = out.otherTypes.map(t => ({ ...t, revenue: byId[t.id] || 0 }));
+    out.deals.rows = agg.byDeal.map(d => ({
+      name: d.name, deals: d.deals, people: d.people, revenue: d.revenue,
+    }));
 
-    /* The table has to add up to the headline. Whatever the ticket lines did
-       not account for is fees, tax and donations, and it gets a line of its
-       own rather than being folded into a ticket type. */
-    const named = agg.byType.reduce((n, t) => n + t.revenue, 0);
+    /* Single tickets, plus the deals, plus the fees, is the headline. */
+    const singles = out.byType.reduce((n, t) => n + t.revenue, 0);
+    const dealMoney = agg.byDeal.reduce((n, d) => n + d.revenue, 0);
     out.reconcile = {
-      types: named,
-      other: agg.revenue - named,
+      singles,
+      deals: dealMoney,
+      /* Only real fee, tax and donation lines. */
+      fees: agg.fees,
       total: agg.revenue,
+      /* Nothing should be left, and if something is it gets said. */
+      unexplained: agg.revenue - singles - dealMoney - agg.fees,
     };
 
-    /* Where the difference between list price and money received went. */
     const g = agg.gap;
     out.gap = {
       list: g.list,
       discounts: g.discounts,
-      bundles: g.bundles,
       complimentary: g.complimentary,
       refunds: g.refunds,
       cancelled: g.cancelled,
       received: agg.revenue,
-      unexplained: g.list - g.discounts - g.bundles - g.complimentary
-        - g.refunds - agg.revenue + agg.other,
     };
   }
   return out;

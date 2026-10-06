@@ -108,53 +108,75 @@ export const SOURCE_ORDER = ['none', 'site', 'instagram', 'referral', 'team', 'o
 
 /* ------------------------------------------------------------ the money */
 
-/* What a line item is. `gift_card` is Ticket Tailor's name for a discount or
-   voucher applied to the order; `void` is a ticket voided after purchase. */
-export const TICKET_LINE = 'ticket';
+/* `gift_card` is Ticket Tailor's name for a discount or voucher applied to
+   the order; `void` is a ticket voided after purchase. */
 export const DISCOUNT_LINE = 'gift_card';
 export const VOID_LINE = 'void';
+
+/* The only lines that are not somebody buying something to come in with.
+   Everything else that carries money is ticket revenue, whether it is a
+   single ticket or a group deal, and whatever Ticket Tailor calls its type. */
+export const FEE_LINES = new Set(['transaction_charge', 'tax', 'donation']);
 
 export const linesOf = order =>
   (Array.isArray(order && order.line_items) ? order.line_items : []);
 
 const abs = v => Math.abs(Number(v) || 0);
 
+/** A plain ticket line: one ticket type, bought on its own. */
+export const isTicketLine = l =>
+  !FEE_LINES.has(String(l && l.type))
+  && String(l && l.type) !== DISCOUNT_LINE
+  && String(l && l.type) !== VOID_LINE
+  && /^tt_/.test(String((l && l.item_id) || ''));
+
 /**
- * What an order actually brought in, and where it went.
+ * A group deal line.
  *
- * `total` is the whole order including fees and tax, so the money attributed
- * to ticket types is the ticket lines less the discount, and whatever is left
- * over is fees, tax and donations. Both halves are returned, because the two
- * together have to add up to the headline or the table is a different number
- * wearing the same name.
+ * Anything that is money for admission and is not a plain ticket type. The
+ * documented item id is `bu_`, but a line that identifies its deal some other
+ * way must still be ticket revenue: treating it as a fee is what put a deal's
+ * whole price into "fees, tax and other" and made every ticket it covered
+ * look like a giveaway.
+ */
+export const isDealLine = l =>
+  !FEE_LINES.has(String(l && l.type))
+  && String(l && l.type) !== DISCOUNT_LINE
+  && String(l && l.type) !== VOID_LINE
+  && !/^tt_/.test(String((l && l.item_id) || ''))
+  && (Number(l && l.total) || 0) !== 0;
+
+/** Kept for the tests that name it; a deal is a bundle by another word. */
+export const isBundleLine = isDealLine;
+
+/**
+ * What an order brought in, and where it went.
  *
- * A partial refund scales the whole thing: Ticket Tailor does not say which
- * line the money came off, so taking it off everything in proportion is the
- * only answer that does not invent a detail.
+ * Admission money is every ticket line and every deal line, less the
+ * discount. Fees and tax are the rest. The two together are the order's net,
+ * so the table can add up to the headline without a fudge.
  */
 export function orderMoney(order) {
   const lines = linesOf(order);
-  const tickets = lines.filter(l => String(l.type) === TICKET_LINE);
-  const gross = tickets.reduce((n, l) => n + (Number(l.total) || 0), 0);
+  const buying = lines.filter(l => isTicketLine(l) || isDealLine(l));
+  const gross = buying.reduce((n, l) => n + (Number(l.total) || 0), 0);
   const discount = lines.filter(l => String(l.type) === DISCOUNT_LINE)
     .reduce((n, l) => n + abs(l.total), 0);
-  const voided = lines.filter(l => String(l.type) === VOID_LINE)
-    .reduce((n, l) => n + abs(l.total), 0);
+  const fees = lines.filter(l => FEE_LINES.has(String(l.type)))
+    .reduce((n, l) => n + (Number(l.total) || 0), 0);
 
   const net = orderNet(order);
   const total = Number(order.total) || 0;
   const kept = total > 0 ? net / total : 1;
 
-  const ticketMoney = Math.max(0, (gross - discount)) * kept;
+  const ticketMoney = Math.max(0, gross - discount) * kept;
 
-  /* Per line, in proportion to what it cost before the code. */
   const byLine = new Map();
-  for (const l of tickets) {
+  for (const l of buying) {
     const share = gross > 0 ? (Number(l.total) || 0) / gross : 0;
     byLine.set(l, Math.round(ticketMoney * share));
   }
-  /* Rounding has to land somewhere, and it lands on the biggest line, so the
-     parts still add up to the whole. */
+  /* Rounding lands on the biggest line, so the parts still make the whole. */
   const allocated = [...byLine.values()].reduce((a, b) => a + b, 0);
   if (byLine.size && allocated !== Math.round(ticketMoney)) {
     let biggest = null;
@@ -163,22 +185,18 @@ export function orderMoney(order) {
   }
 
   return {
-    gross, discount, voided, net,
+    gross, discount, fees, net,
     ticketMoney: Math.round(ticketMoney),
     other: net - Math.round(ticketMoney),
     byLine,
   };
 }
 
-/** A line that is a bundle rather than a plain ticket type. */
-export const isBundleLine = line => /^bu_/.test(String(line && line.item_id || ''));
-
 /* ------------------------------------------------------------- the counting */
 
 /* Bumped whenever the shape of a cached figures object changes. A cache
-   written by an older deploy is ignored rather than read and crashed on,
-   which is exactly what happened the first time this was not here. */
-export const SHAPE_VERSION = 2;
+   written by an older deploy is ignored rather than read and crashed on. */
+export const SHAPE_VERSION = 3;
 
 /** Does this cached object have everything shape() is about to read? */
 export function isCurrentShape(f) {
@@ -186,10 +204,11 @@ export function isCurrentShape(f) {
   if (Number(f.version) !== SHAPE_VERSION) return false;
   const a = f.agg;
   if (!a || typeof a !== 'object') return false;
-  for (const k of ['perDay', 'perDayMoney', 'byType', 'bySource', 'byCode', 'groups', 'gap']) {
+  for (const k of ['perDay', 'perDayMoney', 'perDayAll', 'perDayOrders',
+    'byType', 'byDeal', 'bySource', 'byCode', 'groups', 'gap']) {
     if (!a[k] || typeof a[k] !== 'object') return false;
   }
-  for (const k of ['paid', 'free', 'team', 'comp', 'all', 'revenue', 'other']) {
+  for (const k of ['paid', 'free', 'team', 'comp', 'all', 'revenue', 'fees', 'insideDeals']) {
     if (typeof a[k] !== 'number') return false;
   }
   return Boolean(f.team && Array.isArray(f.team.teams));
@@ -197,33 +216,39 @@ export function isCurrentShape(f) {
 
 const bump = (obj, key, by = 1) => { obj[key] = (obj[key] || 0) + by; };
 
+export const ticketsOf = order =>
+  (Array.isArray(order && order.issued_tickets) ? order.issued_tickets : [])
+    .filter(ticketCounts);
+
 /**
  * Everything the page shows.
  *
- * Counts of how many of each type exist come from the ticket types on the
- * event, which carry `quantity_issued`: one call for the lot, where walking
- * every issued ticket was a page per hundred and would not fit inside a
- * Worker's subrequest budget at ten thousand tickets. It is also the number
- * Ticket Tailor itself shows, which is the point of that card.
+ * How many of each type exist comes from the ticket types on the event, which
+ * carry `quantity_issued`: one call for the lot. Who paid, and for what, comes
+ * from the orders, counted against the order's own issued tickets rather than
+ * against any bundle definition, because the definitions cannot be read back
+ * at all and a count that depends on them is a count that breaks.
  *
- * Money, and which tickets were actually paid for, come from the orders,
- * because that is where money is. A ticket of a paid type that went out at
- * nothing is complimentary: a paid total that includes free tickets is not a
- * paid total.
+ * A ticket issued at nothing on an order that bought a deal is a person
+ * inside that deal, and they are paid tickets. Complimentary means only a
+ * ticket of a paid type issued at nothing with no deal on the order to
+ * account for it.
  */
 export function aggregate(orders, typeIssued = {}, {
-  teamTypes, typeNames = {}, typePrices = {}, bundles = {},
+  teamTypes, typeNames = {}, typePrices = {},
 } = {}) {
   const perDay = {};
   const perDayMoney = {};
+  const perDayAll = {};
+  const perDayOrders = {};
   const byType = {};
+  const byDeal = {};
   const bySource = {};
   const byCode = {};
 
-  let revenue = 0, orderCount = 0, otherMoney = 0;
-  let discountGiven = 0, bundleSaving = 0, refundedMoney = 0, lostToCancelled = 0;
-  let bundleDeals = 0, bundlePeople = 0;
-  let paid = 0, compInOrders = 0;
+  let revenue = 0, orderCount = 0, feeMoney = 0;
+  let discountGiven = 0, refundedMoney = 0, lostToCancelled = 0;
+  let paidIndividually = 0, insideDeals = 0, compInOrders = 0, dealCount = 0;
 
   const isTeam = id => teamTypes.has(String(id));
   const isFree = id => Number(typePrices[id]) === 0 && !isTeam(id);
@@ -231,7 +256,7 @@ export function aggregate(orders, typeIssued = {}, {
   for (const order of orders) {
     if (!orderCounts(order)) {
       lostToCancelled += linesOf(order)
-        .filter(l => String(l.type) === TICKET_LINE)
+        .filter(l => isTicketLine(l) || isDealLine(l))
         .reduce((n, l) => n + (Number(l.total) || 0), 0);
       continue;
     }
@@ -239,63 +264,96 @@ export function aggregate(orders, typeIssued = {}, {
     orderCount += 1;
     const m = orderMoney(order);
     revenue += m.net;
-    otherMoney += m.other;
+    feeMoney += m.other;
     discountGiven += m.discount;
     refundedMoney += Number(order.refund_amount) || 0;
 
     const day = brusselsDay(order.created_at);
     bump(perDayMoney, day, m.net);
+    bump(perDayOrders, day);
     bump(bySource, sourceOf(order.referral_tag));
 
     const code = String(order.discount_code
       || (order.discount && order.discount.code) || '').toUpperCase();
     if (code) bump(byCode, code);
 
+    /* ---- what this order bought, line by line ---- */
+    const boughtPerType = {};     // type -> how many were bought on their own
+    const deals = [];             // the deal lines, with their money
+
     for (const [line, amount] of m.byLine) {
       const qty = Number(line.quantity) || 1;
-
-      if (isBundleLine(line)) {
-        const bundle = bundles[String(line.item_id)];
-        bundleDeals += qty;
-        const inside = (bundle && bundle.ticket_types) || [];
-        const heads = inside.reduce((n, t) => n + (Number(t.quantity) || 0), 0) * qty;
-        bundlePeople += heads;
-
-        const list = inside.reduce((n, t) =>
-          n + (Number(typePrices[t.id]) || 0) * (Number(t.quantity) || 0), 0) * qty;
-        if (list) bundleSaving += Math.max(0, list - (Number(line.total) || 0));
-
-        /* The people inside a deal are paid people, counted one by one. */
-        const headsPaid = inside
-          .filter(t => !isFree(t.id) && !isTeam(t.id))
-          .reduce((n, t) => n + (Number(t.quantity) || 0), 0) * qty;
-        if (amount > 0) { paid += headsPaid; if (headsPaid) bump(perDay, day, headsPaid); }
-        else compInOrders += headsPaid;
-
-        if (inside.length) {
-          for (const t of inside) {
-            const w = list ? ((Number(typePrices[t.id]) || 0) * (Number(t.quantity) || 0) * qty) / list : 0;
-            touchType(byType, t.id, typeNames, typePrices, Math.round(amount * w));
-          }
-        } else {
-          touchType(byType, String(line.item_id), typeNames, typePrices, amount,
-            line.description || String(line.item_id));
-        }
+      if (isDealLine(line)) {
+        const name = String(line.description || line.item_id || 'Group deal').trim();
+        deals.push({ name, qty, amount });
+        dealCount += qty;
         continue;
       }
-
-      const typeId = String(line.item_id || line.description || 'unknown');
-      touchType(byType, typeId, typeNames, typePrices, amount, line.description);
-
+      const typeId = String(line.item_id);
+      touchType(byType, typeId, typeNames, typePrices, amount);
       if (isFree(typeId) || isTeam(typeId)) continue;
-      if (amount > 0) { paid += qty; bump(perDay, day, qty); }
-      else compInOrders += qty;
+      if (amount > 0) bump(boughtPerType, typeId, qty);
     }
+
+    /* ---- and who came in on it ---- */
+    const issuedHere = {};
+    let allHere = 0;
+    for (const t of ticketsOf(order)) {
+      allHere += 1;
+      bump(issuedHere, String(t.ticket_type_id || 'unknown'));
+    }
+    bump(perDayAll, day, allHere);
+
+    let dealPeopleHere = 0;
+    for (const [typeId, n] of Object.entries(issuedHere)) {
+      if (isTeam(typeId) || isFree(typeId)) continue;
+      const bought = Math.min(n, boughtPerType[typeId] || 0);
+      paidIndividually += bought;
+      byType[typeId] = byType[typeId] || blankType(typeId, typeNames, typePrices);
+      byType[typeId].sold += bought;
+
+      const left = n - bought;
+      if (!left) continue;
+      if (deals.length) dealPeopleHere += left;
+      else compInOrders += left;
+    }
+
+    /* The people inside this order's deals, shared out by what each cost. */
+    if (dealPeopleHere) {
+      insideDeals += dealPeopleHere;
+      bump(perDay, day, dealPeopleHere);
+      const money = deals.reduce((n, d) => n + d.amount, 0);
+      let given = 0;
+      deals.forEach((d, i) => {
+        const share = i === deals.length - 1
+          ? dealPeopleHere - given
+          : Math.round(dealPeopleHere * (money ? d.amount / money : 1 / deals.length));
+        given += share;
+        const row = byDeal[d.name] = byDeal[d.name]
+          || { name: d.name, deals: 0, people: 0, revenue: 0 };
+        row.deals += d.qty;
+        row.people += share;
+        row.revenue += d.amount;
+      });
+    } else {
+      for (const d of deals) {
+        const row = byDeal[d.name] = byDeal[d.name]
+          || { name: d.name, deals: 0, people: 0, revenue: 0 };
+        row.deals += d.qty;
+        row.revenue += d.amount;
+      }
+    }
+
+    /* Individually bought tickets land on the day their order did. */
+    const boughtHere = Object.entries(issuedHere)
+      .filter(([id]) => !isTeam(id) && !isFree(id))
+      .reduce((n, [id, c]) => n + Math.min(c, boughtPerType[id] || 0), 0);
+    if (boughtHere) bump(perDay, day, boughtHere);
   }
 
   /* ---- how many of each type exist, from the event ---- */
   const issuedOf = id => Number(typeIssued[id]) || 0;
-  let free = 0, team = 0, all = 0, issuedPaidTypes = 0, compList = 0, listGross = 0;
+  let free = 0, team = 0, all = 0, issuedPaidTypes = 0, listGross = 0;
 
   for (const id of new Set([...Object.keys(typeIssued), ...Object.keys(typePrices)])) {
     const n = issuedOf(id);
@@ -306,45 +364,43 @@ export function aggregate(orders, typeIssued = {}, {
     listGross += n * (Number(typePrices[id]) || 0);
   }
 
-  /* A paid type that exists but was never paid for in any order: a pass
-     issued by hand, or a comp given through the dashboard. Derived rather
-     than guessed, and it cannot go below nothing. */
+  const paid = paidIndividually + insideDeals;
+  /* A paid type that exists and no order accounts for: issued by hand. */
   const compOutside = Math.max(0, issuedPaidTypes - paid - compInOrders);
   const comp = compInOrders + compOutside;
+  const compList = issuedPaidTypes > 0 ? Math.round((listGross * comp) / issuedPaidTypes) : 0;
 
-  /* What the giveaways cost at list, in proportion to what exists. */
-  compList = issuedPaidTypes > 0 ? Math.round((listGross * comp) / issuedPaidTypes) : 0;
-
-  const types = Object.values(byType).map(t => ({
-    ...t,
-    sold: issuedOf(t.id),
-    kind: isTeam(t.id) ? 'team' : (isFree(t.id) ? 'free' : 'paid'),
-  }));
-  /* A type that exists but brought in nothing still belongs in the tables. */
+  const types = Object.values(byType)
+    .map(t => ({ ...t, kind: isTeam(t.id) ? 'team' : (isFree(t.id) ? 'free' : 'paid'),
+      issued: issuedOf(t.id) }));
   for (const id of Object.keys(typeIssued)) {
     if (types.some(t => t.id === id)) continue;
     types.push({
-      id, name: typeNames[id] || id, price: typePrices[id] ?? null,
-      revenue: 0, sold: issuedOf(id),
+      ...blankType(id, typeNames, typePrices),
       kind: isTeam(id) ? 'team' : (isFree(id) ? 'free' : 'paid'),
+      issued: issuedOf(id),
     });
   }
 
   return {
     paid, free, team, comp, all,
+    paidIndividually,
+    insideDeals,
     orders: orderCount,
     revenue,
+    fees: feeMoney,
     perDay,
     perDayMoney,
+    perDayAll,
+    perDayOrders,
     byType: types.sort((a, b) => b.revenue - a.revenue || b.sold - a.sold),
+    byDeal: Object.values(byDeal).sort((a, b) => b.revenue - a.revenue),
     bySource,
     byCode,
-    groups: { deals: bundleDeals, people: bundlePeople },
-    other: otherMoney,
+    groups: { deals: dealCount, people: insideDeals },
     gap: {
       list: listGross,
       discounts: discountGiven,
-      bundles: bundleSaving,
       complimentary: compList,
       refunds: refundedMoney,
       cancelled: lostToCancelled,
@@ -352,14 +408,12 @@ export function aggregate(orders, typeIssued = {}, {
   };
 }
 
-function touchType(byType, id, names, prices, amount, fallbackName) {
-  byType[id] = byType[id] || {
-    id,
-    name: names[id] || fallbackName || id,
-    price: prices[id] ?? null,
-    sold: 0,
-    revenue: 0,
-  };
+const blankType = (id, names, prices) => ({
+  id, name: names[id] || id, price: prices[id] ?? null, sold: 0, revenue: 0,
+});
+
+function touchType(byType, id, names, prices, amount) {
+  byType[id] = byType[id] || blankType(id, names, prices);
   byType[id].revenue += amount;
 }
 
