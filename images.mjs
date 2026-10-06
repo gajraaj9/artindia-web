@@ -124,6 +124,22 @@ export class Images {
     return entry;
   }
 
+  /**
+   * One URL for one width, for somewhere a srcset cannot go.
+   *
+   * A video poster is the case: the attribute takes a single src and nothing
+   * else, so it gets a middling width rather than the 2400 the <img> falls
+   * back to. A poster that is heavier than the first second of the video
+   * defeats the point of having one.
+   */
+  src(stem, want = 1200) {
+    const e = this.byStem.get(stem);
+    if (!e || !e.ready) return '';
+    const w = e.widths.reduce((best, x) =>
+      (Math.abs(x - want) < Math.abs(best - want) ? x : best), e.widths[0]);
+    return `${this.publicPath}/${this.key(stem)}-${e.hash}-${w}.jpg`;
+  }
+
   /** A <picture> with srcset, intrinsic size and the focal point applied. */
   tag(stem, { alt = '', sizes = '100vw', ratio = null, className = '', eager = false } = {}) {
     const e = this.byStem.get(stem);

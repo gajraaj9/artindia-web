@@ -245,11 +245,16 @@ function render(lang, page = 'home', dayId = null) {
     const vids = HERO_VIDEO_ON
       ? ['diwali-hero.webm', 'diwali-hero.mp4'].filter(f => existsSync(join(HERE, 'media', f)))
       : [];
+    /* The poster: one frame, so the element is never a black box while the
+       first bytes are still coming, and never a black box at all if they
+       never come. The still sits underneath it either way. */
+    const poster = IMG.has('diwali-hero') ? IMG.src('diwali-hero', 1200) : '';
     const media = !HERO_VIDEO_ON
       ? '<div class="hero-fallback"></div>'
       : vids.length
-        ? `${still}<video class="hero-video" autoplay muted loop playsinline preload="none">${
-            vids.map(f => `<source src="/static/media/${f}" type="video/${f.endsWith('webm') ? 'webm' : 'mp4'}">`).join('')
+        ? `${still}<video class="hero-video" id="hero-video" muted loop playsinline`
+          + ` preload="none"${poster ? ` poster="${poster}"` : ''}>${
+            vids.map(f => `<source data-src="/static/media/${f}" type="video/${f.endsWith('webm') ? 'webm' : 'mp4'}">`).join('')
           }</video>`
         : still;
     const days = d.event.days.map(x => `<div class="day">
@@ -1702,6 +1707,84 @@ form.addEventListener('submit', async ev => {
       links[i].setAttribute('href', u.pathname + u.search);
     }
   } catch (e) { /* the links still work untagged */ }
+})();
+</script>
+<!-- The hero video, and the still underneath it.
+
+     A video that is on the page but not moving reads as a broken site, and
+     there are several ordinary ways for that to happen on a phone: iOS Low
+     Power Mode refuses autoplay outright, Android Data Saver blocks the
+     fetch, and a weak connection stalls after the first frame. Every one of
+     them ends the same way here, with the video removed and the still
+     showing, which is a photograph of the festival rather than a fault. -->
+<script>
+(function () {
+  var v = document.getElementById('hero-video');
+  if (!v) return;
+
+  /* The still is already in the markup underneath, so failing is a matter of
+     getting out of its way rather than putting anything in place. */
+  function giveUp() {
+    if (!v) return;
+    try { v.pause(); } catch (e) {}
+    v.removeAttribute('poster');
+    v.style.display = 'none';
+    v = null;
+  }
+
+  /* Somebody who has asked their phone to use less data has asked for this
+     too. The file is never fetched at all. */
+  try {
+    var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (c && c.saveData) { giveUp(); return; }
+  } catch (e) { /* no hint either way, carry on */ }
+
+  /* Nor for anyone who has asked the system to stop moving things. The CSS
+     hides it; this stops it being downloaded. */
+  try {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      giveUp();
+      return;
+    }
+  } catch (e) {}
+
+  var tries = 0;
+
+  function start() {
+    if (!v || tries > 1) return;
+    tries++;
+
+    /* The sources carry data-src so nothing is fetched before this point. */
+    var sources = v.querySelectorAll('source[data-src]');
+    for (var i = 0; i < sources.length; i++) {
+      sources[i].setAttribute('src', sources[i].getAttribute('data-src'));
+      sources[i].removeAttribute('data-src');
+    }
+    if (sources.length) v.load();
+
+    var p = v.play();
+    /* Older browsers return nothing from play(); the watchdog covers them. */
+    if (p && typeof p.catch === 'function') p.catch(giveUp);
+
+    /* And the case play() does not report: it resolves, or never settles,
+       and the picture stays on frame one anyway. Two and a half seconds is
+       long enough for a slow connection to have started something. */
+    setTimeout(function () {
+      if (!v) return;
+      if (!(v.currentTime > 0) || v.paused) {
+        if (document.visibilityState === 'hidden') return;   // retried on wake
+        giveUp();
+      }
+    }, 2500);
+  }
+
+  /* A page opened in a background tab is not allowed to play, and that is
+     not a failure: it gets one more go when somebody looks at it. */
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') start();
+  });
+
+  if (document.visibilityState === 'visible') start();
 })();
 </script>
 <!-- Diya, the festival's chat host. One tag; the widget injects its own CSS

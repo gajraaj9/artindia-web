@@ -416,3 +416,65 @@ test('a missing photo is normal, whether the folder is empty, part full or full'
       `${id}: the card and the folder disagree about whether a photo exists`);
   });
 });
+
+/* ------------------------------------------------------------- the hero */
+
+/* A video on the page that is not moving reads as a broken site, and there
+   are several ordinary ways for that to happen on a phone. Every one of them
+   has to end with the still showing instead. */
+
+test('the hero video has a poster and loads nothing until the script says so', () => {
+  for (const rel of HOME) {
+    const h = read(rel);
+    const video = h.slice(h.indexOf('<video'), h.indexOf('</video>'));
+    if (!video) continue;
+
+    assert.match(video, /poster="\/static\/img\/diwali-hero-[a-f0-9]+-\d+\.jpg"/,
+      `${rel} has no poster, so it is a black box until the first frame`);
+    assert.match(video, /muted/);
+    assert.match(video, /playsinline/, 'without this iOS opens it full screen');
+    assert.match(video, /preload="none"/);
+
+    /* No autoplay attribute and no src: the script decides, so Save-Data and
+       reduced motion can stop the file being fetched at all. */
+    assert.ok(!/\bautoplay\b/.test(video), `${rel} still autoplays behind the script's back`);
+    assert.ok(!/<source[^>]+\ssrc=/.test(video), `${rel} fetches the video before the script runs`);
+    assert.match(video, /<source data-src="\/static\/media\/diwali-hero\.webm"/);
+    assert.match(video, /<source data-src="\/static\/media\/diwali-hero\.mp4"/);
+  }
+});
+
+test('the still is in the markup underneath, so failing is getting out of its way', () => {
+  for (const rel of HOME) {
+    const h = read(rel);
+    const media = h.slice(h.indexOf('<div class="hero-media">'), h.indexOf('<div class="hero-veil">'));
+    if (!media.includes('<video')) continue;
+    assert.ok(media.indexOf('<picture') < media.indexOf('<video'),
+      `${rel} puts the video before the still it falls back to`);
+    assert.match(media, /fetchpriority="high"/, 'the still is the thing worth loading first');
+  }
+});
+
+test('every way a hero video can fail ends with the still', () => {
+  const h = read(HOME[0]);
+  const js = h.slice(h.indexOf("document.getElementById('hero-video')"));
+
+  /* The four causes, and the one thing they all do. */
+  assert.match(js, /saveData/, 'Android Data Saver');
+  assert.match(js, /prefers-reduced-motion/);
+  assert.match(js, /p\.catch\(giveUp\)/, 'play() rejecting, which is iOS Low Power Mode');
+  assert.match(js, /v\.currentTime > 0/, 'and the stall that play() never reports');
+  assert.match(js, /2500/, 'the watchdog');
+  assert.match(js, /visibilitychange/, 'a background tab gets a second go');
+
+  /* Giving up hides the video and takes the poster with it, so what shows is
+     the still underneath rather than a frozen frame. */
+  assert.match(js, /function giveUp\(\)/);
+  assert.match(js, /v\.style\.display = 'none'/);
+  assert.match(js, /removeAttribute\('poster'\)/);
+
+  /* A hidden tab is not a failure and must not be treated as one. */
+  assert.match(js, /if \(document\.visibilityState === 'hidden'\) return;/);
+  /* And the retry happens once, not for ever. */
+  assert.match(js, /tries > 1/);
+});
