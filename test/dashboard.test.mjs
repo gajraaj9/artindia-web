@@ -16,6 +16,7 @@ import {
   aggregate, brusselsDay, brusselsHour, lastDays, sumDays, daysToGo,
   orderCounts, orderNet, ticketCounts, classify, sourceOf, SOURCE_ORDER,
   checkInsByHour, festivalStarted, viewerFor, revenueNames, FESTIVAL_DAYS,
+  orderMoney, isBundleLine, soldByType,
 } from '../functions/api/_dash.js';
 import { onRequestGet as dash, onRequestPost as dashPost } from '../functions/api/dash.js';
 import { safeEqual } from '../functions/api/_shared.js';
@@ -73,26 +74,64 @@ const NOON = Math.floor(new Date('2026-10-06T12:00:00+02:00').getTime() / 1000);
 const NOW = new Date('2026-10-06T12:00:00+02:00');
 
 let orderN = 0;
-const order = (over = {}) => ({
-  id: `or_${++orderN}`,
-  status: 'completed',
-  total: 2000,
-  refund_amount: 0,
-  created_at: NOON,
-  referral_tag: '',
-  issued_tickets: [{ id: `it_${orderN}`, ticket_type_id: 'tt_presale' }],
-  ...over,
-});
+
+/**
+ * One order with one presale ticket on it, unless told otherwise.
+ *
+ * `lines` is the shorthand: [typeId, quantity, total] per ticket line, and a
+ * discount as ['gift_card', 1, -amount]. The issued tickets that go with it
+ * are built to match, because in the real API they are two separate reads
+ * that have to agree.
+ */
+function order(over = {}) {
+  const id = `or_${++orderN}`;
+  const lines = over.lines || [['tt_presale', 1, 1000]];
+  delete over.lines;
+
+  const line_items = lines.map(([item, qty, total], i) => ({
+    object: 'line_item', id: `li_${id}_${i}`,
+    type: item === 'gift_card' ? 'gift_card' : (item === 'void' ? 'void' : 'ticket'),
+    item_id: item === 'gift_card' || item === 'void' ? null : item,
+    description: item, quantity: qty, total, value: total,
+  }));
+  const total = line_items.reduce((n, l) => n + l.total, 0);
+
+  const tickets = [];
+  for (const [item, qty] of lines) {
+    if (item === 'gift_card' || item === 'void') continue;
+    for (let i = 0; i < qty; i++) {
+      tickets.push({ id: `it_${id}_${item}_${i}`, ticket_type_id: item, order_id: id });
+    }
+  }
+
+  return {
+    order: {
+      id, status: 'completed', total, refund_amount: 0,
+      created_at: NOON, referral_tag: '', line_items, ...over,
+    },
+    tickets,
+  };
+}
+
+/** The orders and their tickets, the way the two reads arrive. */
+function world2(made) {
+  return {
+    orders: made.map(m => m.order),
+    tickets: made.flatMap(m => m.tickets),
+  };
+}
 
 const OPTS = {
   teamTypes: new Set(['tt_core', 'tt_artist']),
-  freeTypes: new Set(['tt_child']),
   typeNames: Object.fromEntries(TYPES.map(t => [t.id, t.name])),
   typePrices: Object.fromEntries(TYPES.map(t => [t.id, t.price])),
 };
 
 /** Everything Ticket Tailor and the bot would answer, with knobs. */
-function world({ orders = [], checkIns = [], fail = '' } = {}) {
+function world({ orders = [], tickets = null, bundles = [], checkIns = [], fail = '' } = {}) {
+  /* When a test does not say, the tickets are the ones the orders imply. */
+  const issued = tickets || orders.flatMap(o => (o.issued_tickets || []).map(
+    t => ({ ...t, order_id: String(o.id) })));
   const calls = [];
   const real = globalThis.fetch;
   globalThis.fetch = async (input, init = {}) => {
@@ -103,8 +142,12 @@ function world({ orders = [], checkIns = [], fail = '' } = {}) {
     });
     if (fail === 'tt' && url.includes('tickettailor')) return reply(503, { errors: [{ message: 'down' }] });
     if (url.includes('/v1/events/')) {
-      return reply(200, { object: 'event', id: 'ev_1', ticket_types: TYPES });
+      return reply(200, {
+        object: 'event', id: 'ev_1', event_series_id: 'es_1', ticket_types: TYPES,
+      });
     }
+    if (url.includes('/bundles')) return reply(200, { data: bundles });
+    if (url.includes('/v1/issued_tickets')) return reply(200, { data: issued });
     if (url.includes('/v1/orders')) {
       const since = Number(new URL(url).searchParams.get('created_at.gte') || 0);
       return reply(200, { data: orders.filter(o => !since || o.created_at >= since) });
@@ -159,17 +202,17 @@ test('the countdown stops at zero and never runs backwards', () => {
 /* -------------------------------------------------------- what is excluded */
 
 test('cancelled, pending and fully refunded orders are not orders', () => {
-  assert.equal(orderCounts(order()), true);
-  assert.equal(orderCounts(order({ status: 'cancelled' })), false);
-  assert.equal(orderCounts(order({ status: 'pending' })), false);
-  assert.equal(orderCounts(order({ total: 2000, refund_amount: 2000 })), false);
-  assert.equal(orderCounts(order({ total: 2000, refund_amount: 2500 })), false);
+  const o = over => order({ ...over }).order;
+  assert.equal(orderCounts(o()), true);
+  assert.equal(orderCounts(o({ status: 'cancelled' })), false);
+  assert.equal(orderCounts(o({ status: 'pending' })), false);
+  assert.equal(orderCounts(o({ total: 2000, refund_amount: 2000 })), false);
+  assert.equal(orderCounts(o({ total: 2000, refund_amount: 2500 })), false);
   /* Part of it back is still an order, for what is left. */
-  assert.equal(orderCounts(order({ total: 2000, refund_amount: 500 })), true);
-  assert.equal(orderNet(order({ total: 2000, refund_amount: 500 })), 1500);
-  assert.equal(orderNet(order({ total: 2000, refund_amount: 9000 })), 0, 'never below zero');
-  /* A free order is not a refunded one. */
-  assert.equal(orderCounts(order({ total: 0, refund_amount: 0 })), true);
+  assert.equal(orderCounts(o({ total: 2000, refund_amount: 500 })), true);
+  assert.equal(orderNet(o({ total: 2000, refund_amount: 500 })), 1500);
+  assert.equal(orderNet(o({ total: 2000, refund_amount: 9000 })), 0, 'never below zero');
+  assert.equal(orderCounts(o({ total: 0, refund_amount: 0 })), true);
 });
 
 test('a voided ticket is not a ticket', () => {
@@ -180,23 +223,198 @@ test('a voided ticket is not a ticket', () => {
 });
 
 test('an excluded order takes its tickets and its money with it', () => {
-  const a = aggregate([
-    order({ issued_tickets: [{ id: 'a', ticket_type_id: 'tt_presale' }] }),
-    order({ status: 'cancelled', issued_tickets: [{ id: 'b', ticket_type_id: 'tt_presale' }] }),
-    order({ total: 2000, refund_amount: 2000, issued_tickets: [{ id: 'c', ticket_type_id: 'tt_presale' }] }),
-    order({
-      total: 4000,
-      issued_tickets: [
-        { id: 'd', ticket_type_id: 'tt_presale' },
-        { id: 'e', ticket_type_id: 'tt_presale', voided_at: '2026-10-01T00:00:00Z' },
-      ],
-    }),
-  ], OPTS);
+  const good = order();
+  const cancelled = order({ status: 'cancelled' });
+  const refunded = order();
+  refunded.order.refund_amount = refunded.order.total;
+  const w = world2([good, cancelled, refunded]);
 
-  assert.equal(a.paid, 2, 'one from each surviving order');
-  assert.equal(a.orders, 2);
-  assert.equal(a.revenue, 6000, 'the cancelled and the refunded brought nothing');
-  assert.equal(a.all, 2, 'the voided ticket is not in the total either');
+  const a = aggregate(w.orders, w.tickets, OPTS);
+  assert.equal(a.orders, 1);
+  assert.equal(a.revenue, 1000, 'the cancelled and the refunded brought nothing');
+  assert.equal(a.paid, 1, 'and their tickets are not paid tickets');
+  assert.equal(a.comp, 0,
+    'nor complimentary ones: a cancelled order is not a gift, it is nothing');
+  assert.equal(a.all, 1, 'and they are not in the total either');
+});
+
+/* -------------------------------------------------------------- the money */
+
+test('an order is split into ticket money and everything else, and they add up', () => {
+  const m = orderMoney({
+    total: 2200, refund_amount: 0,
+    line_items: [
+      { type: 'ticket', item_id: 'tt_presale', quantity: 2, total: 2000 },
+      { type: 'gift_card', total: -200 },
+      { type: 'transaction_charge', total: 400 },
+    ],
+  });
+  assert.equal(m.gross, 2000);
+  assert.equal(m.discount, 200, 'gift_card is what Ticket Tailor calls a discount');
+  assert.equal(m.ticketMoney, 1800);
+  assert.equal(m.other, 400, 'the fee is not ticket money');
+  assert.equal(m.ticketMoney + m.other, m.net, 'the parts are the whole');
+});
+
+test('a discount is spread over the lines in proportion, to the last cent', () => {
+  const m = orderMoney({
+    total: 2700, refund_amount: 0,
+    line_items: [
+      { type: 'ticket', item_id: 'tt_gate', quantity: 1, total: 1500 },
+      { type: 'ticket', item_id: 'tt_presale', quantity: 1, total: 1000 },
+      { type: 'ticket', item_id: 'tt_teen', quantity: 1, total: 1000 },
+      { type: 'gift_card', total: -333 },
+    ],
+  });
+  const parts = [...m.byLine.values()];
+  assert.equal(parts.reduce((a, b) => a + b, 0), m.ticketMoney,
+    'rounding has to land somewhere, and the parts still make the whole');
+  assert.ok(parts[0] > parts[1], 'the dearest line carries the most of it');
+});
+
+test('a partial refund comes off everything in proportion', () => {
+  const m = orderMoney({
+    total: 2000, refund_amount: 1000,
+    line_items: [{ type: 'ticket', item_id: 'tt_presale', quantity: 2, total: 2000 }],
+  });
+  assert.equal(m.net, 1000);
+  assert.equal(m.ticketMoney, 1000, 'half the money back is half the ticket money');
+});
+
+test('the table adds up to the headline, with fees on their own line', () => {
+  const a = order({ lines: [['tt_presale', 2, 2000], ['gift_card', 1, -200]] });
+  a.order.total = 2400;   // 2000 - 200 + 600 of fees
+  const b = order({ lines: [['tt_gate', 1, 1500]] });
+  const w = world2([a, b]);
+
+  const agg = aggregate(w.orders, w.tickets, OPTS);
+  const named = agg.byType.reduce((n, t) => n + t.revenue, 0);
+  assert.equal(named + agg.other, agg.revenue,
+    'the ticket types plus the leftover is the headline, exactly');
+  assert.equal(agg.revenue, 2400 + 1500);
+  assert.equal(agg.other, 600, 'the fee is the leftover and it is named as such');
+});
+
+/* --------------------------------------------- paid, free and complimentary */
+
+test('the paying teenager counts, the free child does not, the freebie is its own', () => {
+  const sale = order({ lines: [['tt_teen', 1, 1000], ['tt_child', 1, 0]] });
+  /* A paid type that went out at nothing: a complimentary ticket. */
+  const comp = order({ lines: [['tt_gate', 1, 0]] });
+  const w = world2([sale, comp]);
+
+  const a = aggregate(w.orders, w.tickets, OPTS);
+  assert.equal(a.paid, 1, 'Child 13-18 is 10 EUR, so it is a paid ticket');
+  assert.equal(a.free, 1, 'Child Below 12 is a free type');
+  assert.equal(a.comp, 1, 'a gate ticket at nothing is complimentary, not paid');
+  assert.equal(a.all, 3);
+  assert.equal(a.gap.complimentary, 1500, 'and it cost us its list price');
+});
+
+test('team passes are counted from the tickets, order or no order', () => {
+  const sale = order();
+  /* Issued through the API: no order at all, which is why counting from
+     orders showed nought however many had been approved. */
+  const passes = [
+    { id: 'it_p1', ticket_type_id: 'tt_core', reference: 'p_aaa' },
+    { id: 'it_p2', ticket_type_id: 'tt_artist', reference: 'p_bbb' },
+    /* A pass on a type nobody configured, recognised by its reference. */
+    { id: 'it_p3', ticket_type_id: 'tt_unknown', reference: 'p_ccc' },
+    /* And one that was voided, which is not a pass. */
+    { id: 'it_p4', ticket_type_id: 'tt_core', reference: 'p_ddd', voided_at: '2026-10-01T00:00:00Z' },
+  ];
+
+  const a = aggregate([sale.order], [...sale.tickets, ...passes], OPTS);
+  assert.equal(a.team, 3);
+  assert.equal(a.paid, 1);
+  assert.equal(a.all, 4, 'all tickets is what Ticket Tailor shows, voided excluded');
+});
+
+/* --------------------------------------------------------------- bundles */
+
+test('a bundle is read from its definition, not from its name', () => {
+  const bundles = {
+    bu_1: {
+      id: 'bu_1', name: 'Family of 4', price: 3500, status: 'ON_SALE',
+      ticket_types: [{ id: 'tt_presale', quantity: 2 }, { id: 'tt_child', quantity: 2 }],
+    },
+  };
+  const deal = order({ lines: [['bu_1', 1, 3500]] });
+  /* The four people it admits arrive as four ordinary issued tickets. */
+  deal.tickets = [
+    { id: 'it_b1', ticket_type_id: 'tt_presale', order_id: deal.order.id },
+    { id: 'it_b2', ticket_type_id: 'tt_presale', order_id: deal.order.id },
+    { id: 'it_b3', ticket_type_id: 'tt_child', order_id: deal.order.id },
+    { id: 'it_b4', ticket_type_id: 'tt_child', order_id: deal.order.id },
+  ];
+
+  const a = aggregate([deal.order], deal.tickets, { ...OPTS, bundles });
+  assert.equal(a.groups.deals, 1, 'one deal sold');
+  assert.equal(a.groups.people, 4, 'admitting four');
+  /* 2 x 10 + 2 x 0 at list is 2000; the deal took 3500, so no saving here,
+     but the money still lands on the types inside it. */
+  const presale = a.byType.find(t => t.id === 'tt_presale');
+  assert.ok(presale.revenue > 0, 'the money went to the types inside the deal');
+  assert.equal(a.byType.reduce((n, t) => n + t.revenue, 0) + a.other, a.revenue);
+});
+
+test('a bundle sold below the sum of its parts shows the saving', () => {
+  const bundles = {
+    bu_1: {
+      id: 'bu_1', name: 'Group of Six', price: 5000, status: 'ON_SALE',
+      ticket_types: [{ id: 'tt_presale', quantity: 6 }],
+    },
+  };
+  const deal = order({ lines: [['bu_1', 1, 5000]] });
+  deal.tickets = Array.from({ length: 6 }, (_, i) => ({
+    id: `it_g${i}`, ticket_type_id: 'tt_presale', order_id: deal.order.id,
+  }));
+
+  const a = aggregate([deal.order], deal.tickets, { ...OPTS, bundles });
+  assert.equal(a.groups.people, 6);
+  assert.equal(a.gap.bundles, 1000, 'six at 10 is 6000, the deal took 5000');
+  assert.equal(a.paid, 6, 'and each of the six is a paid ticket');
+});
+
+test('a bundle we have no definition for keeps its own row rather than being guessed', () => {
+  const deal = order({ lines: [['bu_99', 1, 3500]] });
+  deal.tickets = [{ id: 'it_x', ticket_type_id: 'tt_presale', order_id: deal.order.id }];
+  const a = aggregate([deal.order], deal.tickets, { ...OPTS, bundles: {} });
+
+  assert.equal(a.groups.deals, 1, 'it is still a deal');
+  assert.equal(a.groups.people, 0, 'but we do not know how many it admits');
+  assert.ok(a.byType.some(t => t.id === 'bu_99'), 'and its money is its own line');
+  assert.equal(a.gap.bundles, 0, 'nothing is claimed about what it saved');
+  assert.ok(isBundleLine({ item_id: 'bu_99' }));
+  assert.ok(!isBundleLine({ item_id: 'tt_presale' }));
+});
+
+test('with no bundle lines the deal counters stay at zero', () => {
+  const w = world2([order()]);
+  const a = aggregate(w.orders, w.tickets, OPTS);
+  assert.equal(a.groups.deals, 0);
+  assert.equal(a.groups.people, 0);
+});
+
+/* ------------------------------------------------------------- the gap */
+
+test('the gap between list price and money received is explained, cause by cause', () => {
+  const sale = order({ lines: [['tt_gate', 2, 3000], ['gift_card', 1, -300]] });
+  sale.order.total = 2700;
+  const comp = order({ lines: [['tt_gate', 1, 0]] });
+  const lost = order({ lines: [['tt_gate', 1, 1500]], status: 'cancelled' });
+  const back = order({ lines: [['tt_presale', 1, 1000]] });
+  back.order.refund_amount = 400;
+
+  const w = world2([sale, comp, lost, back]);
+  const a = aggregate(w.orders, w.tickets, OPTS);
+
+  assert.equal(a.gap.discounts, 300);
+  assert.equal(a.gap.complimentary, 1500, 'one gate ticket given away');
+  assert.equal(a.gap.cancelled, 1500, 'one order cancelled');
+  assert.equal(a.gap.refunds, 400);
+  /* List price of everything that was not cancelled and not a team pass. */
+  assert.equal(a.gap.list, 1500 * 3 + 1000);
 });
 
 /* ---------------------------------------------------------- classification */
@@ -212,48 +430,6 @@ test('team, free and paid are told apart by type and by reference', () => {
   assert.equal(classify({ ticket_type_id: 'tt_presale', reference: 'or_99' }, o), 'paid');
 });
 
-test('the paying teenager counts and the free child does not', () => {
-  const a = aggregate([order({
-    total: 2000,
-    issued_tickets: [
-      { id: 'a', ticket_type_id: 'tt_teen' },
-      { id: 'b', ticket_type_id: 'tt_child' },
-      { id: 'c', ticket_type_id: 'tt_core' },
-    ],
-  })], OPTS);
-
-  assert.equal(a.paid, 1, 'Child 13-18 is 10 EUR, so it is a paid ticket');
-  assert.equal(a.free, 1);
-  assert.equal(a.team, 1);
-  assert.equal(a.all, 3, 'and all three are in the number Ticket Tailor shows');
-});
-
-/* --------------------------------------------------------------- group deals */
-
-test('a group deal is counted from its shared barcode, never from its name', () => {
-  const a = aggregate([order({
-    total: 3500,
-    issued_tickets: [
-      { id: 'a', ticket_type_id: 'tt_presale', group_ticket_barcode: 'gb_1' },
-      { id: 'b', ticket_type_id: 'tt_presale', group_ticket_barcode: 'gb_1' },
-      { id: 'c', ticket_type_id: 'tt_presale', group_ticket_barcode: 'gb_1' },
-      { id: 'd', ticket_type_id: 'tt_presale', group_ticket_barcode: 'gb_1' },
-      { id: 'e', ticket_type_id: 'tt_presale' },
-    ],
-  })], OPTS);
-
-  assert.equal(a.groups.deals, 1, 'four tickets, one shared barcode, one deal');
-  assert.equal(a.groups.people, 4);
-  assert.equal(a.paid, 5, 'each person inside the deal counts once in the paid total');
-});
-
-test('with no group deals on sale the counters stay at zero', () => {
-  const a = aggregate([order()], OPTS);
-  assert.deepEqual(a.groups, { deals: 0, people: 0 });
-});
-
-/* ------------------------------------------------------------- the sources */
-
 test('every order lands in exactly one source bucket', () => {
   assert.equal(sourceOf(''), 'none');
   assert.equal(sourceOf(null), 'none');
@@ -264,14 +440,9 @@ test('every order lands in exactly one source bucket', () => {
   assert.equal(sourceOf('ABCDEF'), 'referral', 'six characters of the code alphabet');
   assert.equal(sourceOf('xmas-promo'), 'other');
 
-  const a = aggregate([
-    order({ referral_tag: '' }),
-    order({ referral_tag: 'site-hero' }),
-    order({ referral_tag: 'ig-5' }),
-    order({ referral_tag: 'ABCDEF' }),
-    order({ referral_tag: 'team-ravi123' }),
-    order({ referral_tag: 'somebody-else' }),
-  ], OPTS);
+  const w = world2(['', 'site-hero', 'ig-5', 'ABCDEF', 'team-ravi123', 'somebody-else']
+    .map(referral_tag => order({ referral_tag })));
+  const a = aggregate(w.orders, w.tickets, OPTS);
   assert.deepEqual(a.bySource,
     { none: 1, site: 1, instagram: 1, referral: 1, team: 1, other: 1 });
   assert.equal(SOURCE_ORDER.length, 6);
@@ -311,10 +482,11 @@ test('only a known token gets in, and only a named one sees money', () => {
   const env = ENV();
   const v = t => viewerFor(env, t, { safeEqual });
 
-  assert.deepEqual(v(ADMIN.ravi), { name: 'ravi', revenue: true });
-  assert.deepEqual(v(ADMIN.keerthi), { name: 'keerthi', revenue: false },
+  assert.deepEqual(v(ADMIN.ravi), { name: 'ravi', admin: true, revenue: true });
+  assert.deepEqual(v(ADMIN.keerthi), { name: 'keerthi', admin: true, revenue: false },
     'an admin who is not on the revenue list does not see revenue');
-  assert.deepEqual(v(VIEWERS.stijn), { name: 'stijn', revenue: false });
+  assert.deepEqual(v(VIEWERS.stijn), { name: 'stijn', admin: false, revenue: false },
+    'and a view-only person is not an admin at all');
   assert.equal(v('guess'), null);
   assert.equal(v(''), null);
 
@@ -322,7 +494,7 @@ test('only a known token gets in, and only a named one sees money', () => {
   assert.deepEqual(revenueNames({}), ['ravi']);
   assert.deepEqual(revenueNames({ DASH_REVENUE_USERS: 'Ravi, Keerthi' }), ['ravi', 'keerthi']);
   assert.deepEqual(viewerFor(ENV({ DASH_REVENUE_USERS: 'keerthi' }), ADMIN.keerthi, { safeEqual }),
-    { name: 'keerthi', revenue: true });
+    { name: 'keerthi', admin: true, revenue: true });
 
   /* A broken secret locks everybody out rather than letting anybody in. */
   assert.equal(viewerFor({ TEAM_ADMIN_TOKENS: 'not json' }, 'anything', { safeEqual }), null);
@@ -330,7 +502,7 @@ test('only a known token gets in, and only a named one sees money', () => {
 
 test('no token, a wrong token and no configuration are all refused', async () => {
   const kv = memoryKv();
-  const w = world({ orders: [order()] });
+  const w = world(world2([order()]));
   try {
     assert.equal((await get(ENV({ ACCRED: kv }), { token: '' })).status, 401);
     assert.equal((await get(ENV({ ACCRED: kv }), { token: 'guess' })).status, 401);
@@ -344,7 +516,7 @@ test('no token, a wrong token and no configuration are all refused', async () =>
 
 test('a view-only token gets a response that never had revenue in it', async () => {
   const kv = memoryKv();
-  const w = world({ orders: [order({ total: 5000 })] });
+  const w = world(world2([order({ lines: [['tt_gate', 1, 5000]] })]));
   try {
     const env = ENV({ ACCRED: kv });
 
@@ -393,7 +565,7 @@ test('figures are cached for five minutes and a refresh gets past it', async () 
 
 test('a refresh twice in a minute answers the same figures rather than asking again', async () => {
   const kv = memoryKv();
-  const w = world({ orders: [order()] });
+  const w = world(world2([order()]));
   try {
     const env = ENV({ ACCRED: kv });
     await get(env);
@@ -408,7 +580,7 @@ test('a refresh twice in a minute answers the same figures rather than asking ag
 
 test('Ticket Tailor being unreachable shows the last figures, never zeros', async () => {
   const kv = memoryKv();
-  const good = world({ orders: [order(), order()] });
+  const good = world(world2([order(), order()]));
   let before;
   try {
     before = await (await get(ENV({ ACCRED: kv }))).json();
@@ -440,7 +612,7 @@ test('unreachable with nothing cached says so, and still does not show zeros', a
 
 test('check-ins failing does not take the rest of the dashboard with them', async () => {
   const kv = memoryKv();
-  const w = world({ orders: [order()], fail: 'checkins' });
+  const w = world({ ...world2([order()]), fail: 'checkins' });
   try {
     const d = await (await get(ENV({ ACCRED: kv }))).json();
     assert.equal(d.ok, true);
@@ -454,10 +626,10 @@ test('check-ins failing does not take the rest of the dashboard with them', asyn
 
 test('a later read asks only for what it has not seen', async () => {
   const kv = memoryKv();
-  const first = world({ orders: [order({ created_at: NOON - 3 * DAY })] });
+  const first = world(world2([order({ created_at: NOON - 3 * DAY })]));
   try { await get(ENV({ ACCRED: kv })); } finally { first.restore(); }
 
-  const later = world({ orders: [order({ created_at: NOON })] });
+  const later = world(world2([order({ created_at: NOON })]));
   try {
     await get(ENV({ ACCRED: kv }), { query: '?refresh=1' });
     const asked = later.calls.find(u => u.includes('/v1/orders'));
@@ -467,8 +639,8 @@ test('a later read asks only for what it has not seen', async () => {
 
 test('an order read twice is counted once', async () => {
   const kv = memoryKv();
-  const repeated = order({ created_at: NOON, total: 2000 });
-  const w = world({ orders: [repeated] });
+  const repeated = order({ created_at: NOON });
+  const w = world(world2([repeated]));
   try {
     const env = ENV({ ACCRED: kv });
     const a = await (await get(env)).json();
@@ -477,7 +649,7 @@ test('an order read twice is counted once', async () => {
        high-water mark. It must replace itself, not add to itself. */
     const b = await (await get(env, { query: '?refresh=1' })).json();
     assert.equal(b.headline.paid, 1);
-    assert.equal(b.revenue.total, 2000);
+    assert.equal(b.revenue.total, 1000);
   } finally { w.restore(); }
 });
 
@@ -492,7 +664,7 @@ test('the payload carries no personal data beyond a first name', async () => {
     promo: { code: 'SHREYA412', discountId: 'dsc_1' },
   }));
 
-  const w = world({ orders: [order({ discount_code: 'SHREYA412' })] });
+  const w = world(world2([order({ discount_code: 'SHREYA412' })]));
   try {
     const res = await get(ENV({ ACCRED: accred }));
     const body = await res.text();
@@ -511,7 +683,7 @@ test('the payload carries no personal data beyond a first name', async () => {
 
 test('the payload has every section the page draws, in a shape it can read', async () => {
   const kv = memoryKv();
-  const w = world({ orders: [order({ referral_tag: 'ig-1' })] });
+  const w = world(world2([order({ referral_tag: 'ig-1' })]));
   try {
     const d = await (await get(ENV({ ACCRED: kv }))).json();
     for (const k of ['viewer', 'asOf', 'daysToGo', 'headline', 'small', 'groups',
@@ -546,7 +718,9 @@ test('the page is hidden, read only, and says what it cannot do', () => {
   assert.match(html, /fetch\('\/api\/dash'/);
 
   /* Revenue is only ever drawn when the server said so. */
-  assert.match(html, /if \(D\.revenue\)/);
+  /* Every money figure on the page is behind this flag, which the server set. */
+  assert.ok((html.match(/D\.revenue/g) || []).length >= 5,
+    'money must be drawn only when the server said this viewer may see it');
   assert.match(html, /order totals, after discount codes/);
 
   /* No targets and no pace, anywhere. */
@@ -571,4 +745,217 @@ test('there is no Sales tab left behind on the team page', () => {
   const html = readFileSync(join(ROOT, 'diwali-admin/team.html'), 'utf8');
   const tabs = [...html.matchAll(/data-tab="([a-z]+)"/g)].map(m => m[1]);
   assert.deepEqual([...new Set(tabs)].sort(), ['links', 'people', 'queue', 'refused']);
+});
+
+/* ------------------------------------------------ the figures the page shows */
+
+test('the table total is the headline revenue, to the cent', async () => {
+  const kv = memoryKv();
+  const a = order({ lines: [['tt_gate', 2, 3000], ['gift_card', 1, -300]] });
+  a.order.total = 3200;            // 3000 - 300 + 500 of fees
+  const b = order({ lines: [['tt_presale', 1, 1000], ['tt_teen', 1, 1000]] });
+  const w = world(world2([a, b]));
+  try {
+    const d = await (await get(ENV({ ACCRED: kv }))).json();
+
+    const table = d.byType.reduce((n, t) => n + t.revenue, 0) + d.reconcile.other;
+    assert.equal(table, d.headline.revenue, 'the table is a different number otherwise');
+    assert.equal(d.reconcile.total, d.headline.revenue);
+    assert.equal(d.reconcile.other, 500, 'the fee has its own line and a reason');
+    assert.equal(d.headline.revenue, 3200 + 2000);
+  } finally { w.restore(); }
+});
+
+test('the paid table lists paid types only, and its count is PAID TICKETS', async () => {
+  const kv = memoryKv();
+  const sale = order({ lines: [['tt_gate', 1, 1500], ['tt_child', 1, 0]] });
+  const comp = order({ lines: [['tt_presale', 1, 0]] });
+  const w = world(world2([sale, comp]));
+  try {
+    const d = await (await get(ENV({ ACCRED: kv }))).json();
+
+    assert.ok(d.byType.every(t => t.price > 0), 'a free type is not in the paid table');
+    assert.ok(d.otherTypes.some(t => t.name.includes('Child Below 12')),
+      'it is in the short list under it');
+    assert.equal(d.complimentary, 1);
+    assert.equal(d.headline.paid, 1, 'the gate ticket, and nothing given away');
+    assert.equal(d.small.free, 1);
+    assert.equal(d.small.comp, 1);
+    assert.equal(d.small.all, 3, 'all three are in the Ticket Tailor number');
+  } finally { w.restore(); }
+});
+
+test('team passes are counted even though no order ever held them', async () => {
+  const accred = memoryKv();
+  for (const i of [1, 2]) {
+    await accred.put(`person:p_${i}`, JSON.stringify({
+      id: `p_${i}`, team: 'core', status: 'approved',
+      firstName: 'A', lastName: 'B', email: 'a@b.be',
+    }));
+  }
+  const sale = order();
+  const w = world({
+    orders: [sale.order],
+    tickets: [
+      ...sale.tickets,
+      { id: 'it_p1', ticket_type_id: 'tt_core', reference: 'p_1' },
+      { id: 'it_p2', ticket_type_id: 'tt_artist', reference: 'p_2' },
+    ],
+  });
+  try {
+    const d = await (await get(ENV({ ACCRED: accred }))).json();
+    assert.equal(d.small.team, 2, 'this used to be nought however many were approved');
+    assert.equal(d.small.teamApproved, 2, 'and it agrees with the queue');
+    assert.equal(d.small.all, 3);
+  } finally { w.restore(); }
+});
+
+test('the gap from list price to money received is itemised', async () => {
+  const kv = memoryKv();
+  const sale = order({ lines: [['tt_gate', 2, 3000], ['gift_card', 1, -300]] });
+  sale.order.total = 2700;
+  const comp = order({ lines: [['tt_gate', 1, 0]] });
+  const w = world(world2([sale, comp]));
+  try {
+    const d = await (await get(ENV({ ACCRED: kv }))).json();
+    assert.equal(d.gap.discounts, 300);
+    assert.equal(d.gap.complimentary, 1500);
+    assert.equal(d.gap.received, d.headline.revenue);
+    assert.equal(typeof d.gap.unexplained, 'number',
+      'whatever is left over is named rather than swallowed');
+  } finally { w.restore(); }
+});
+
+test('a bundle on the event series is reported even before one is sold', async () => {
+  const kv = memoryKv();
+  const w = world({
+    ...world2([order()]),
+    bundles: [
+      { id: 'bu_1', name: 'Family of 4', price: 3500, status: 'ON_SALE',
+        ticket_types: [{ id: 'tt_presale', quantity: 4 }] },
+      { id: 'bu_2', name: 'Group of Six', price: 5000, status: 'HIDDEN',
+        ticket_types: [{ id: 'tt_presale', quantity: 6 }] },
+    ],
+  });
+  try {
+    const d = await (await get(ENV({ ACCRED: kv }))).json();
+    assert.equal(d.groups.bundlesKnown, 2, 'the box office has them');
+    assert.equal(d.groups.bundlesOnSale, 1, 'one of them on sale');
+    assert.equal(d.groups.deals, 0, 'and no order read so far includes one');
+  } finally { w.restore(); }
+});
+
+/* ----------------------------------------------------- the view-only role */
+
+test('a view-only token gets no money in any card, period or table', async () => {
+  const kv = memoryKv();
+  const w = world(world2([order({ lines: [['tt_gate', 3, 4500]] })]));
+  try {
+    const env = ENV({ ACCRED: kv });
+    const body = await (await get(env, { token: VIEWERS.stijn })).text();
+    const d = JSON.parse(body);
+
+    assert.equal(d.viewer.revenue, false);
+    assert.equal(d.viewer.admin, false, 'and they are not an admin');
+    assert.ok(!('revenue' in d));
+    assert.ok(!('revenue' in d.headline), 'the headline card carries no money');
+    assert.ok(!('reconcile' in d));
+    assert.ok(!('gap' in d));
+    for (const p of d.periods) {
+      assert.ok(!('revenue' in p), `the ${p.key} card carries money`);
+    }
+    for (const t of [...d.byType, ...d.otherTypes]) assert.ok(!('revenue' in t));
+    assert.ok(!body.includes('4500'), 'the amount reached a view-only token');
+
+    /* They still see everything that is not money. */
+    assert.equal(d.headline.paid, 3);
+    assert.equal(d.periods.length, 3);
+  } finally { w.restore(); }
+});
+
+test('an admin who is not on the revenue list is still an admin', async () => {
+  const kv = memoryKv();
+  const w = world(world2([order()]));
+  try {
+    const d = await (await get(ENV({ ACCRED: kv }), { token: ADMIN.keerthi })).json();
+    assert.equal(d.viewer.admin, true, 'they may open the other admin pages');
+    assert.equal(d.viewer.revenue, false, 'they may not see money');
+    assert.ok(!('revenue' in d.headline));
+  } finally { w.restore(); }
+});
+
+/* ------------------------------------------------------------ navigation */
+
+test('the admin area opens on the dashboard', () => {
+  const redirects = readFileSync(join(ROOT, 'diwali-holding/_redirects'), 'utf8');
+  assert.match(redirects, /^\/admin\s+\/admin\/dashboard\s+302$/m);
+  assert.match(redirects, /^\/admin\/\s+\/admin\/dashboard\s+302$/m);
+});
+
+test('every admin page carries the same navigation, dashboard first', () => {
+  for (const rel of ['diwali-admin/team.html', 'diwali-admin/wa.html']) {
+    const html = readFileSync(join(ROOT, rel), 'utf8');
+    const at = s => html.indexOf(s);
+    assert.ok(at('href="/admin/dashboard"') > 0, `${rel} has no dashboard link`);
+    assert.ok(at('href="/admin/dashboard"') < at('href="/admin/team"'),
+      `${rel} does not put the dashboard first`);
+    assert.ok(at('href="/admin/team"') < at('href="/admin/wa"'),
+      `${rel} has team passes after WhatsApp`);
+  }
+  /* The dashboard builds its own, because it is the one that knows the role. */
+  const dash = readFileSync(join(ROOT, 'diwali-admin/dashboard.html'), 'utf8');
+  assert.match(dash, /D\.viewer\.revenue \|\| D\.viewer\.admin/,
+    'a view-only person must be offered only the dashboard');
+});
+
+test('a view-only person who opens an admin page is sent to the dashboard', () => {
+  for (const rel of ['diwali-admin/team.html', 'diwali-admin/wa.html']) {
+    const html = readFileSync(join(ROOT, rel), 'utf8');
+    assert.match(html, /function sendToDashboard\(/, `${rel} cannot redirect them`);
+    assert.match(html, /location\.replace\('\/admin\/dashboard'\)/, rel);
+    /* And it is tried before telling somebody their token is wrong. */
+    assert.ok(html.indexOf('sendToDashboard(') < html.lastIndexOf('refused'),
+      `${rel} calls the token wrong before checking whether it is`);
+  }
+});
+
+test('a token typed on any admin page lands on the dashboard', () => {
+  for (const rel of ['diwali-admin/team.html', 'diwali-admin/wa.html']) {
+    const html = readFileSync(join(ROOT, rel), 'utf8');
+    /* The call site, not the declaration. */
+    const at = html.lastIndexOf('writeToken(v);');
+    assert.ok(at > 0, `${rel} never stores the token`);
+    assert.match(html.slice(at, at + 400), /location\.replace\('\/admin\/dashboard'\)/,
+      `${rel} stays put after unlocking`);
+  }
+});
+
+test('a cursor that never advances stops the read instead of multiplying it', async () => {
+  const kv = memoryKv();
+  const made = Array.from({ length: 120 }, () => order());
+  const w = world2(made);
+
+  /* An API that ignores starting_after and answers with the same first page
+     for ever. Counting the same ticket two hundred times is a worse failure
+     than stopping early. */
+  const real = globalThis.fetch;
+  let pages = 0;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    const reply = o => new Response(JSON.stringify(o),
+      { status: 200, headers: { 'content-type': 'application/json' } });
+    if (url.includes('/bundles')) return reply({ data: [] });
+    if (url.includes('/v1/events/')) {
+      return reply({ object: 'event', id: 'ev_1', event_series_id: 'es_1', ticket_types: TYPES });
+    }
+    if (url.includes('/v1/orders')) { pages += 1; return reply({ data: w.orders.slice(0, 100) }); }
+    if (url.includes('/v1/issued_tickets')) return reply({ data: w.tickets.slice(0, 100) });
+    return reply({ data: [] });
+  };
+
+  try {
+    const d = await (await get(ENV({ ACCRED: kv }))).json();
+    assert.ok(pages <= 3, `it asked ${pages} times for the same page`);
+    assert.equal(d.small.all, 100, 'and counted each ticket once');
+  } finally { globalThis.fetch = real; }
 });

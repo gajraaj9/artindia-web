@@ -18,3 +18,8 @@
 # not substitute a :placeholder inside the destination's query string — it
 # arrives at the box office as the literal ig-%3An — and the tag is the whole
 # point of the link.
+
+# The admin area opens on the dashboard, which is the page somebody wants
+# nine times out of ten. 302, so it can be changed again.
+/admin           /admin/dashboard   302
+/admin/          /admin/dashboard   302

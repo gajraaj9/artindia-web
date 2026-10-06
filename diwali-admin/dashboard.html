@@ -60,16 +60,24 @@
   .notice { border-color: var(--warm); color: var(--warm); font-weight: 600; }
   .notice.bad { border-color: var(--bad); color: var(--bad); }
 
-  .grid { display: grid; gap: .7rem; grid-template-columns: 1fr 1fr; margin: 0 0 .7rem; }
+  /* Row 1 is the two figures everything else is secondary to, row 2 the three
+     periods, row 3 the small ones. On a phone they stack in the same order. */
+  .grid { display: grid; gap: .7rem; margin: 0 0 .7rem; }
+  .grid.two { grid-template-columns: 1fr 1fr; }
+  .grid.one { grid-template-columns: 1fr; }
   .grid.three { grid-template-columns: 1fr 1fr 1fr; }
-  @media (max-width: 34rem) { .grid, .grid.three { grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 22rem) { .grid, .grid.three { grid-template-columns: 1fr; } }
+  .grid.four { grid-template-columns: 1fr 1fr 1fr 1fr; }
+  @media (max-width: 44rem) { .grid.four { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 30rem) {
+    .grid.two, .grid.three, .grid.four { grid-template-columns: 1fr; }
+  }
   .kpi { background: var(--card); border: 1px solid var(--line); border-radius: .7rem; padding: .8rem .9rem; }
   .kpi .k { font-size: .7rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
   .kpi .v { font-size: 1.9rem; font-weight: 700; line-height: 1.1; margin: .25rem 0 0;
             font-variant-numeric: tabular-nums; }
-  .kpi.big { grid-column: 1 / -1; }
-  .kpi.big .v { font-size: 3rem; }
+  .kpi.lead .v { font-size: 2.8rem; }
+  .kpi .v2 { font-size: 1.15rem; font-weight: 700; margin: .1rem 0 0;
+             color: var(--muted); font-variant-numeric: tabular-nums; }
   .kpi .n { font-size: .82rem; color: var(--muted); margin: .25rem 0 0; }
 
   .bars { display: grid; gap: .3rem; }
@@ -117,8 +125,7 @@
     <span id="days">Dashboard</span>
     <span id="asof"></span>
     <button type="button" id="refresh" hidden>Refresh</button>
-    <a href="/admin/team">Team passes</a>
-    <a href="/admin/wa">WhatsApp</a>
+    <span id="nav"></span>
   </p>
 
   <div class="card" id="unlock" hidden>
@@ -187,28 +194,46 @@
 
   function headline() {
     var h = D.headline;
-    var foot = D.groups && D.groups.deals
-      ? n(D.groups.deals) + ' group deals, ' + n(D.groups.people)
-        + ' people, each counted once above'
-      : 'No group deals are on sale';
-    var out = '<div class="grid">'
-      + kpi('Paid tickets', n(h.paid), foot, 'big')
-      + kpi('Today', n(h.today), 'yesterday ' + n(h.yesterday))
-      + kpi('Last 7 days', n(h.last7), 'the 7 before, ' + n(h.prev7));
-    if (D.revenue) {
-      out += kpi('Revenue', money(D.revenue.total),
-        'order totals, after discount codes · ' + n(D.revenue.orders) + ' orders', 'big');
-    }
-    return out + '</div>';
-  }
+    var row1 = D.revenue
+      ? '<div class="grid two">' + kpi('Paid tickets', n(h.paid), '', 'lead')
+        + kpi('Revenue', money(h.revenue), 'order totals, after discount codes', 'lead')
+        + '</div>'
+      : '<div class="grid one">' + kpi('Paid tickets', n(h.paid), '', 'lead') + '</div>';
 
-  function small() {
+    var row2 = '<div class="grid three">' + D.periods.map(function (p) {
+      return '<div class="kpi"><div class="k">' + esc(p.label) + '</div>'
+        + '<p class="v">' + n(p.paid) + '</p>'
+        + (D.revenue ? '<p class="v2">' + money(p.revenue || 0) + '</p>' : '')
+        + '</div>';
+    }).join('') + '</div>';
+
     var s = D.small;
-    return '<div class="grid three">'
+    var row3 = '<div class="grid four">'
       + kpi('Free child tickets', n(s.free), '')
-      + kpi('Team passes', n(s.team), 'of ' + n(s.teamExpected) + ' expected')
+      + kpi('Complimentary', n(s.comp), 'a paid type issued at nothing')
+      + kpi('Team passes', n(s.team), 'of ' + n(s.teamExpected) + ' expected'
+        + (s.teamApproved !== s.team ? ' · ' + n(s.teamApproved) + ' approved in the queue' : ''))
       + kpi('All tickets', n(s.all), 'the number Ticket Tailor shows')
       + '</div>';
+
+    return row1 + row2 + row3 + deals();
+  }
+
+  /* What the box office has, and what the orders show, said separately. */
+  function deals() {
+    var g = D.groups;
+    if (g.deals) {
+      return '<div class="card"><div class="row"><span>Group deals sold</span>'
+        + '<span class="m">' + n(g.deals) + ' deals · ' + n(g.people)
+        + ' people, each counted once in paid tickets</span></div></div>';
+    }
+    var what = g.bundlesKnown
+      ? 'The box office has ' + n(g.bundlesKnown) + ' group deal'
+        + (g.bundlesKnown === 1 ? '' : 's')
+        + (g.bundlesOnSale ? ', ' + n(g.bundlesOnSale) + ' on sale' : ', none on sale')
+        + '. No order read so far includes one.'
+      : 'No group deals are defined on the event series.';
+    return '<div class="card"><p class="foot">' + esc(what) + '</p></div>';
   }
 
   function perDay() {
@@ -228,21 +253,71 @@
 
   function byType() {
     var rows = D.byType;
-    var tot = { sold: 0, revenue: 0 };
-    rows.forEach(function (t) { tot.sold += t.sold; tot.revenue += (t.revenue || 0); });
-    return '<h2>By ticket type</h2><div class="card wrapx"><table>'
+    var sold = 0, rev = 0;
+    rows.forEach(function (t) { sold += t.sold; rev += (t.revenue || 0); });
+
+    var out = '<h2>By ticket type</h2><div class="card wrapx"><table>'
       + '<thead><tr><th>Ticket</th><th class="n">Price</th><th class="n">Sold</th>'
-      + (D.revenue ? '<th class="n">Revenue</th>' : '') + '</tr></thead><tbody>'
+      + (D.revenue ? '<th class="n">Paid</th>' : '') + '</tr></thead><tbody>'
       + rows.map(function (t) {
         return '<tr><td>' + esc(t.name) + '</td>'
           + '<td class="n">' + (t.price == null ? '' : money(t.price)) + '</td>'
           + '<td class="n">' + n(t.sold) + '</td>'
           + (D.revenue ? '<td class="n">' + money(t.revenue || 0) + '</td>' : '')
           + '</tr>';
+      }).join('');
+
+    /* Whatever the ticket lines did not account for gets its own line, so the
+       table total is the headline and not a different number wearing its
+       name. */
+    if (D.revenue && D.reconcile && D.reconcile.other) {
+      out += '<tr><td>Fees, tax and other order lines</td><td></td><td class="n"></td>'
+        + '<td class="n">' + money(D.reconcile.other) + '</td></tr>';
+    }
+
+    out += '<tr class="tot"><td>Total</td><td></td><td class="n">' + n(sold) + '</td>'
+      + (D.revenue ? '<td class="n">' + money(rev + ((D.reconcile && D.reconcile.other) || 0)) + '</td>' : '')
+      + '</tr></tbody></table>'
+      + '<p class="foot">Paid tickets only. The total matches Paid tickets'
+      + (D.revenue ? ' and Revenue above.' : ' above.') + '</p></div>';
+
+    /* The tickets nobody paid for, kept out of the paid table on purpose. */
+    if (D.otherTypes.length) {
+      out += '<div class="card"><p class="foot" style="margin:0 0 .4rem">'
+        + 'Not paid tickets</p>'
+        + D.otherTypes.map(function (t) {
+          return '<div class="row"><span>' + esc(t.name) + '</span>'
+            + '<span class="m">' + n(t.sold) + '</span></div>';
+        }).join('')
+        + '<div class="row"><span>Complimentary (a paid type issued at nothing)</span>'
+        + '<span class="m">' + n(D.complimentary) + '</span></div></div>';
+    }
+
+    return out + gap();
+  }
+
+  /* Where the difference between list price and money received went. */
+  function gap() {
+    if (!D.revenue || !D.gap) return '';
+    var g = D.gap;
+    var rows = [
+      ['At list price', g.list],
+      ['Discount codes', -g.discounts],
+      ['Group deals', -g.bundles],
+      ['Complimentary tickets', -g.complimentary],
+      ['Refunds', -g.refunds],
+      ['Cancelled orders', -g.cancelled],
+      ['Fees, tax and other', D.reconcile ? D.reconcile.other : 0],
+      ['Not accounted for', -g.unexplained]
+    ].filter(function (r, i) { return i === 0 || r[1]; });
+
+    return '<h2>From list price to money received</h2><div class="card">'
+      + rows.map(function (r) {
+        return '<div class="row"><span>' + esc(r[0]) + '</span>'
+          + '<span class="m">' + (r[1] < 0 ? '-' : '') + money(Math.abs(r[1])) + '</span></div>';
       }).join('')
-      + '<tr class="tot"><td>Total</td><td></td><td class="n">' + n(tot.sold) + '</td>'
-      + (D.revenue ? '<td class="n">' + money(tot.revenue) + '</td>' : '')
-      + '</tr></tbody></table></div>';
+      + '<div class="row"><span><strong>Money received</strong></span>'
+      + '<span class="m"><strong>' + money(g.received) + '</strong></span></div></div>';
   }
 
   var SOURCE = {
@@ -342,6 +417,10 @@
     $('who').className = 'pill ' + (D.viewer.revenue ? 'on' : '');
     $('who').hidden = false;
     $('days').textContent = 'Dashboard · ' + D.daysToGo + ' days to go';
+    /* A view-only person is offered only the page they may read. */
+    $('nav').innerHTML = D.viewer.revenue || D.viewer.admin
+      ? '<a href="/admin/team">Team passes</a> <a href="/admin/wa">WhatsApp</a>'
+      : '';
     $('asof').textContent = D.asOf ? '· As of ' + when(D.asOf) : '';
     $('refresh').hidden = false;
 
@@ -353,7 +432,7 @@
       return { t: SOURCE[s.key] || s.key, v: s.orders };
     });
 
-    $('app').innerHTML = notice + headline() + small() + perDay() + byType()
+    $('app').innerHTML = notice + headline() + perDay() + byType()
       + bars('Where orders came from', sources, 'By order count, from the referral tag')
       + teams() + codes() + draw() + wa() + onSite();
     $('app').hidden = false;

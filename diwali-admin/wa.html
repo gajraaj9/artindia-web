@@ -116,8 +116,12 @@
     <span class="pill muted" id="bot-pill">Bot: …</span>
     <span class="pill muted" id="web-pill">Web: …</span>
     <button type="button" id="refresh">Refresh</button>
-    <a href="/admin/dashboard" style="font-size:.85rem">Dashboard</a>
-  </header>
+    </header>
+  <p class="muted" style="margin:0 0 .9rem">
+    <a href="/admin/dashboard">Dashboard</a> ·
+    <a href="/admin/team">Team passes</a> ·
+    <a href="/admin/wa" aria-current="page">WhatsApp</a>
+  </p>
 
   <div class="panel" id="unlock">
     <div class="field">
@@ -152,6 +156,19 @@
 
   function readToken() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
   function writeToken(v) { try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch (e) {} }
+
+  /* A view-only token may read the dashboard and nothing else. Rather than
+     telling them their token is wrong, which it is not, send them to the one
+     page they are allowed. */
+  function sendToDashboard(token, otherwise) {
+    fetch('/api/dash', { headers: { 'X-Admin-Token': token } })
+      .then(function (r) {
+        if (r.ok) { location.replace('/admin/dashboard'); return; }
+        otherwise();
+      })
+      .catch(otherwise);
+  }
+
 
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -463,10 +480,12 @@
       .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
       .then(function (r) {
         if (r.status === 401) {
-          writeToken('');
-          $('unlock').hidden = false;
-          $('app').hidden = true;
-          $('bot-pill').textContent = 'Token refused';
+          sendToDashboard(token, function () {
+            writeToken('');
+            $('unlock').hidden = false;
+            $('app').hidden = true;
+            $('bot-pill').textContent = 'Token refused';
+          });
           return;
         }
         if (r.status !== 200) {
@@ -489,12 +508,14 @@
       });
   }
 
+  /* A token typed on any admin page lands on the dashboard, which is where
+     somebody who has just unlocked the admin area wants to be. */
   $('unlock-go').addEventListener('click', function () {
     var v = $('token').value.trim();
     if (!v) return;
     writeToken(v);
     $('token').value = '';
-    load();
+    location.replace('/admin/dashboard');
   });
   $('refresh').addEventListener('click', load);
 

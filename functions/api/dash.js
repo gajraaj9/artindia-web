@@ -16,7 +16,7 @@ import {
 } from './_accred.js';
 import {
   aggregate, lastDays, sumDays, brusselsDay, daysToGo, SOURCE_ORDER,
-  checkInsByHour, festivalStarted, viewerFor,
+  checkInsByHour, festivalStarted, viewerFor, soldByType,
 } from './_dash.js';
 
 const CACHE_KEY = 'dash:figures';
@@ -40,43 +40,75 @@ const MAX_PAGES = 200;
  * comes back short. With thousands of orders behind it, a refresh costs one
  * page rather than forty.
  */
-async function fetchOrders(env, sinceUnix) {
+/**
+ * Every page of something, by id.
+ *
+ * The loop stops when a page comes back short, and also when a page brings
+ * nothing new. The second condition is the one that matters: if the cursor is
+ * ever ignored, the same page comes back for ever and the counts come out
+ * multiplied by however many times round it went. Counting the same ticket
+ * two hundred times is a worse failure than stopping early.
+ */
+async function fetchAll(env, path, query = {}) {
+  const seen = new Set();
   const out = [];
   let after = '';
   for (let page = 0; page < MAX_PAGES; page++) {
-    const r = await tt(env, '/v1/orders', {
+    const r = await tt(env, path, {
       query: {
         limit: String(PAGE),
         event_id: env.TT_EVENT_ID || '',
-        ...(sinceUnix ? { 'created_at.gte': String(sinceUnix) } : {}),
+        ...query,
         ...(after ? { starting_after: after } : {}),
       },
     });
     const rows = Array.isArray(r?.data) ? r.data : [];
-    out.push(...rows);
+    let added = 0;
+    for (const row of rows) {
+      const id = String(row && row.id);
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      out.push(row);
+      added += 1;
+    }
+    if (!added) {
+      if (rows.length) console.warn('dash: pagination made no progress on', path);
+      break;
+    }
     if (rows.length < PAGE) break;
     after = rows[rows.length - 1].id;
   }
   return out;
 }
 
-async function fetchCheckIns(env) {
-  const out = [];
-  let after = '';
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const r = await tt(env, '/v1/check_ins', {
-      query: {
-        limit: String(PAGE),
-        event_id: env.TT_EVENT_ID || '',
-        ...(after ? { starting_after: after } : {}),
-      },
-    });
-    const rows = Array.isArray(r?.data) ? r.data : [];
-    out.push(...rows);
-    if (rows.length < PAGE) break;
-    after = rows[rows.length - 1].id;
-  }
-  return out;
+const fetchOrders = (env, sinceUnix) => fetchAll(env, '/v1/orders',
+  sinceUnix ? { 'created_at.gte': String(sinceUnix) } : {});
+
+const fetchCheckIns = env => fetchAll(env, '/v1/check_ins');
+
+/**
+ * Every ticket on the event, which is the only complete list there is.
+ *
+ * A pass issued through the API belongs to no order, so counting from orders
+ * showed nought team passes however many had been approved. This is also the
+ * number Ticket Tailor itself shows.
+ */
+const fetchTickets = env => fetchAll(env, '/v1/issued_tickets', { status: 'valid' });
+
+/**
+ * The bundles, if the event series has any.
+ *
+ * A bundle is a deal with a price of its own and a list of what is inside it,
+ * which is the only way to know how many people a "Family of 4" admits and
+ * what it would have cost one ticket at a time. Keyed by bu_ id, which is what
+ * an order line carries as its item_id.
+ */
+async function fetchBundles(env, seriesId) {
+  if (!seriesId) return {};
+  const r = await tt(env, `/v1/event_series/${encodeURIComponent(seriesId)}/bundles`,
+    { query: { limit: '100' } });
+  const rows = Array.isArray(r?.data) ? r.data : [];
+  return Object.fromEntries(rows.map(b => [String(b.id), b]));
 }
 
 /** The event's ticket types: what each one is called and what it costs. */
@@ -89,7 +121,7 @@ async function fetchTypes(env) {
     names[t.id] = t.name || t.id;
     prices[t.id] = Number(t.price) || 0;
   }
-  return { names, prices, types };
+  return { names, prices, types, seriesId: ev.event_series_id || '', groups: ev.ticket_groups || [] };
 }
 
 /* ------------------------------------------------------------ the local half */
@@ -235,9 +267,8 @@ export async function onRequestGet({ request, env }) {
 async function build(env, kv, now) {
   const teamTypes = new Set(TEAMS.map(t => ticketTypeFor(env, t.key)).filter(Boolean));
 
-  const { names, prices, types } = await fetchTypes(env);
-  const freeTypes = new Set(Object.entries(prices)
-    .filter(([id, p]) => Number(p) === 0 && !teamTypes.has(id)).map(([id]) => id));
+  const { names, prices, types, seriesId, groups } = await fetchTypes(env);
+  const bundles = await fetchBundles(env, seriesId);
 
   /* Incremental, with a rebuild from nothing now and then so a refund that
      landed on an old order is eventually seen. */
@@ -257,18 +288,30 @@ async function build(env, kv, now) {
   const all = [...byId.values()];
   const highWater = all.reduce((n, o) => Math.max(n, Number(o.created_at) || 0), 0);
 
-  const agg = aggregate(all, { teamTypes, freeTypes, typeNames: names, typePrices: prices });
+  /* Counts from the tickets, money from the orders. */
+  const tickets = await fetchTickets(env);
+  const agg = aggregate(all, tickets, {
+    teamTypes, typeNames: names, typePrices: prices, bundles,
+  });
+  const sold = soldByType(tickets);
+  agg.byType = agg.byType.map(t => ({ ...t, sold: sold[t.id] || 0 }));
+  /* A type that sold but brought in nothing still belongs in the table. */
+  for (const [id, n] of Object.entries(sold)) {
+    if (agg.byType.some(t => t.id === id)) continue;
+    agg.byType.push({
+      id, name: names[id] || id, price: prices[id] ?? null, sold: n, revenue: 0,
+      kind: teamTypes.has(id) ? 'team' : (Number(prices[id]) === 0 ? 'free' : 'paid'),
+    });
+  }
 
   /* Check-ins, and which side of the gate each ticket is. */
   let checkIns = { available: true, byDay: null, error: '' };
   try {
     const rows = await fetchCheckIns(env);
     const kind = {};
-    for (const o of all) {
-      for (const t of (o.issued_tickets || [])) {
-        kind[String(t.id)] = (teamTypes.has(String(t.ticket_type_id))
-          || /^p_/.test(String(t.reference || ''))) ? 'team' : 'public';
-      }
+    for (const t of tickets) {
+      kind[String(t.id)] = (teamTypes.has(String(t.ticket_type_id))
+        || /^p_/.test(String(t.reference || ''))) ? 'team' : 'public';
     }
     checkIns.byDay = checkInsByHour(rows, kind);
   } catch (e) {
@@ -290,6 +333,11 @@ async function build(env, kv, now) {
     at: now.toISOString(),
     agg,
     types: types.map(t => ({ id: t.id, name: t.name, price: Number(t.price) || 0 })),
+    bundles: Object.values(bundles).map(b => ({
+      id: b.id, name: b.name, price: Number(b.price) || 0, status: b.status,
+      heads: (b.ticket_types || []).reduce((n, t) => n + (Number(t.quantity) || 0), 0),
+    })),
+    ticketGroups: (groups || []).map(g => ({ id: g.id, name: g.name })),
     checkIns,
     team,
     local,
@@ -307,35 +355,55 @@ async function build(env, kv, now) {
  */
 function shape(f, who, { now, cached = false, stale = false, tooSoon = false, error = '' } = {}) {
   const agg = f.agg;
-  const today = brusselsDay(Math.floor(now.getTime() / 1000));
-  const yesterday = brusselsDay(Math.floor(now.getTime() / 1000) - 86400);
+  const sec = Math.floor(now.getTime() / 1000);
+  const today = brusselsDay(sec);
+  const yesterday = brusselsDay(sec - 86400);
   const last7 = lastDays(7, now);
-  const prev7 = lastDays(14, now).slice(0, 7);
+
+  const paidTypes = agg.byType.filter(t => t.kind === 'paid');
+  const otherTypes = agg.byType.filter(t => t.kind !== 'paid');
 
   const out = {
     ok: true,
-    viewer: { name: who.name, revenue: who.revenue },
+    viewer: { name: who.name, revenue: who.revenue, admin: Boolean(who.admin) },
     asOf: f.at,
     cached,
     stale,
     note: error || (tooSoon ? 'Refreshed a moment ago. These are the same figures.' : ''),
     daysToGo: daysToGo(now),
-    headline: {
-      paid: agg.paid,
-      today: agg.perDay[today] || 0,
-      yesterday: agg.perDay[yesterday] || 0,
-      last7: sumDays(agg.perDay, last7),
-      prev7: sumDays(agg.perDay, prev7),
-    },
+
+    /* Row 1 and row 2: the two numbers that matter, then the three periods. */
+    headline: { paid: agg.paid },
+    periods: [
+      { key: 'today', label: 'Today', paid: agg.perDay[today] || 0 },
+      { key: 'yesterday', label: 'Yesterday', paid: agg.perDay[yesterday] || 0 },
+      { key: 'last7', label: 'Last 7 days', paid: sumDays(agg.perDay, last7) },
+    ],
+
     small: {
       free: agg.free,
+      comp: agg.comp,
       team: agg.team,
+      teamApproved: (f.team.teams || []).reduce((n, t) => n + t.approved, 0),
       teamExpected: (f.team.teams || []).reduce((n, t) => n + t.expected, 0),
       all: agg.all,
     },
-    groups: agg.groups,
+
+    groups: {
+      ...agg.groups,
+      /* What the box office has, as against what the orders read show. */
+      bundlesOnSale: (f.bundles || []).filter(b => b.status === 'ON_SALE').length,
+      bundlesKnown: (f.bundles || []).length,
+      ticketGroups: (f.ticketGroups || []).map(g => g.name),
+    },
+
     perDay: Object.fromEntries(lastDays(14, now).map(d => [d, agg.perDay[d] || 0])),
-    byType: agg.byType.map(t => ({ id: t.id, name: t.name, price: t.price, sold: t.sold, kind: t.kind })),
+    byType: paidTypes.map(t => ({ id: t.id, name: t.name, price: t.price, sold: t.sold })),
+    otherTypes: otherTypes.map(t => ({
+      id: t.id, name: t.name, price: t.price, sold: t.sold, kind: t.kind,
+    })),
+    complimentary: agg.comp,
+
     bySource: SOURCE_ORDER.map(k => ({ key: k, orders: agg.bySource[k] || 0 })),
     team: f.team.teams,
     waiting: f.team.waiting,
@@ -348,11 +416,41 @@ function shape(f, who, { now, cached = false, stale = false, tooSoon = false, er
   };
 
   if (who.revenue) {
+    out.headline.revenue = agg.revenue;
     out.revenue = { total: agg.revenue, orders: agg.orders };
-    out.byType = out.byType.map(t => ({
-      ...t,
-      revenue: (agg.byType.find(x => x.id === t.id) || {}).revenue || 0,
-    }));
+
+    const money = days => days.reduce((n, d) => n + (agg.perDayMoney[d] || 0), 0);
+    out.periods[0].revenue = agg.perDayMoney[today] || 0;
+    out.periods[1].revenue = agg.perDayMoney[yesterday] || 0;
+    out.periods[2].revenue = money(last7);
+
+    const byId = Object.fromEntries(agg.byType.map(t => [t.id, t.revenue]));
+    out.byType = out.byType.map(t => ({ ...t, revenue: byId[t.id] || 0 }));
+    out.otherTypes = out.otherTypes.map(t => ({ ...t, revenue: byId[t.id] || 0 }));
+
+    /* The table has to add up to the headline. Whatever the ticket lines did
+       not account for is fees, tax and donations, and it gets a line of its
+       own rather than being folded into a ticket type. */
+    const named = agg.byType.reduce((n, t) => n + t.revenue, 0);
+    out.reconcile = {
+      types: named,
+      other: agg.revenue - named,
+      total: agg.revenue,
+    };
+
+    /* Where the difference between list price and money received went. */
+    const g = agg.gap;
+    out.gap = {
+      list: g.list,
+      discounts: g.discounts,
+      bundles: g.bundles,
+      complimentary: g.complimentary,
+      refunds: g.refunds,
+      cancelled: g.cancelled,
+      received: agg.revenue,
+      unexplained: g.list - g.discounts - g.bundles - g.complimentary
+        - g.refunds - agg.revenue + agg.other,
+    };
   }
   return out;
 }

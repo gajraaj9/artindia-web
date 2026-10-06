@@ -117,8 +117,12 @@
     <span class="pill" id="who" hidden></span>
     <span class="pill" id="mode" hidden></span>
     <span class="pill" id="reg" hidden></span>
-    <a href="/admin/dashboard" style="font-size:.85rem">Dashboard</a>
   </header>
+  <p class="muted" style="margin:0 0 .9rem">
+    <a href="/admin/dashboard">Dashboard</a> ·
+    <a href="/admin/team" aria-current="page">Team passes</a> ·
+    <a href="/admin/wa">WhatsApp</a>
+  </p>
 
   <div class="card" id="unlock" hidden>
     <label for="token">Admin token</label>
@@ -154,6 +158,19 @@
   function writeToken(v) {
     try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch (e) {}
   }
+
+  /* A view-only token may read the dashboard and nothing else. Rather than
+     telling them their token is wrong, which it is not, send them to the one
+     page they are allowed. */
+  function sendToDashboard(token, otherwise) {
+    fetch('/api/dash', { headers: { 'X-Admin-Token': token } })
+      .then(function (r) {
+        if (r.ok) { location.replace('/admin/dashboard'); return; }
+        otherwise();
+      })
+      .catch(otherwise);
+  }
+
   function esc(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -592,11 +609,13 @@
     note('Loading…');
     api('GET').then(function (d) {
       if (!d.ok) {
-        $('unlock').hidden = false;
-        $('app').hidden = true;
-        $('unlockmsg').textContent = d.httpStatus === 503
-          ? 'TEAM_ADMIN_TOKENS is not set on the project.'
-          : 'That token was refused.';
+        sendToDashboard(readToken(), function () {
+          $('unlock').hidden = false;
+          $('app').hidden = true;
+          $('unlockmsg').textContent = d.httpStatus === 503
+            ? 'TEAM_ADMIN_TOKENS is not set on the project.'
+            : 'That token was refused.';
+        });
         return;
       }
       D = d;
@@ -676,7 +695,8 @@
       if (!v) return;
       writeToken(v);
       $('token').value = '';
-      load();
+      /* A token typed on any admin page lands on the dashboard. */
+      location.replace('/admin/dashboard');
       return;
     }
     if (!a) return;
