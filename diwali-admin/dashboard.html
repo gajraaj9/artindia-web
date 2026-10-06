@@ -427,6 +427,15 @@
     var notice = D.note
       ? '<div class="card notice' + (D.stale ? ' bad' : '') + '">' + esc(D.note) + '</div>'
       : '';
+    if (D.catchingUp) {
+      notice += '<div class="card notice">Still reading older orders. '
+        + 'These figures will grow on the next refresh.</div>';
+    }
+    (D.degraded || []).forEach(function (x) {
+      notice += '<div class="card notice">' + esc(x.stage)
+        + ' could not be read' + (x.status ? ' (HTTP ' + x.status + ')' : '')
+        + ', so that section is missing: ' + esc(x.reason || '') + '</div>';
+    });
 
     var sources = D.bySource.map(function (s) {
       return { t: SOURCE[s.key] || s.key, v: s.orders };
@@ -440,6 +449,26 @@
 
   /* ---------------------------------------------------------------- load */
 
+  /* The chrome is always there. A page that loses its Refresh button when
+     the figures fail is a page nobody can retry. */
+  function chrome() {
+    $('refresh').hidden = false;
+    $('refresh').disabled = false;
+    if (!$('nav').innerHTML) {
+      $('nav').innerHTML = '<a href="/admin/team">Team passes</a> <a href="/admin/wa">WhatsApp</a>';
+    }
+  }
+
+  function fail(text, detail) {
+    chrome();
+    $('asof').textContent = '';
+    $('app').hidden = false;
+    $('app').innerHTML = '<div class="card notice bad">' + esc(text)
+      + (detail ? '<div class="foot" style="color:inherit;margin-top:.35rem">'
+        + esc(detail) + '</div>' : '')
+      + '</div>';
+  }
+
   function load(fresh) {
     if (busy) return;
     var token = readToken();
@@ -448,33 +477,62 @@
     $('refresh').disabled = true;
     $('asof').textContent = 'Loading…';
 
+    var status = 0;
     fetch('/api/dash' + (fresh ? '?refresh=1' : ''), { headers: { 'X-Admin-Token': token } })
-      .then(function (r) { return r.json().then(function (d) { d.httpStatus = r.status; return d; }); })
-      .then(function (d) {
+      .then(function (r) {
+        status = r.status;
+        /* Read it as text first, so a body that is not JSON can be reported
+           as what it is rather than as a network failure. */
+        return r.text();
+      })
+      .then(function (body) {
         busy = false;
-        $('refresh').disabled = false;
+        chrome();
+
+        var d;
+        try {
+          d = JSON.parse(body);
+        } catch (e) {
+          /* Case 2: the server answered, and it was not JSON. An HTML error
+             page from the platform used to land in the catch below and be
+             reported as "could not reach the server". */
+          fail('The server answered with something that is not JSON. HTTP ' + status + '.',
+            String(body || '').replace(/<[^>]*>/g, ' ').trim().slice(0, 200));
+          return;
+        }
+
         if (!d.ok) {
-          if (d.httpStatus === 401 || d.httpStatus === 503) {
+          if (status === 401 || status === 503) {
             $('unlock').hidden = false;
             $('app').hidden = true;
-            $('unlockmsg').textContent = d.httpStatus === 503
+            $('unlockmsg').textContent = status === 503
               ? 'No dashboard tokens are set on the project.'
               : 'That token was refused.';
             return;
           }
-          $('app').hidden = false;
-          $('app').innerHTML = '<div class="card notice bad">' + esc(d.error || 'No figures.') + '</div>';
-          $('asof').textContent = '';
+          /* Case 3: the server reported a failure and said where. */
+          fail('The dashboard could not be built. It failed at: '
+            + (d.stage || 'an unknown stage')
+            + (d.status ? ' (Ticket Tailor answered HTTP ' + d.status + ')' : '') + '.',
+            d.reason || d.error || '');
           return;
         }
+
         $('unlock').hidden = true;
         D = d;
-        render();
+        try {
+          render();
+        } catch (e) {
+          /* Case 4: the figures arrived and the page could not draw them. */
+          fail('The figures arrived but this page could not draw them.',
+            String((e && e.message) || e));
+        }
       })
-      .catch(function () {
+      .catch(function (e) {
+        /* Case 1, and only case 1: the request never completed. */
         busy = false;
-        $('refresh').disabled = false;
-        $('asof').textContent = 'Could not reach the server.';
+        chrome();
+        fail('Could not reach the server.', String((e && e.message) || e));
       });
   }
 

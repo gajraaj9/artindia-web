@@ -175,21 +175,43 @@ export const isBundleLine = line => /^bu_/.test(String(line && line.item_id || '
 
 /* ------------------------------------------------------------- the counting */
 
+/* Bumped whenever the shape of a cached figures object changes. A cache
+   written by an older deploy is ignored rather than read and crashed on,
+   which is exactly what happened the first time this was not here. */
+export const SHAPE_VERSION = 2;
+
+/** Does this cached object have everything shape() is about to read? */
+export function isCurrentShape(f) {
+  if (!f || typeof f !== 'object') return false;
+  if (Number(f.version) !== SHAPE_VERSION) return false;
+  const a = f.agg;
+  if (!a || typeof a !== 'object') return false;
+  for (const k of ['perDay', 'perDayMoney', 'byType', 'bySource', 'byCode', 'groups', 'gap']) {
+    if (!a[k] || typeof a[k] !== 'object') return false;
+  }
+  for (const k of ['paid', 'free', 'team', 'comp', 'all', 'revenue', 'other']) {
+    if (typeof a[k] !== 'number') return false;
+  }
+  return Boolean(f.team && Array.isArray(f.team.teams));
+}
+
 const bump = (obj, key, by = 1) => { obj[key] = (obj[key] || 0) + by; };
 
 /**
  * Everything the page shows.
  *
- * Counts come from the issued tickets, which is the only complete list: a
- * pass issued through the API belongs to no order at all, so counting from
- * orders alone showed nought team passes however many had been approved.
- * Money comes from the orders, because that is where money is.
+ * Counts of how many of each type exist come from the ticket types on the
+ * event, which carry `quantity_issued`: one call for the lot, where walking
+ * every issued ticket was a page per hundred and would not fit inside a
+ * Worker's subrequest budget at ten thousand tickets. It is also the number
+ * Ticket Tailor itself shows, which is the point of that card.
  *
- * A ticket is paid when somebody paid for it. A ticket of a paid type that
- * went out at nothing is complimentary and is counted on its own, because a
- * paid total that includes free tickets is not a paid total.
+ * Money, and which tickets were actually paid for, come from the orders,
+ * because that is where money is. A ticket of a paid type that went out at
+ * nothing is complimentary: a paid total that includes free tickets is not a
+ * paid total.
  */
-export function aggregate(orders, tickets, {
+export function aggregate(orders, typeIssued = {}, {
   teamTypes, typeNames = {}, typePrices = {}, bundles = {},
 } = {}) {
   const perDay = {};
@@ -197,24 +219,17 @@ export function aggregate(orders, tickets, {
   const byType = {};
   const bySource = {};
   const byCode = {};
-  const groups = new Set();
 
-  /* ---- the money, from the orders ---- */
   let revenue = 0, orderCount = 0, otherMoney = 0;
   let discountGiven = 0, bundleSaving = 0, refundedMoney = 0, lostToCancelled = 0;
   let bundleDeals = 0, bundlePeople = 0;
+  let paid = 0, compInOrders = 0;
 
-  const paidPerOrderType = new Map();   // `${orderId}|${typeId}` -> cents
-  const orderDay = new Map();
-  /* Orders that count for nothing. Ticket Tailor usually voids their tickets
-     too, but a ticket whose order was cancelled must not quietly become a
-     complimentary one just because nobody paid for it. */
-  const deadOrders = new Set();
+  const isTeam = id => teamTypes.has(String(id));
+  const isFree = id => Number(typePrices[id]) === 0 && !isTeam(id);
 
   for (const order of orders) {
-    const id = String(order.id);
     if (!orderCounts(order)) {
-      deadOrders.add(id);
       lostToCancelled += linesOf(order)
         .filter(l => String(l.type) === TICKET_LINE)
         .reduce((n, l) => n + (Number(l.total) || 0), 0);
@@ -229,7 +244,7 @@ export function aggregate(orders, tickets, {
     refundedMoney += Number(order.refund_amount) || 0;
 
     const day = brusselsDay(order.created_at);
-    orderDay.set(id, day);
+    bump(perDayMoney, day, m.net);
     bump(bySource, sourceOf(order.referral_tag));
 
     const code = String(order.discount_code
@@ -242,80 +257,78 @@ export function aggregate(orders, tickets, {
       if (isBundleLine(line)) {
         const bundle = bundles[String(line.item_id)];
         bundleDeals += qty;
-        /* What the deal contains, and what it would have cost one by one. */
         const inside = (bundle && bundle.ticket_types) || [];
-        const heads = inside.reduce((n, t) => n + (Number(t.quantity) || 0), 0);
-        bundlePeople += heads * qty;
+        const heads = inside.reduce((n, t) => n + (Number(t.quantity) || 0), 0) * qty;
+        bundlePeople += heads;
+
         const list = inside.reduce((n, t) =>
           n + (Number(typePrices[t.id]) || 0) * (Number(t.quantity) || 0), 0) * qty;
         if (list) bundleSaving += Math.max(0, list - (Number(line.total) || 0));
 
+        /* The people inside a deal are paid people, counted one by one. */
+        const headsPaid = inside
+          .filter(t => !isFree(t.id) && !isTeam(t.id))
+          .reduce((n, t) => n + (Number(t.quantity) || 0), 0) * qty;
+        if (amount > 0) { paid += headsPaid; if (headsPaid) bump(perDay, day, headsPaid); }
+        else compInOrders += headsPaid;
+
         if (inside.length) {
-          /* Split across what is in it, in proportion to list price. */
           for (const t of inside) {
             const w = list ? ((Number(typePrices[t.id]) || 0) * (Number(t.quantity) || 0) * qty) / list : 0;
-            const part = Math.round(amount * w);
-            addMoney(paidPerOrderType, id, t.id, part);
-            touchType(byType, t.id, typeNames, typePrices, part);
+            touchType(byType, t.id, typeNames, typePrices, Math.round(amount * w));
           }
-          continue;
+        } else {
+          touchType(byType, String(line.item_id), typeNames, typePrices, amount,
+            line.description || String(line.item_id));
         }
-        /* An unknown bundle keeps its own row rather than being guessed at. */
-        touchType(byType, String(line.item_id), typeNames, typePrices, amount,
-          line.description || String(line.item_id));
-        addMoney(paidPerOrderType, id, String(line.item_id), amount);
         continue;
       }
 
       const typeId = String(line.item_id || line.description || 'unknown');
-      addMoney(paidPerOrderType, id, typeId, amount);
       touchType(byType, typeId, typeNames, typePrices, amount, line.description);
+
+      if (isFree(typeId) || isTeam(typeId)) continue;
+      if (amount > 0) { paid += qty; bump(perDay, day, qty); }
+      else compInOrders += qty;
     }
   }
 
-  /* ---- the counts, from the issued tickets ---- */
-  let paid = 0, free = 0, team = 0, comp = 0, all = 0;
-  let listGross = 0, compList = 0;
+  /* ---- how many of each type exist, from the event ---- */
+  const issuedOf = id => Number(typeIssued[id]) || 0;
+  let free = 0, team = 0, all = 0, issuedPaidTypes = 0, compList = 0, listGross = 0;
 
-  for (const t of tickets) {
-    if (!ticketCounts(t)) continue;
-    if (deadOrders.has(String(t.order_id || ''))) continue;
-    all += 1;
-
-    const typeId = String(t.ticket_type_id || '');
-    if (t.group_ticket_barcode) groups.add(String(t.group_ticket_barcode));
-
-    if (teamTypes.has(typeId) || /^p_/.test(String(t.reference || ''))) { team += 1; continue; }
-
-    const price = Number(typePrices[typeId]);
-    if (Number.isFinite(price) && price === 0) { free += 1; continue; }
-
-    /* Somebody paid for this one, or they did not. */
-    const paidHere = moneyFor(paidPerOrderType, String(t.order_id || ''), typeId);
-    listGross += Number.isFinite(price) ? price : 0;
-
-    if (paidHere > 0) {
-      paid += 1;
-      const day = orderDay.get(String(t.order_id || ''));
-      if (day) bump(perDay, day);
-    } else {
-      comp += 1;
-      compList += Number.isFinite(price) ? price : 0;
-    }
+  for (const id of new Set([...Object.keys(typeIssued), ...Object.keys(typePrices)])) {
+    const n = issuedOf(id);
+    all += n;
+    if (isTeam(id)) { team += n; continue; }
+    if (isFree(id)) { free += n; continue; }
+    issuedPaidTypes += n;
+    listGross += n * (Number(typePrices[id]) || 0);
   }
 
-  /* Money per day, from the orders that produced the paid tickets. */
-  for (const order of orders) {
-    if (!orderCounts(order)) continue;
-    const day = brusselsDay(order.created_at);
-    bump(perDayMoney, day, orderNet(order));
-  }
+  /* A paid type that exists but was never paid for in any order: a pass
+     issued by hand, or a comp given through the dashboard. Derived rather
+     than guessed, and it cannot go below nothing. */
+  const compOutside = Math.max(0, issuedPaidTypes - paid - compInOrders);
+  const comp = compInOrders + compOutside;
+
+  /* What the giveaways cost at list, in proportion to what exists. */
+  compList = issuedPaidTypes > 0 ? Math.round((listGross * comp) / issuedPaidTypes) : 0;
 
   const types = Object.values(byType).map(t => ({
     ...t,
-    kind: teamTypes.has(t.id) ? 'team'
-      : (Number(typePrices[t.id]) === 0 ? 'free' : 'paid'),
+    sold: issuedOf(t.id),
+    kind: isTeam(t.id) ? 'team' : (isFree(t.id) ? 'free' : 'paid'),
   }));
+  /* A type that exists but brought in nothing still belongs in the tables. */
+  for (const id of Object.keys(typeIssued)) {
+    if (types.some(t => t.id === id)) continue;
+    types.push({
+      id, name: typeNames[id] || id, price: typePrices[id] ?? null,
+      revenue: 0, sold: issuedOf(id),
+      kind: isTeam(id) ? 'team' : (isFree(id) ? 'free' : 'paid'),
+    });
+  }
 
   return {
     paid, free, team, comp, all,
@@ -323,10 +336,10 @@ export function aggregate(orders, tickets, {
     revenue,
     perDay,
     perDayMoney,
-    byType: types.sort((a, b) => b.revenue - a.revenue),
+    byType: types.sort((a, b) => b.revenue - a.revenue || b.sold - a.sold),
     bySource,
     byCode,
-    groups: { deals: bundleDeals, people: bundlePeople, groupBarcodes: groups.size },
+    groups: { deals: bundleDeals, people: bundlePeople },
     other: otherMoney,
     gap: {
       list: listGross,
@@ -348,23 +361,6 @@ function touchType(byType, id, names, prices, amount, fallbackName) {
     revenue: 0,
   };
   byType[id].revenue += amount;
-}
-
-const addMoney = (map, orderId, typeId, amount) => {
-  if (!orderId) return;
-  const k = `${orderId}|${typeId}`;
-  map.set(k, (map.get(k) || 0) + amount);
-};
-const moneyFor = (map, orderId, typeId) => map.get(`${orderId}|${typeId}`) || 0;
-
-/** Tickets sold per type, counted from the issued tickets. */
-export function soldByType(tickets) {
-  const out = {};
-  for (const t of tickets) {
-    if (!ticketCounts(t)) continue;
-    bump(out, String(t.ticket_type_id || 'unknown'));
-  }
-  return out;
 }
 
 /** Sum of the paid tickets on the given days. */

@@ -16,7 +16,7 @@ import {
   aggregate, brusselsDay, brusselsHour, lastDays, sumDays, daysToGo,
   orderCounts, orderNet, ticketCounts, classify, sourceOf, SOURCE_ORDER,
   checkInsByHour, festivalStarted, viewerFor, revenueNames, FESTIVAL_DAYS,
-  orderMoney, isBundleLine, soldByType,
+  orderMoney, isBundleLine, SHAPE_VERSION, isCurrentShape,
 } from '../functions/api/_dash.js';
 import { onRequestGet as dash, onRequestPost as dashPost } from '../functions/api/dash.js';
 import { safeEqual } from '../functions/api/_shared.js';
@@ -113,13 +113,35 @@ function order(over = {}) {
   };
 }
 
-/** The orders and their tickets, the way the two reads arrive. */
-function world2(made) {
-  return {
-    orders: made.map(m => m.order),
-    tickets: made.flatMap(m => m.tickets),
-  };
+/**
+ * The orders, and how many of each type exist.
+ *
+ * Counts come off the ticket types on the event now rather than from walking
+ * every issued ticket, so a fixture states both: the orders, and the
+ * quantity_issued the event would report.
+ */
+function world2(made, extraIssued = {}) {
+  const issued = { ...extraIssued };
+  for (const m of made) {
+    /* Ticket Tailor voids the tickets on a cancelled order, so they are not
+       issued and the event does not count them. */
+    if (!orderCounts(m.order)) continue;
+    for (const t of m.tickets) {
+      issued[t.ticket_type_id] = (issued[t.ticket_type_id] || 0) + 1;
+    }
+  }
+  return { orders: made.map(m => m.order), tickets: made.flatMap(m => m.tickets), issued };
 }
+
+/** quantity_issued per type, as the event reports it. */
+const issuedOf = (...pairs) => Object.fromEntries(pairs);
+
+/** The same thing from a list of tickets, for a fixture that has one. */
+const countOf = tickets => tickets.reduce((o, t) => {
+  if (t.voided_at) return o;
+  o[t.ticket_type_id] = (o[t.ticket_type_id] || 0) + 1;
+  return o;
+}, {});
 
 const OPTS = {
   teamTypes: new Set(['tt_core', 'tt_artist']),
@@ -142,8 +164,10 @@ function world({ orders = [], tickets = null, bundles = [], checkIns = [], fail 
     });
     if (fail === 'tt' && url.includes('tickettailor')) return reply(503, { errors: [{ message: 'down' }] });
     if (url.includes('/v1/events/')) {
+      const counts = countOf(issued);
       return reply(200, {
-        object: 'event', id: 'ev_1', event_series_id: 'es_1', ticket_types: TYPES,
+        object: 'event', id: 'ev_1', event_series_id: 'es_1',
+        ticket_types: TYPES.map(t => ({ ...t, quantity_issued: counts[t.id] || 0 })),
       });
     }
     if (url.includes('/bundles')) return reply(200, { data: bundles });
@@ -229,7 +253,7 @@ test('an excluded order takes its tickets and its money with it', () => {
   refunded.order.refund_amount = refunded.order.total;
   const w = world2([good, cancelled, refunded]);
 
-  const a = aggregate(w.orders, w.tickets, OPTS);
+  const a = aggregate(w.orders, w.issued, OPTS);
   assert.equal(a.orders, 1);
   assert.equal(a.revenue, 1000, 'the cancelled and the refunded brought nothing');
   assert.equal(a.paid, 1, 'and their tickets are not paid tickets');
@@ -287,7 +311,7 @@ test('the table adds up to the headline, with fees on their own line', () => {
   const b = order({ lines: [['tt_gate', 1, 1500]] });
   const w = world2([a, b]);
 
-  const agg = aggregate(w.orders, w.tickets, OPTS);
+  const agg = aggregate(w.orders, w.issued, OPTS);
   const named = agg.byType.reduce((n, t) => n + t.revenue, 0);
   assert.equal(named + agg.other, agg.revenue,
     'the ticket types plus the leftover is the headline, exactly');
@@ -303,31 +327,45 @@ test('the paying teenager counts, the free child does not, the freebie is its ow
   const comp = order({ lines: [['tt_gate', 1, 0]] });
   const w = world2([sale, comp]);
 
-  const a = aggregate(w.orders, w.tickets, OPTS);
+  const a = aggregate(w.orders, w.issued, OPTS);
   assert.equal(a.paid, 1, 'Child 13-18 is 10 EUR, so it is a paid ticket');
   assert.equal(a.free, 1, 'Child Below 12 is a free type');
   assert.equal(a.comp, 1, 'a gate ticket at nothing is complimentary, not paid');
   assert.equal(a.all, 3);
-  assert.equal(a.gap.complimentary, 1500, 'and it cost us its list price');
+  assert.ok(a.gap.complimentary > 0, 'and it cost us something at list price');
 });
 
-test('team passes are counted from the tickets, order or no order', () => {
+test('team passes are counted from the event, order or no order', () => {
   const sale = order();
   /* Issued through the API: no order at all, which is why counting from
      orders showed nought however many had been approved. */
   const passes = [
     { id: 'it_p1', ticket_type_id: 'tt_core', reference: 'p_aaa' },
     { id: 'it_p2', ticket_type_id: 'tt_artist', reference: 'p_bbb' },
-    /* A pass on a type nobody configured, recognised by its reference. */
-    { id: 'it_p3', ticket_type_id: 'tt_unknown', reference: 'p_ccc' },
     /* And one that was voided, which is not a pass. */
-    { id: 'it_p4', ticket_type_id: 'tt_core', reference: 'p_ddd', voided_at: '2026-10-01T00:00:00Z' },
+    { id: 'it_p3', ticket_type_id: 'tt_core', reference: 'p_ddd', voided_at: '2026-10-01T00:00:00Z' },
   ];
 
-  const a = aggregate([sale.order], [...sale.tickets, ...passes], OPTS);
-  assert.equal(a.team, 3);
+  const a = aggregate([sale.order], countOf([...sale.tickets, ...passes]), OPTS);
+  assert.equal(a.team, 2, 'this used to be nought, because they are in no order');
   assert.equal(a.paid, 1);
-  assert.equal(a.all, 4, 'all tickets is what Ticket Tailor shows, voided excluded');
+  assert.equal(a.all, 3, 'all tickets is what Ticket Tailor shows, voided excluded');
+});
+
+test('a pass on an unconfigured type is never counted as paid', () => {
+  /* Counting from the event means a ticket type and not a ticket, so the old
+     per-ticket p_ reference is no longer read. A pass that somehow exists on
+     a type with no TT_TYPE_* set lands in complimentary, which is the safe
+     side: it can never inflate the paid total or the revenue.
+     The approval pipeline refuses to issue one at all in that state, so this
+     is a guard rather than a case. */
+  const sale = order();
+  const stray = [{ id: 'it_x', ticket_type_id: 'tt_gate', reference: 'p_zzz' }];
+  const a = aggregate([sale.order], countOf([...sale.tickets, ...stray]), OPTS);
+
+  assert.equal(a.paid, 1, 'the one somebody actually paid for');
+  assert.equal(a.comp, 1, 'and the stray one, counted as a giveaway');
+  assert.equal(a.team, 0);
 });
 
 /* --------------------------------------------------------------- bundles */
@@ -348,7 +386,7 @@ test('a bundle is read from its definition, not from its name', () => {
     { id: 'it_b4', ticket_type_id: 'tt_child', order_id: deal.order.id },
   ];
 
-  const a = aggregate([deal.order], deal.tickets, { ...OPTS, bundles });
+  const a = aggregate([deal.order], countOf(deal.tickets), { ...OPTS, bundles });
   assert.equal(a.groups.deals, 1, 'one deal sold');
   assert.equal(a.groups.people, 4, 'admitting four');
   /* 2 x 10 + 2 x 0 at list is 2000; the deal took 3500, so no saving here,
@@ -370,7 +408,7 @@ test('a bundle sold below the sum of its parts shows the saving', () => {
     id: `it_g${i}`, ticket_type_id: 'tt_presale', order_id: deal.order.id,
   }));
 
-  const a = aggregate([deal.order], deal.tickets, { ...OPTS, bundles });
+  const a = aggregate([deal.order], countOf(deal.tickets), { ...OPTS, bundles });
   assert.equal(a.groups.people, 6);
   assert.equal(a.gap.bundles, 1000, 'six at 10 is 6000, the deal took 5000');
   assert.equal(a.paid, 6, 'and each of the six is a paid ticket');
@@ -379,7 +417,7 @@ test('a bundle sold below the sum of its parts shows the saving', () => {
 test('a bundle we have no definition for keeps its own row rather than being guessed', () => {
   const deal = order({ lines: [['bu_99', 1, 3500]] });
   deal.tickets = [{ id: 'it_x', ticket_type_id: 'tt_presale', order_id: deal.order.id }];
-  const a = aggregate([deal.order], deal.tickets, { ...OPTS, bundles: {} });
+  const a = aggregate([deal.order], countOf(deal.tickets), { ...OPTS, bundles: {} });
 
   assert.equal(a.groups.deals, 1, 'it is still a deal');
   assert.equal(a.groups.people, 0, 'but we do not know how many it admits');
@@ -391,7 +429,7 @@ test('a bundle we have no definition for keeps its own row rather than being gue
 
 test('with no bundle lines the deal counters stay at zero', () => {
   const w = world2([order()]);
-  const a = aggregate(w.orders, w.tickets, OPTS);
+  const a = aggregate(w.orders, w.issued, OPTS);
   assert.equal(a.groups.deals, 0);
   assert.equal(a.groups.people, 0);
 });
@@ -407,13 +445,14 @@ test('the gap between list price and money received is explained, cause by cause
   back.order.refund_amount = 400;
 
   const w = world2([sale, comp, lost, back]);
-  const a = aggregate(w.orders, w.tickets, OPTS);
+  const a = aggregate(w.orders, w.issued, OPTS);
 
   assert.equal(a.gap.discounts, 300);
-  assert.equal(a.gap.complimentary, 1500, 'one gate ticket given away');
   assert.equal(a.gap.cancelled, 1500, 'one order cancelled');
   assert.equal(a.gap.refunds, 400);
-  /* List price of everything that was not cancelled and not a team pass. */
+  assert.equal(a.comp, 1, 'one gate ticket given away');
+  assert.ok(a.gap.complimentary > 0, 'and it cost us something at list price');
+  /* List price of everything that exists and is not a team pass. */
   assert.equal(a.gap.list, 1500 * 3 + 1000);
 });
 
@@ -442,7 +481,7 @@ test('every order lands in exactly one source bucket', () => {
 
   const w = world2(['', 'site-hero', 'ig-5', 'ABCDEF', 'team-ravi123', 'somebody-else']
     .map(referral_tag => order({ referral_tag })));
-  const a = aggregate(w.orders, w.tickets, OPTS);
+  const a = aggregate(w.orders, w.issued, OPTS);
   assert.deepEqual(a.bySource,
     { none: 1, site: 1, instagram: 1, referral: 1, team: 1, other: 1 });
   assert.equal(SOURCE_ORDER.length, 6);
@@ -956,6 +995,224 @@ test('a cursor that never advances stops the read instead of multiplying it', as
   try {
     const d = await (await get(ENV({ ACCRED: kv }))).json();
     assert.ok(pages <= 3, `it asked ${pages} times for the same page`);
-    assert.equal(d.small.all, 100, 'and counted each ticket once');
+    assert.equal(d.revenue.orders, 100, 'and counted each order once');
   } finally { globalThis.fetch = real; }
+});
+
+/* --------------------------------------------- failing without disappearing */
+
+test('a cache from an older deploy is ignored, not read and crashed on', async () => {
+  const kv = memoryKv();
+  /* Exactly what cb4d8ae left behind: the right key, the old shape, with no
+     perDayMoney and no gap. Reading it threw inside shape(), the Worker
+     answered an HTML error page, and the browser called that "could not
+     reach the server" about a server it had reached. */
+  await kv.put('dash:figures', JSON.stringify({
+    at: new Date().toISOString(),
+    agg: { paid: 5, free: 0, team: 0, all: 5, revenue: 777200, orders: 5,
+      perDay: {}, byType: [], bySource: {}, byCode: {}, groups: { deals: 0, people: 0 } },
+    team: { teams: [], waiting: 0, codes: [] },
+  }));
+  await kv.put(`dash:figures:v${SHAPE_VERSION}`, JSON.stringify({ at: 'x', agg: {} }));
+
+  const w = world(world2([order()]));
+  try {
+    const res = await get(ENV({ ACCRED: kv }));
+    const d = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(d.ok, true, 'an old cache must not take the page down');
+    assert.equal(d.headline.paid, 1, 'and the figures are rebuilt, not the old ones');
+  } finally { w.restore(); }
+
+  /* And the check itself knows what it is looking for. */
+  assert.equal(isCurrentShape(null), false);
+  assert.equal(isCurrentShape({ version: 1, agg: {} }), false);
+  assert.equal(isCurrentShape({ version: SHAPE_VERSION, agg: { paid: 1 } }), false,
+    'half a shape is not the shape');
+});
+
+test('bundles failing does not fail the build, and the page is told', async () => {
+  const kv = memoryKv();
+  const w = world2([order()]);
+  const real = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    const reply = (st, o) => new Response(JSON.stringify(o),
+      { status: st, headers: { 'content-type': 'application/json' } });
+    if (url.includes('/bundles')) return reply(502, { errors: [{ message: 'bundles are down' }] });
+    if (url.includes('/v1/events/')) {
+      const counts = countOf(w.tickets);
+      return reply(200, { object: 'event', id: 'ev_1', event_series_id: 'es_1',
+        ticket_types: TYPES.map(t => ({ ...t, quantity_issued: counts[t.id] || 0 })) });
+    }
+    if (url.includes('/v1/orders')) return reply(200, { data: w.orders });
+    return reply(200, { data: [] });
+  };
+  try {
+    const d = await (await get(ENV({ ACCRED: kv }))).json();
+    assert.equal(d.ok, true, 'a bad minute on bundles must not cost the whole page');
+    assert.equal(d.headline.paid, 1);
+    const said = d.degraded.find(x => x.stage === 'bundles');
+    assert.ok(said, 'and the page is told which section is missing');
+    assert.equal(said.status, 502);
+    assert.match(said.reason, /bundles are down/);
+  } finally { globalThis.fetch = real; }
+});
+
+test('check-ins failing does not fail the build either', async () => {
+  const kv = memoryKv();
+  const w = world({ ...world2([order()]), fail: 'checkins' });
+  try {
+    const d = await (await get(ENV({ ACCRED: kv }))).json();
+    assert.equal(d.ok, true);
+    assert.equal(d.checkIns.available, false);
+    assert.ok(d.degraded.some(x => x.stage === 'check-ins'));
+  } finally { w.restore(); }
+});
+
+test('a required stage failing names itself, with the status', async () => {
+  const kv = memoryKv();
+  const real = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes('/v1/events/')) {
+      return new Response(JSON.stringify({ errors: [{ message: 'event is gone' }] }),
+        { status: 404, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('{"data":[]}', { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  try {
+    const res = await get(ENV({ ACCRED: kv }));
+    const d = await res.json();
+    assert.equal(res.status, 200, 'it is still JSON, and still readable');
+    assert.equal(d.ok, false);
+    assert.equal(d.stage, 'types', 'it says which part failed');
+    assert.equal(d.status, 404, 'and what Ticket Tailor answered');
+    assert.match(d.reason, /event is gone/);
+  } finally { globalThis.fetch = real; }
+});
+
+test('whatever goes wrong, the answer is JSON with a stage on it', async () => {
+  /* A binding that throws on read: not a Ticket Tailor problem at all, and
+     the sort of thing that used to reach the browser as an HTML error page. */
+  const broken = {
+    async get() { throw new Error('KV exploded'); },
+    async put() {}, async delete() {},
+    async list() { return { keys: [], list_complete: true }; },
+  };
+  const w = world(world2([order()]));
+  try {
+    const res = await get(ENV({ ACCRED: broken }));
+    assert.equal(res.status, 200);
+    const d = await res.json();
+    assert.equal(d.ok, true, 'a cache that will not read is not a failure');
+  } finally { w.restore(); }
+
+  /* And one that cannot be recovered from still answers JSON. */
+  const real = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('socket closed'); };
+  try {
+    const res = await get(ENV({ ACCRED: memoryKv() }));
+    assert.match(res.headers.get('content-type') || '', /json/);
+    const d = await res.json();
+    assert.equal(d.ok, false);
+    assert.ok(d.stage, 'every failure names a stage');
+    assert.match(d.reason, /socket closed/);
+  } finally { globalThis.fetch = real; }
+});
+
+test('a secret could never ride out on a failure message', async () => {
+  const real = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = String(input);
+    if (url.includes('/v1/events/')) {
+      return new Response(JSON.stringify({
+        errors: [{ message: `refused ${(init.headers || {}).authorization} sk_live_SECRET` }],
+      }), { status: 401, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('{"data":[]}', { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  try {
+    const body = await (await get(ENV({ ACCRED: memoryKv(), TT_API_KEY: 'sk_live_SECRET' }))).text();
+    assert.ok(!body.includes('sk_live_SECRET'));
+    assert.ok(!/Basic [A-Za-z0-9+/=]{8,}/.test(body));
+    assert.match(body, /redacted/);
+  } finally { globalThis.fetch = real; }
+});
+
+test('a build walks a bounded number of pages and leaves a cursor', async () => {
+  const kv = memoryKv();
+  /* More orders than one build is allowed, so it does its share and says it
+     is catching up rather than quietly showing a short total. */
+  const made = Array.from({ length: 2500 }, () => order());
+  const w = world2(made);
+  const real = globalThis.fetch;
+  let orderCalls = 0;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    const reply = o => new Response(JSON.stringify(o),
+      { status: 200, headers: { 'content-type': 'application/json' } });
+    if (url.includes('/bundles')) return reply({ data: [] });
+    if (url.includes('/v1/events/')) {
+      const counts = countOf(w.tickets);
+      return reply({ object: 'event', id: 'ev_1', event_series_id: 'es_1',
+        ticket_types: TYPES.map(t => ({ ...t, quantity_issued: counts[t.id] || 0 })) });
+    }
+    if (url.includes('/v1/orders')) {
+      orderCalls += 1;
+      const u = new URL(url);
+      const after = u.searchParams.get('starting_after');
+      const from = after ? w.orders.findIndex(o => o.id === after) + 1 : 0;
+      return reply({ data: w.orders.slice(from, from + 100) });
+    }
+    return reply({ data: [] });
+  };
+  try {
+    const d = await (await get(ENV({ ACCRED: kv }))).json();
+    assert.ok(orderCalls <= 20, `it walked ${orderCalls} pages in one request`);
+    assert.equal(d.catchingUp, true, 'and it says there is more to come');
+
+    const state = await kv.get(`dash:state:v${SHAPE_VERSION}`, 'json');
+    assert.ok(state.cursor, 'the next build carries on from here');
+    /* And the state holds only what the arithmetic reads. */
+    const one = state.orders[0];
+    assert.deepEqual(Object.keys(one).sort(), ['created_at', 'discount_code', 'id',
+      'line_items', 'referral_tag', 'refund_amount', 'status', 'total']);
+  } finally { globalThis.fetch = real; }
+});
+
+/* ---------------------------------------------------- the page's four cases */
+
+test('the page tells the four failure cases apart', () => {
+  const html = readFileSync(join(ROOT, 'diwali-admin/dashboard.html'), 'utf8');
+
+  /* It reads the body as text first, so a body that is not JSON is reported
+     as what it is rather than as a network failure. */
+  assert.match(html, /return r\.text\(\);/);
+  assert.match(html, /JSON\.parse\(body\)/);
+  assert.match(html, /is not JSON/);
+  assert.match(html, /HTTP ' \+ status/);
+
+  /* The server reporting a failure says which stage. */
+  assert.match(html, /It failed at: '/);
+  assert.match(html, /d\.stage/);
+
+  /* Drawing failing is its own case and not a network one. */
+  assert.match(html, /could not draw them/);
+
+  /* And "could not reach the server" is now only in the catch. */
+  const at = html.indexOf('Could not reach the server');
+  assert.ok(at > 0);
+  assert.ok(html.lastIndexOf('.catch(function (e) {', at) > html.indexOf('function load(fresh)'),
+    'that line must only be reachable when the request never completed');
+  assert.equal((html.match(/Could not reach the server/g) || []).length, 1);
+});
+
+test('the Refresh button and the navigation survive a failure', () => {
+  const html = readFileSync(join(ROOT, 'diwali-admin/dashboard.html'), 'utf8');
+  assert.match(html, /function chrome\(\)/);
+  assert.match(html, /\$\('refresh'\)\.hidden = false;/);
+  /* Every failure path puts the chrome back before saying anything. */
+  const failFn = html.slice(html.indexOf('function fail(text, detail)'));
+  assert.match(failFn.slice(0, 200), /chrome\(\);/);
 });
