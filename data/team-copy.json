@@ -1,14 +1,14 @@
 {
   "copy": {
     "title": {
-      "en": "Team registration",
-      "fr": "Inscription des équipes",
-      "nl": "Teamregistratie"
+      "en": "Register for your pass",
+      "fr": "Inscrivez-vous pour recevoir votre pass",
+      "nl": "Registreer voor je pas"
     },
     "intro": {
-      "en": "Register here for your pass to the Brussels Diwali Festival, 24 and 25 October 2026. One form per person.",
-      "fr": "Inscrivez-vous ici pour recevoir votre pass pour le Brussels Diwali Festival, les 24 et 25 octobre 2026. Un formulaire par personne.",
-      "nl": "Registreer hier voor je pas voor het Brussels Diwali Festival op 24 en 25 oktober 2026. Eén formulier per persoon."
+      "en": "It takes one minute. One form per person.",
+      "fr": "Cela prend une minute. Un formulaire par personne.",
+      "nl": "Het duurt één minuut. Eén formulier per persoon."
     },
     "first": {
       "en": "First name",
@@ -71,9 +71,9 @@
       "nl": "Registreren"
     },
     "another": {
-      "en": "Add another person",
-      "fr": "Ajouter une autre personne",
-      "nl": "Nog iemand toevoegen"
+      "en": "Register another person",
+      "fr": "Inscrire une autre personne",
+      "nl": "Nog iemand registreren"
     },
     "received": {
       "en": "Thank you. Your registration is waiting for approval by the festival team. You will hear from us by email and WhatsApp.",
@@ -189,6 +189,71 @@
       "en": "Your registration is waiting for approval by the festival team.",
       "fr": "Votre inscription est en attente de validation par l'équipe du festival.",
       "nl": "Je registratie wacht op goedkeuring door het festivalteam."
+    },
+    "email_hint": {
+      "en": "Your pass is sent to this address.",
+      "fr": "Votre pass sera envoyé à cette adresse.",
+      "nl": "Je pas wordt naar dit adres gestuurd."
+    },
+    "phone_hint": {
+      "en": "With the country code, for example +32.",
+      "fr": "Avec l'indicatif du pays, par exemple +32.",
+      "nl": "Met de landcode, bijvoorbeeld +32."
+    },
+    "fine": {
+      "en": "Passes are sent after approval by the festival team.",
+      "fr": "Les pass sont envoyés après validation par l'équipe du festival.",
+      "nl": "Passen worden verstuurd na goedkeuring door het festivalteam."
+    },
+    "done_title": {
+      "en": "Thank you, {FIRST}",
+      "fr": "Merci, {FIRST}",
+      "nl": "Bedankt, {FIRST}"
+    },
+    "done_lede": {
+      "en": "We have received your registration.",
+      "fr": "Nous avons bien reçu votre inscription.",
+      "nl": "We hebben je registratie ontvangen."
+    },
+    "step1_title": {
+      "en": "We review your registration",
+      "fr": "Nous examinons votre inscription",
+      "nl": "We bekijken je registratie"
+    },
+    "step1_text": {
+      "en": "The festival team approves every pass.",
+      "fr": "L'équipe du festival valide chaque pass.",
+      "nl": "Het festivalteam keurt elke pas goed."
+    },
+    "step2_title": {
+      "en": "Your pass arrives by email",
+      "fr": "Votre pass arrive par e-mail",
+      "nl": "Je pas komt per e-mail"
+    },
+    "step2_text": {
+      "en": "With a QR code to show at the entrance.",
+      "fr": "Avec un QR code à présenter à l'entrée.",
+      "nl": "Met een QR-code om aan de ingang te tonen."
+    },
+    "step3_title": {
+      "en": "You get a personal code to share",
+      "fr": "Vous recevez un code personnel à partager",
+      "nl": "Je krijgt een persoonlijke code om te delen"
+    },
+    "step3_text": {
+      "en": "By email and WhatsApp. Your friends and family get 10% off individual festival tickets with it.",
+      "fr": "Par e-mail et WhatsApp. Il offre à vos proches 10 % de réduction sur les billets individuels du festival.",
+      "nl": "Via e-mail en WhatsApp. Je vrienden en familie krijgen er 10% korting mee op individuele festivaltickets."
+    },
+    "mail_received_code": {
+      "en": "Once approved, you will also receive a personal code to share: it gives your friends and family 10% off individual festival tickets.",
+      "fr": "Une fois votre inscription validée, vous recevrez aussi un code personnel à partager : il offre à vos proches 10 % de réduction sur les billets individuels du festival.",
+      "nl": "Na goedkeuring krijg je ook een persoonlijke code om te delen: je vrienden en familie krijgen er 10% korting mee op individuele festivaltickets."
+    },
+    "dateline": {
+      "en": "24 and 25 October 2026 · Atomium",
+      "fr": "Les 24 et 25 octobre 2026 · Atomium",
+      "nl": "24 en 25 oktober 2026 · Atomium"
     }
   }
 }

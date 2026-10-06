@@ -53,6 +53,9 @@ export async function onRequestGet({ request, env }) {
          the child's act is the class they are in. There is no role to ask the
          parent for. */
       needsRole: !team.childTeam,
+      /* Whether the success screen promises a discount code. Only some teams
+         get one, and promising one that never arrives is worse than silence. */
+      promoCode: Boolean(team.promoCode),
       closesAt: closeAt(env).toISOString(),
       strings: strings(lang),
     });
@@ -70,6 +73,7 @@ export async function onRequestGet({ request, env }) {
       label: artist ? `${artist.firstName} ${artist.lastName}` : '',
       childTeam: false,
       needsRole: false,
+      promoCode: Boolean(team && team.promoCode),
       closesAt: closeAt(env).toISOString(),
       strings: strings(lang),
     });

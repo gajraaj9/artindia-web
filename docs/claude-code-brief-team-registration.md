@@ -357,8 +357,8 @@ Transactional through the Brevo API, sender `BREVO_SENDER_EMAIL`, plain layout, 
 
 | Key | EN | FR | NL |
 |---|---|---|---|
-| title | Team registration | Inscription des équipes | Teamregistratie |
-| intro | Register here for your pass to the Brussels Diwali Festival, 24 and 25 October 2026. One form per person. | Inscrivez-vous ici pour recevoir votre pass pour le Brussels Diwali Festival, les 24 et 25 octobre 2026. Un formulaire par personne. | Registreer hier voor je pas voor het Brussels Diwali Festival op 24 en 25 oktober 2026. Eén formulier per persoon. |
+| title | Register for your pass | Inscrivez-vous pour recevoir votre pass | Registreer voor je pas |
+| intro | It takes one minute. One form per person. | Cela prend une minute. Un formulaire par personne. | Het duurt één minuut. Eén formulier per persoon. |
 | first | First name | Prénom | Voornaam |
 | last | Last name | Nom | Achternaam |
 | email | Email | E-mail | E-mail |
@@ -371,7 +371,7 @@ Transactional through the Brevo API, sender `BREVO_SENDER_EMAIL`, plain layout, 
 | parent | Parent or guardian | Parent ou tuteur | Ouder of voogd |
 | consent | Art India may contact me by email and WhatsApp about my pass and the festival, and keeps my details to reach me for future Art India events. I can ask to be removed at any time: diwali@artindia.be | Art India peut me contacter par e-mail et WhatsApp au sujet de mon pass et du festival, et conserve mes coordonnées pour me joindre lors de ses prochains événements. Je peux demander leur suppression à tout moment : diwali@artindia.be | Art India mag mij via e-mail en WhatsApp contacteren over mijn pas en het festival, en bewaart mijn gegevens om mij te bereiken voor volgende evenementen van Art India. Ik kan op elk moment vragen om ze te verwijderen: diwali@artindia.be |
 | submit | Register | S'inscrire | Registreren |
-| another | Add another person | Ajouter une autre personne | Nog iemand toevoegen |
+| another | Register another person | Inscrire une autre personne | Nog iemand registreren |
 | received | Thank you. Your registration is waiting for approval by the festival team. You will hear from us by email and WhatsApp. | Merci. Votre inscription est en attente de validation par l'équipe du festival. Vous recevrez une réponse par e-mail et WhatsApp. | Bedankt. Je registratie wacht op goedkeuring door het festivalteam. Je hoort van ons via e-mail en WhatsApp. |
 | inactive | This link is not active. Please contact the person who sent it to you. | Ce lien n'est pas actif. Contactez la personne qui vous l'a envoyé. | Deze link is niet actief. Neem contact op met de persoon die hem stuurde. |
 | closed | Registration is closed. Please contact your team lead. | Les inscriptions sont clôturées. Contactez votre responsable d'équipe. | De registratie is gesloten. Neem contact op met je teamverantwoordelijke. |
@@ -379,6 +379,24 @@ Transactional through the Brevo API, sender `BREVO_SENDER_EMAIL`, plain layout, 
 | mail_approved_subject | Your pass for the Brussels Diwali Festival | Votre pass pour le Brussels Diwali Festival | Je pas voor het Brussels Diwali Festival |
 | mail_code | Your personal code {CODE} gives your friends and family 10% off a festival ticket until 23 October. | Votre code personnel {CODE} offre à vos proches 10 % de réduction sur un billet festival jusqu'au 23 octobre. | Met je persoonlijke code {CODE} krijgen je vrienden en familie 10% korting op een festivalticket tot 23 oktober. |
 | mail_plus1 | You may bring one guest. Send them this link to register; it works once: {LINK} | Vous pouvez inviter une personne. Envoyez-lui ce lien pour s'inscrire ; il ne fonctionne qu'une fois : {LINK} | Je mag één gast meebrengen. Stuur deze link om te registreren; hij werkt één keer: {LINK} |
+| error | Something went wrong. Please try again. | Une erreur s'est produite. Veuillez réessayer. | Er ging iets mis. Probeer het opnieuw. |
+| btn_my_pass | My pass | Mon pass | Mijn pas |
+| btn_my_code | My code | Mon code | Mijn code |
+| btn_code_sales | Tickets sold | Billets vendus | Tickets verkocht |
+| mail_qr | Your QR pass is in this email. Ticket Tailor may also send it to you separately. | Votre pass avec QR code se trouve dans cet e-mail. Ticket Tailor peut aussi vous l'envoyer séparément. | Je pas met QR-code staat in deze e-mail. Ticket Tailor kan hem ook apart sturen. |
+| email_hint | Your pass is sent to this address. | Votre pass sera envoyé à cette adresse. | Je pas wordt naar dit adres gestuurd. |
+| phone_hint | With the country code, for example +32. | Avec l'indicatif du pays, par exemple +32. | Met de landcode, bijvoorbeeld +32. |
+| fine | Passes are sent after approval by the festival team. | Les pass sont envoyés après validation par l'équipe du festival. | Passen worden verstuurd na goedkeuring door het festivalteam. |
+| done_title | Thank you, {FIRST} | Merci, {FIRST} | Bedankt, {FIRST} |
+| done_lede | We have received your registration. | Nous avons bien reçu votre inscription. | We hebben je registratie ontvangen. |
+| step1_title | We review your registration | Nous examinons votre inscription | We bekijken je registratie |
+| step1_text | The festival team approves every pass. | L'équipe du festival valide chaque pass. | Het festivalteam keurt elke pas goed. |
+| step2_title | Your pass arrives by email | Votre pass arrive par e-mail | Je pas komt per e-mail |
+| step2_text | With a QR code to show at the entrance. | Avec un QR code à présenter à l'entrée. | Met een QR-code om aan de ingang te tonen. |
+| step3_title | You get a personal code to share | Vous recevez un code personnel à partager | Je krijgt een persoonlijke code om te delen |
+| step3_text | By email and WhatsApp. Your friends and family get 10% off individual festival tickets with it. | Par e-mail et WhatsApp. Il offre à vos proches 10 % de réduction sur les billets individuels du festival. | Via e-mail en WhatsApp. Je vrienden en familie krijgen er 10% korting mee op individuele festivaltickets. |
+| mail_received_code | Once approved, you will also receive a personal code to share: it gives your friends and family 10% off individual festival tickets. | Une fois votre inscription validée, vous recevrez aussi un code personnel à partager : il offre à vos proches 10 % de réduction sur les billets individuels du festival. | Na goedkeuring krijg je ook een persoonlijke code om te delen: je vrienden en familie krijgen er 10% korting mee op individuele festivaltickets. |
+| dateline | 24 and 25 October 2026 · Atomium | Les 24 et 25 octobre 2026 · Atomium | 24 en 25 oktober 2026 · Atomium |
 
 Email bodies: write them from these lines plus the pass type and the `arrival` line. Sign "Brussels Diwali Festival, Art India ASBL". No personal names.
 

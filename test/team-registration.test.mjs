@@ -12,6 +12,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
 import {
@@ -30,6 +31,17 @@ import { onRequestPost as registerPost } from '../functions/api/team-register.js
 import { buildMenu, menuTitles, menuKind, TEAM_ACTIONS } from '../functions/api/_bot.js';
 
 const ROOT = new URL('..', import.meta.url).pathname;
+
+/* The built pages, in a tree of this file's own.
+ *
+ * The build empties its output directory before it fills it, and the test
+ * runner runs these files concurrently, so sharing dist-diwali with
+ * programme.test.mjs means reading a tree that is halfway through being
+ * deleted. One build, one reader, no race. */
+const DIST = join(ROOT, '.test-dist/team');
+execFileSync('node', ['build-diwali.mjs'], {
+  cwd: ROOT, stdio: 'pipe', env: { ...process.env, DIWALI_OUT: DIST },
+});
 
 /* ------------------------------------------------------------------ harness */
 
@@ -278,12 +290,12 @@ test('no visitor-facing string has an em dash or the word weekend', () => {
 test('the form pages are hidden, in three languages, with no chat widget', () => {
   for (const rel of ['team/index.html', 'fr/team/index.html', 'nl/team/index.html',
     'team/plus1/index.html', 'fr/team/plus1/index.html', 'nl/team/plus1/index.html']) {
-    const html = readFileSync(join(ROOT, 'dist-diwali', rel), 'utf8');
+    const html = readFileSync(join(DIST, rel), 'utf8');
     assert.match(html, /<meta name="robots" content="noindex, nofollow">/, `${rel} is indexable`);
     assert.ok(!html.includes('diya'), `${rel} loads the chat widget`);
     assert.ok(!html.includes('{{'), `${rel} has an unfilled token`);
   }
-  const sitemap = readFileSync(join(ROOT, 'dist-diwali/sitemap.xml'), 'utf8');
+  const sitemap = readFileSync(join(DIST, 'sitemap.xml'), 'utf8');
   assert.ok(!sitemap.includes('/team/'), 'the team form is in the sitemap');
 });
 
@@ -1479,7 +1491,7 @@ test('restore only works on a rejected person, and the route records the approve
 test('the language switch is above the title on every form page, and only there', () => {
   for (const rel of ['team/index.html', 'fr/team/index.html', 'nl/team/index.html',
     'team/plus1/index.html', 'fr/team/plus1/index.html', 'nl/team/plus1/index.html']) {
-    const html = readFileSync(join(ROOT, 'dist-diwali', rel), 'utf8');
+    const html = readFileSync(join(DIST, rel), 'utf8');
     const main = html.slice(html.indexOf('<main'), html.indexOf('</main>'));
 
     assert.equal((main.match(/class="tf-langs"/g) || []).length, 1,
@@ -2038,4 +2050,205 @@ test('every step and every decision is stamped', async () => {
     assert.ok(done.person.stepAt.ticket <= done.person.stepAt.whatsapp,
       'the stamps run in the order the steps did');
   } finally { w.restore(); }
+});
+
+/* ---------------------------------------------------- the form, as a page */
+
+const FORMS = ['team/index.html', 'fr/team/index.html', 'nl/team/index.html',
+  'team/plus1/index.html', 'fr/team/plus1/index.html', 'nl/team/plus1/index.html'];
+const page = rel => readFileSync(join(DIST, rel), 'utf8');
+
+test('the top bar names the festival, the dates and the way out', () => {
+  for (const rel of FORMS) {
+    const html = page(rel);
+    const lang = rel.startsWith('fr/') ? 'fr' : rel.startsWith('nl/') ? 'nl' : 'en';
+    const top = html.slice(html.indexOf('<div class="tf-top">'), html.indexOf('</div>', html.indexOf('tf-langs')));
+
+    assert.ok(top.includes('src="/favicon.svg"'), `${rel} has no festival mark`);
+    assert.match(top, /alt=""/, `${rel} the mark is decoration and must not be announced`);
+    assert.ok(top.includes('Brussels Diwali Festival'), `${rel} has no wordmark`);
+    assert.ok(top.includes(COPY.dateline[lang]), `${rel} has the wrong dateline`);
+    assert.ok(top.includes('tf-langs'), `${rel} has no language switch in the bar`);
+
+    /* And the bar comes before everything. */
+    const main = html.slice(html.indexOf('<main'));
+    assert.ok(main.indexOf('tf-top') < main.indexOf('<h1>'), `${rel} buries the bar`);
+    assert.ok(main.indexOf('tf-langs') < main.indexOf('<h1>'), `${rel} buries the switch`);
+    assert.equal((main.match(/class="tf-langs"/g) || []).length, 1, `${rel} has two switches`);
+  }
+});
+
+test('the page is the display font for its own name and nothing else', () => {
+  const css = page('team/index.html');
+  assert.match(css, /\.tf h1\{[^}]*font-family:var\(--display\)/, 'the title is not in the display font');
+  assert.match(css, /\.tf-fest\{[^}]*font-family:var\(--display\)/, 'the wordmark is not');
+  assert.match(css, /\.tf-done h2\{[^}]*font-family:var\(--display\)/, 'the thank you is not');
+});
+
+test('the team is a marigold badge and the inputs do not make a phone zoom', () => {
+  const html = page('team/index.html');
+  assert.match(html, /\.tf-badge\{[^}]*border:1px solid var\(--marigold\)/);
+  assert.match(html, /\.tf-badge\{[^}]*color:var\(--marigold\)/);
+  assert.ok(html.includes('<span class="tf-badge" id="tf-team">'), 'there is no badge to fill');
+
+  /* 17px. At 16 or under, iOS zooms the page on focus. */
+  const inputs = html.match(/\.tf input\[type=text\][^{]*\{([^}]*)\}/)[1];
+  const size = Number((inputs.match(/font:400 (\d+)px/) || [])[1]);
+  assert.ok(size >= 17, `inputs are ${size}px, which makes a phone zoom`);
+});
+
+test('first and last name share a row only once there is room', () => {
+  const html = page('team/index.html');
+  assert.match(html, /\.tf-pair\{display:grid/);
+  assert.match(html, /@media \(min-width:360px\)\{\.tf-pair\{grid-template-columns:1fr 1fr\}\}/,
+    'the pair must stack below 360px');
+  assert.equal((html.match(/class="tf-pair"/g) || []).length, 2,
+    'the child and the person block each get one');
+});
+
+test('there is a hint under the email and under the number', () => {
+  for (const rel of FORMS) {
+    const html = page(rel);
+    const lang = rel.startsWith('fr/') ? 'fr' : rel.startsWith('nl/') ? 'nl' : 'en';
+    const email = html.slice(html.indexOf('id="f-email"'), html.indexOf('id="f-phone"'));
+    const phone = html.slice(html.indexOf('id="f-phone"'), html.indexOf('id="tf-role-field"'));
+    assert.ok(email.includes(COPY.email_hint[lang]), `${rel} has no email hint`);
+    assert.ok(phone.includes(COPY.phone_hint[lang]), `${rel} has no phone hint`);
+    assert.ok(html.includes(COPY.fine[lang]), `${rel} does not say passes wait for approval`);
+  }
+});
+
+test('the success screen is the tick, the thank you, and the steps', () => {
+  for (const rel of FORMS) {
+    const html = page(rel);
+    const lang = rel.startsWith('fr/') ? 'fr' : rel.startsWith('nl/') ? 'nl' : 'en';
+    const done = html.slice(html.indexOf('<div class="tf-done"'), html.indexOf('</main>'));
+
+    assert.ok(done.includes('<svg'), `${rel} has no tick`);
+    assert.match(done, /aria-hidden="true"/, `${rel} announces the tick to a screen reader`);
+    assert.ok(done.includes(COPY.done_lede[lang]), `${rel} has no lede`);
+    for (const k of ['step1_title', 'step1_text', 'step2_title', 'step2_text',
+      'step3_title', 'step3_text']) {
+      assert.ok(done.includes(COPY[k][lang]), `${rel} is missing ${k}`);
+    }
+    assert.equal((done.match(/class="tf-step"/g) || []).length, 3);
+
+    /* Three is hidden in the markup and only shown for a team with a code. */
+    assert.match(done, /id="tf-step3" hidden/, `${rel} promises a code to everybody`);
+
+    /* The intro belongs to the form, not to the thank you. */
+    assert.ok(!done.includes(COPY.intro[lang]), `${rel} repeats the intro on the success screen`);
+    assert.ok(done.includes(COPY.another[lang]), `${rel} cannot register a second person`);
+    assert.match(done, /id="tf-again" hidden/,
+      'the button starts hidden and the script shows it, so a +1 never sees it');
+  }
+});
+
+test('the script hides the intro and the title with the form', () => {
+  const js = page('team/index.html');
+  /* One element holds the badge, the title and the intro, and the success
+     screen hides it: the form going away must take its heading with it. */
+  assert.match(js, /head\.hidden = true;/);
+  assert.match(js, /done\.hidden = false;/);
+  assert.match(js, /if \(d\.promoCode\) document\.getElementById\('tf-step3'\)\.hidden = false;/);
+  assert.match(js, /if \(KIND !== 'plus1'\) again\.hidden = false;/);
+  assert.match(js, /S\.done_title\.replace\('\{FIRST\}', payload\.firstName\)/,
+    'the thank you must name whoever filled the form in');
+});
+
+test('nothing on the page can scroll sideways on a 320px phone', () => {
+  const html = page('nl/team/index.html');
+  assert.match(html, /\.tf\{max-width:520px;margin:0 auto;padding:0 18px/);
+  /* Dutch has the longest words on the page, and a long one must break rather
+     than push the page wide. */
+  for (const sel of ['.tf h1\\{', '.tf-done h2\\{', '.tf-step-t\\{', '.tf-step-p\\{', '.tf-label\\{']) {
+    const rule = html.match(new RegExp(sel + '([^}]*)\\}'))[1];
+    assert.ok(/overflow-wrap:anywhere|min-width:0/.test(rule), `${sel} can push the page wide`);
+  }
+  assert.match(html, /\.tf input\[type=text\][^{]*\{[^}]*box-sizing:border-box/);
+  assert.match(html, /width:100%/);
+});
+
+test('focus is visible on everything that takes it', () => {
+  const html = page('team/index.html');
+  const rule = html.match(/\.tf input:focus-visible[^{]*\{([^}]*)\}/)[1];
+  assert.match(rule, /outline:3px solid var\(--marigold\)/);
+  assert.match(rule, /outline-offset/);
+  for (const what of ['select:focus-visible', 'button:focus-visible', 'a:focus-visible']) {
+    assert.ok(html.includes(what), `${what} has no focus ring`);
+  }
+});
+
+test('the badge shows the label only when it says something new', () => {
+  const js = page('team/index.html');
+  assert.match(js, /d\.label\.toLowerCase\(\) !== String\(d\.teamName\)\.toLowerCase\(\)/,
+    '"Core team · Core team" is noise, not information');
+});
+
+test('the received email offers a code only to a team that gets one', () => {
+  const lang = 'fr';
+  const person = { firstName: 'Shreya', lastName: 'Menon', email: 's@x.be', lang };
+
+  const withCode = receivedMail(person, teamOf('artist'));
+  assert.ok(withCode.lines.join('\n').includes(COPY.mail_received_code[lang]));
+
+  const without = receivedMail(person, teamOf('crew'));
+  assert.ok(!without.lines.join('\n').includes(COPY.mail_received_code[lang]),
+    'the technical crew gets no code, so it must not be promised one');
+  assert.ok(without.lines.join('\n').includes(COPY.received[lang]));
+});
+
+test('the form endpoint says whether to promise a code', async () => {
+  const w = world();
+  try {
+    for (const [team, want] of [['artist', true], ['crew', false], ['child', true]]) {
+      const { kv, t } = await withLink(team, { expected: 50 });
+      const d = await (await formGet({
+        request: new Request(`https://diwali.artindia.be/api/team-form?k=${t}`),
+        env: ENV({ ACCRED: kv }),
+      })).json();
+      assert.equal(d.promoCode, want, team);
+    }
+  } finally { w.restore(); }
+});
+
+test('section 9 of the brief and the copy file say the same thing', () => {
+  const brief = readFileSync(join(ROOT, 'docs/claude-code-brief-team-registration.md'), 'utf8');
+  const rows = [...brief.matchAll(/^\| ([a-z0-9_]+) \| ([^|]*) \| ([^|]*) \| ([^|]*) \|$/gm)]
+    .filter(m => COPY[m[1]]);
+  assert.ok(rows.length >= 39, `the table lists ${rows.length} strings`);
+  for (const [, key, en, fr, nl] of rows) {
+    assert.equal(COPY[key].en, en.trim(), `${key} EN differs from the brief`);
+    assert.equal(COPY[key].fr, fr.trim(), `${key} FR differs from the brief`);
+    assert.equal(COPY[key].nl, nl.trim(), `${key} NL differs from the brief`);
+  }
+  /* Every string the page or the emails use is in the table, so nothing
+     visitor-facing can be added without Ravi seeing it. */
+  for (const key of Object.keys(COPY)) {
+    if (/^(bot_|wall_)/.test(key)) continue;
+    assert.ok(rows.some(r => r[1] === key), `${key} is missing from section 9`);
+  }
+});
+
+test('hidden means hidden, whatever the page says about display', () => {
+  const html = page('team/index.html');
+  /* A class beats an attribute in the cascade, so .tf-step{display:flex}
+     outranks the browser's [hidden]{display:none} and step 3 shows on a +1
+     page that has no code to promise. This rule is what stops it. */
+  assert.match(html, /\.tf \[hidden\]\{display:none!important\}/,
+    'without this, every element with a display rule ignores hidden');
+
+  /* The rule has to come before the rules it is defending against, or a later
+     one of equal specificity wins. Comments are stripped first: the one above
+     this rule quotes the selectors it is protecting against, and matching
+     those would prove nothing. */
+  const css = html.replace(/\/\*[\s\S]*?\*\//g, '');
+  const i = css.indexOf('.tf [hidden]');
+  assert.ok(i > 0, 'the rule is only in a comment');
+  for (const sel of ['.tf-step{display:flex', '.tf-ghost{display:inline-block',
+    '.tf-tick{width:', '.tf-top{display:flex']) {
+    const at = css.indexOf(sel);
+    assert.ok(at > 0, `${sel} is not in the sheet at all`);
+    assert.ok(i < at, `${sel} is declared before the hidden rule`);
+  }
 });

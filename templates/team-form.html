@@ -10,89 +10,208 @@
 <style>
 /* This page is not part of the site. It has no nav, no footer and no chat
    widget, and it is reached only by a link somebody was sent, so it carries
-   its own small sheet on top of the site's tokens rather than adding a
-   fourth page shape to diwali.css. */
-.tf{max-width:560px;margin:0 auto;padding:clamp(28px,7vw,64px) 20px 80px}
-.tf h1{font-size:clamp(26px,6vw,40px);line-height:1.1;margin:0 0 6px}
-.tf .tf-team{color:var(--marigold);font-weight:700;letter-spacing:.04em;margin:0 0 18px}
-.tf p.tf-intro{color:var(--ink-2);margin:0 0 28px}
-.tf fieldset{border:1px solid var(--line);border-radius:12px;padding:16px 16px 4px;margin:0 0 22px;min-width:0}
-.tf legend{padding:0 8px;font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--marigold)}
-.tf label{display:block;margin:0 0 16px;font-weight:600}
-.tf label span{display:block;margin:0 0 6px;font-weight:600}
+   its own sheet on top of the site's tokens rather than adding a fourth page
+   shape to diwali.css.
+
+   Phone first and phone mostly: an artist fills this in backstage, on 4G,
+   holding the link somebody sent them on WhatsApp. */
+.tf{max-width:520px;margin:0 auto;padding:0 18px 72px}
+
+/* Every display rule below this page's own classes outranks the browser's
+   [hidden] { display: none }, because a class beats an attribute in the
+   cascade. Without this line .tf-step{display:flex} shows step 3 to a +1 who
+   is never getting a discount code, and .tf-ghost{display:inline-block} offers
+   them a second registration they cannot make. Hidden has to mean hidden. */
+.tf [hidden]{display:none!important}
+
+/* ---------------------------------------------------------------- top bar */
+.tf-top{display:flex;align-items:center;gap:12px;
+  padding:18px 0 16px;margin:0 0 26px;border-bottom:1px solid var(--line)}
+.tf-mark{flex:0 0 auto;width:38px;height:38px;border-radius:10px;display:block}
+.tf-wordmark{flex:1 1 auto;min-width:0}
+.tf-fest{display:block;font-family:var(--display);font-weight:400;
+  font-size:clamp(17px,4.6vw,21px);line-height:1.1;letter-spacing:.01em}
+.tf-dates{display:block;margin-top:3px;font-size:12.5px;line-height:1.3;color:var(--ink-2)}
+.tf-langs{flex:0 0 auto;font-size:13px;color:var(--ink-2);white-space:nowrap}
+.tf-langs a{color:var(--ink-2);text-decoration:none;padding:2px 1px}
+.tf-langs a:hover{text-decoration:underline}
+.tf-langs a[aria-current=page]{color:var(--marigold);font-weight:700}
+
+/* ------------------------------------------------------------- the heading */
+.tf-badge-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px}
+.tf-badge{display:inline-block;padding:5px 12px;border-radius:999px;
+  border:1px solid var(--marigold);color:var(--marigold);
+  font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.tf-label{font-size:14px;color:var(--ink-2);min-width:0;overflow-wrap:anywhere}
+.tf h1{margin:0 0 8px;font-family:var(--display);font-weight:400;
+  font-size:clamp(28px,8vw,40px);line-height:1.06;letter-spacing:-.01em;
+  overflow-wrap:anywhere}
+.tf-intro{margin:0 0 24px;color:var(--ink-2);line-height:1.5}
+
+/* ---------------------------------------------------------------- the card */
+.tf-card{background:rgba(255,255,255,.035);border:1px solid var(--line);
+  border-radius:16px;padding:20px 18px 6px;margin:0 0 20px}
+.tf-card + .tf-card{margin-top:-4px}
+.tf-legend{margin:0 0 14px;font-size:12px;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--marigold)}
+.tf-field{margin:0 0 16px}
+.tf-field > label,.tf-lab{display:block;margin:0 0 6px;font-weight:600;font-size:15px}
 .tf input[type=text],.tf input[type=email],.tf input[type=tel],.tf select{
-  width:100%;box-sizing:border-box;min-width:0;padding:12px 14px;font:inherit;font-weight:400;
-  color:inherit;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px}
-.tf input:focus-visible,.tf select:focus-visible,.tf button:focus-visible{
+  width:100%;box-sizing:border-box;min-width:0;padding:13px 14px;
+  /* 17px, because at 16 or under iOS zooms the page on focus and the person
+     is then looking at a form twice the width of their screen. */
+  font:400 17px/1.3 var(--text);color:inherit;
+  background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:11px;
+  -webkit-appearance:none;appearance:none}
+.tf select{background-image:none}
+.tf input::placeholder{color:var(--ink-3)}
+.tf input:focus-visible,.tf select:focus-visible,.tf button:focus-visible,.tf a:focus-visible{
   outline:3px solid var(--marigold);outline-offset:2px}
-.tf .tf-dob{display:flex;gap:10px}
-.tf .tf-dob select{flex:1 1 0}
-.tf .tf-why{display:block;margin:-10px 0 16px;font-size:13.5px;font-weight:400;color:var(--ink-2)}
-.tf .tf-consent{display:flex;gap:12px;align-items:flex-start;font-weight:400;line-height:1.5}
-.tf .tf-consent input{flex:0 0 auto;width:22px;height:22px;margin:2px 0 0}
-.tf button{width:100%;padding:16px;font:inherit;font-weight:700;cursor:pointer;
+.tf-hint{display:block;margin:6px 0 0;font-size:13px;line-height:1.4;color:var(--ink-2)}
+
+/* First and last name share a row as soon as there is room for two inputs
+   that are still wide enough to read a long surname in. */
+.tf-pair{display:grid;gap:0 12px}
+@media (min-width:360px){.tf-pair{grid-template-columns:1fr 1fr}}
+
+.tf-dob{display:flex;gap:8px}
+.tf-dob select{flex:1 1 0;padding-left:10px;padding-right:10px;text-align:center}
+
+/* ------------------------------------------------------------- the consent */
+.tf-consent{display:flex;gap:12px;align-items:flex-start;margin:0 0 18px;
+  font-size:14.5px;line-height:1.5;color:var(--ink-2)}
+.tf-consent input{flex:0 0 auto;width:22px;height:22px;margin:1px 0 0;accent-color:var(--marigold)}
+.tf-fine{margin:0 0 22px;font-size:13px;line-height:1.45;color:var(--ink-3)}
+
+/* -------------------------------------------------------------- the button */
+.tf-go{width:100%;padding:17px;font:700 17px/1 var(--text);cursor:pointer;
   color:#1b1205;background:var(--marigold);border:0;border-radius:999px}
-.tf button[disabled]{opacity:.55;cursor:default}
-.tf .tf-note{margin:18px 0 0;padding:14px 16px;border:1px solid var(--line);border-radius:10px}
-.tf .tf-note[data-bad=1]{border-color:#b4553f}
-.tf .tf-hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
-/* At the top, above the title: somebody who opened the link in the wrong
-   language should not have to read the whole form to find the way out of it. */
-.tf .tf-langs{margin:0 0 20px;font-size:14px;color:var(--ink-2);
-  padding-bottom:14px;border-bottom:1px solid var(--line)}
-.tf .tf-langs a{color:var(--ink-2)}
-.tf .tf-langs a[aria-current=page]{color:var(--marigold);font-weight:700}
+.tf-go[disabled]{opacity:.55;cursor:default}
+.tf-ghost{display:inline-block;width:100%;box-sizing:border-box;padding:15px;
+  font:700 16px/1 var(--text);text-align:center;cursor:pointer;text-decoration:none;
+  color:var(--marigold);background:none;border:1px solid var(--marigold);border-radius:999px}
+
+/* --------------------------------------------------------------- the notes */
+.tf-note{margin:16px 0 0;padding:14px 16px;border:1px solid var(--line);
+  border-radius:11px;line-height:1.5}
+.tf-note[data-bad="1"]{border-color:#d2694f;color:#f0a68e}
+.tf-hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+
+/* ------------------------------------------------------- the success screen */
+.tf-done{padding-top:8px}
+.tf-tick{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;margin:0 0 18px;
+  background:rgba(232,163,59,.14);border:1px solid var(--marigold)}
+.tf-tick svg{width:28px;height:28px;display:block}
+.tf-done h2{margin:0 0 8px;font-family:var(--display);font-weight:400;
+  font-size:clamp(26px,7.4vw,36px);line-height:1.08;overflow-wrap:anywhere}
+.tf-done-lede{margin:0 0 26px;color:var(--ink-2);line-height:1.5}
+.tf-steps{list-style:none;margin:0 0 28px;padding:0;counter-reset:s}
+.tf-step{display:flex;gap:14px;padding:0 0 18px;counter-increment:s}
+.tf-step:last-child{padding-bottom:0}
+.tf-step::before{content:counter(s);flex:0 0 auto;width:30px;height:30px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font:700 14px/1 var(--text);color:var(--marigold);
+  border:1px solid var(--marigold);background:rgba(232,163,59,.1)}
+.tf-step-b{min-width:0}
+.tf-step-t{display:block;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
+.tf-step-p{display:block;margin-top:3px;font-size:14.5px;line-height:1.5;color:var(--ink-2);
+  overflow-wrap:anywhere}
 </style>
 </head>
 <body>
 <main class="tf" id="team-form">
-  <p class="tf-langs">{{LANGS}}</p>
-  <h1>{{TITLE}}</h1>
-  <p class="tf-team" id="tf-team" hidden></p>
-  <p class="tf-intro">{{INTRO}}</p>
+
+  <div class="tf-top">
+    <img class="tf-mark" src="/favicon.svg" alt="" width="38" height="38">
+    <span class="tf-wordmark">
+      <span class="tf-fest">Brussels Diwali Festival</span>
+      <span class="tf-dates">{{DATELINE}}</span>
+    </span>
+    <span class="tf-langs">{{LANGS}}</span>
+  </div>
 
   <p class="tf-note" id="tf-boot" hidden></p>
 
+  <div id="tf-head" hidden>
+    <p class="tf-badge-row">
+      <span class="tf-badge" id="tf-team"></span>
+      <span class="tf-label" id="tf-label" hidden></span>
+    </p>
+    <h1>{{TITLE}}</h1>
+    <p class="tf-intro" id="tf-intro">{{INTRO}}</p>
+  </div>
+
   <form id="tf-form" hidden novalidate>
-    <fieldset id="tf-child-set" hidden>
-      <legend>{{S_CHILD}}</legend>
-      <label><span>{{S_FIRST}}</span><input type="text" name="childFirst" autocomplete="off"></label>
-      <label><span>{{S_LAST}}</span><input type="text" name="childLast" autocomplete="off"></label>
-      <label><span>{{S_DOB}}</span>
-        <span class="tf-dob">
+    <div class="tf-card" id="tf-child-set" hidden>
+      <p class="tf-legend">{{S_CHILD}}</p>
+      <div class="tf-pair">
+        <div class="tf-field"><label for="c-first">{{S_FIRST}}</label>
+          <input type="text" id="c-first" name="childFirst" autocomplete="off"></div>
+        <div class="tf-field"><label for="c-last">{{S_LAST}}</label>
+          <input type="text" id="c-last" name="childLast" autocomplete="off"></div>
+      </div>
+      <div class="tf-field">
+        <span class="tf-lab" id="dob-lab">{{S_DOB}}</span>
+        <div class="tf-dob" role="group" aria-labelledby="dob-lab">
           <select name="dobDay" aria-label="DD"><option value="">DD</option>{{DAYS}}</select>
           <select name="dobMonth" aria-label="MM"><option value="">MM</option>{{MONTHS}}</select>
           <select name="dobYear" aria-label="YYYY"><option value="">YYYY</option>{{YEARS}}</select>
-        </span>
-      </label>
-      <span class="tf-why">{{S_DOB_WHY}}</span>
-    </fieldset>
+        </div>
+        <span class="tf-hint">{{S_DOB_WHY}}</span>
+      </div>
+    </div>
 
-    <fieldset>
-      <legend id="tf-person-legend" hidden></legend>
-      <label><span>{{S_FIRST}}</span><input type="text" name="firstName" autocomplete="given-name" required></label>
-      <label><span>{{S_LAST}}</span><input type="text" name="lastName" autocomplete="family-name" required></label>
-      <label><span>{{S_EMAIL}}</span><input type="email" name="email" autocomplete="email" inputmode="email" required></label>
-      <label><span>{{S_PHONE}}</span><input type="tel" name="phone" autocomplete="tel" inputmode="tel" required></label>
-      <label id="tf-role-label"><span>{{S_ROLE}}</span><input type="text" name="role" autocomplete="off"></label>
-    </fieldset>
+    <div class="tf-card">
+      <p class="tf-legend" id="tf-person-legend" hidden></p>
+      <div class="tf-pair">
+        <div class="tf-field"><label for="f-first">{{S_FIRST}}</label>
+          <input type="text" id="f-first" name="firstName" autocomplete="given-name" required></div>
+        <div class="tf-field"><label for="f-last">{{S_LAST}}</label>
+          <input type="text" id="f-last" name="lastName" autocomplete="family-name" required></div>
+      </div>
+      <div class="tf-field"><label for="f-email">{{S_EMAIL}}</label>
+        <input type="email" id="f-email" name="email" autocomplete="email" inputmode="email" required>
+        <span class="tf-hint">{{S_EMAIL_HINT}}</span></div>
+      <div class="tf-field"><label for="f-phone">{{S_PHONE}}</label>
+        <input type="tel" id="f-phone" name="phone" autocomplete="tel" inputmode="tel" required>
+        <span class="tf-hint">{{S_PHONE_HINT}}</span></div>
+      <div class="tf-field" id="tf-role-field"><label for="f-role">{{S_ROLE}}</label>
+        <input type="text" id="f-role" name="role" autocomplete="off"></div>
+    </div>
 
     <label class="tf-consent">
       <input type="checkbox" name="consent" required>
-      <span style="font-weight:400">{{S_CONSENT}}</span>
+      <span>{{S_CONSENT}}</span>
     </label>
+    <p class="tf-fine">{{S_FINE}}</p>
 
     <p class="tf-hp"><label>Company<input type="text" name="hp" tabindex="-1" autocomplete="off"></label></p>
 
-    <button type="submit" id="tf-submit">{{S_SUBMIT}}</button>
+    <button type="submit" class="tf-go" id="tf-submit">{{S_SUBMIT}}</button>
     <p class="tf-note" id="tf-msg" hidden></p>
   </form>
 
-  <p class="tf-note" id="tf-done" hidden>
-    <span id="tf-done-text">{{S_RECEIVED}}</span>
-    <br><br>
-    <button type="button" id="tf-again">{{S_ANOTHER}}</button>
-  </p>
+  <div class="tf-done" id="tf-done" hidden>
+    <div class="tf-tick" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#E8A33B" stroke-width="2.4"
+        stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5"/></svg>
+    </div>
+    <h2 id="tf-done-title"></h2>
+    <p class="tf-done-lede">{{S_DONE_LEDE}}</p>
+    <ol class="tf-steps">
+      <li class="tf-step"><span class="tf-step-b">
+        <span class="tf-step-t">{{S_STEP1_T}}</span>
+        <span class="tf-step-p">{{S_STEP1_P}}</span></span></li>
+      <li class="tf-step"><span class="tf-step-b">
+        <span class="tf-step-t">{{S_STEP2_T}}</span>
+        <span class="tf-step-p">{{S_STEP2_P}}</span></span></li>
+      <li class="tf-step" id="tf-step3" hidden><span class="tf-step-b">
+        <span class="tf-step-t">{{S_STEP3_T}}</span>
+        <span class="tf-step-p">{{S_STEP3_P}}</span></span></li>
+    </ol>
+    <button type="button" class="tf-ghost" id="tf-again" hidden>{{S_ANOTHER}}</button>
+  </div>
 
 </main>
 <script>
@@ -102,15 +221,21 @@
   var S = {{STRINGS_JSON}};
   var k = new URLSearchParams(location.search).get('k') || '';
   var boot = document.getElementById('tf-boot');
+  var head = document.getElementById('tf-head');
   var form = document.getElementById('tf-form');
   var msg = document.getElementById('tf-msg');
   var done = document.getElementById('tf-done');
   var submit = document.getElementById('tf-submit');
+  var again = document.getElementById('tf-again');
 
+  /* A dead link says one thing and shows nothing else: no team, no title, no
+     form. Whoever sent it is the person who can explain it. */
   function stop(text) {
     boot.textContent = text;
     boot.dataset.bad = '1';
     boot.hidden = false;
+    head.hidden = true;
+    form.hidden = true;
   }
 
   function show(text, bad) {
@@ -126,20 +251,31 @@
     .then(function (d) {
       if (!d || !d.ok) { stop((d && d.strings && d.strings[d.message]) || S.inactive); return; }
       if (d.strings) S = d.strings;
-      var team = document.getElementById('tf-team');
-      team.textContent = d.label ? d.teamName + ' · ' + d.label : d.teamName;
-      team.hidden = false;
+
+      document.getElementById('tf-team').textContent = d.teamName;
+      /* The label only earns its place when it says something the badge does
+         not: "Collab artists · Antwerp group" is worth printing, "Core team ·
+         Core team" is noise. */
+      if (d.label && d.label.toLowerCase() !== String(d.teamName).toLowerCase()) {
+        var lab = document.getElementById('tf-label');
+        lab.textContent = d.label;
+        lab.hidden = false;
+      }
+
       if (d.childTeam) {
         document.getElementById('tf-child-set').hidden = false;
-        /* The second block is the parent's, and only the child team has two
-           blocks worth naming. */
         var legend = document.getElementById('tf-person-legend');
         legend.textContent = S.parent;
         legend.hidden = false;
       }
       /* The +1 has no act to name: they are somebody's guest. */
-      if (!d.needsRole) document.getElementById('tf-role-label').remove();
-      boot.hidden = true;
+      if (!d.needsRole) document.getElementById('tf-role-field').remove();
+      /* Step 3 is the discount code, and only some teams get one. */
+      if (d.promoCode) document.getElementById('tf-step3').hidden = false;
+      /* A +1 link is for one guest, so it never offers another. */
+      if (KIND !== 'plus1') again.hidden = false;
+
+      head.hidden = false;
       form.hidden = false;
     })
     .catch(function () { stop(S.error || S.inactive); });
@@ -176,10 +312,15 @@
       .then(function (d) {
         submit.disabled = false;
         if (d && d.ok) {
+          /* On the child team the pass is the child's and the email is the
+             parent's, and it is the parent standing here reading this. */
+          document.getElementById('tf-done-title').textContent =
+            S.done_title.replace('{FIRST}', payload.firstName);
           form.hidden = true;
+          head.hidden = true;
           msg.hidden = true;
-          document.getElementById('tf-done-text').textContent = S.received;
           done.hidden = false;
+          window.scrollTo(0, 0);
           return;
         }
         show((d && (d.text || S[d.message])) || S.error || S.inactive, true);
@@ -187,14 +328,14 @@
       .catch(function () { submit.disabled = false; show(S.error || S.inactive, true); });
   });
 
-  /* One link, several people: the lead keeps the page and empties the form.
-     A +1 link is for one guest, so it does not come back. */
-  document.getElementById('tf-again').addEventListener('click', function () {
-    if (KIND === 'plus1') { location.reload(); return; }
+  /* One link, several people: the lead keeps the page and empties the form. */
+  again.addEventListener('click', function () {
     form.reset();
     done.hidden = true;
     msg.hidden = true;
+    head.hidden = false;
     form.hidden = false;
+    window.scrollTo(0, 0);
     form.firstName.focus();
   });
 })();

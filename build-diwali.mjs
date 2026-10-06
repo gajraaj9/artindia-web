@@ -164,7 +164,15 @@ const CTA_EXTERNAL = LIVE && !EMBED;
 const buyHref = (cta, lang) =>
   CTA_EXTERNAL ? `/go/buy?cta=${cta}&lang=${lang}` : TICKETS_HREF;
 
-const out = join(HERE, 'dist-diwali');
+/* The output tree. Overridable so a test can build into a directory of its
+   own: the build empties this folder before it fills it, and two test files
+   building into the same one at the same time read each other's half-written
+   tree. */
+const out = process.env.DIWALI_OUT
+  ? (process.env.DIWALI_OUT.startsWith('/')
+    ? process.env.DIWALI_OUT
+    : join(HERE, process.env.DIWALI_OUT))
+  : join(HERE, 'dist-diwali');
 
 const FLAGS = d.flags || {};
 const PRACTICAL_ON = FLAGS.practical_enabled !== false;
@@ -1882,6 +1890,17 @@ if (existsSync(join(HERE, 'diwali-web'))) {
           .replace(/\{\{S_SUBMIT\}\}/g, esc(t('submit')))
           .replace(/\{\{S_RECEIVED\}\}/g, esc(t('received')))
           .replace(/\{\{S_ANOTHER\}\}/g, esc(t('another')))
+          .replace(/\{\{DATELINE\}\}/g, esc(t('dateline')))
+          .replace(/\{\{S_EMAIL_HINT\}\}/g, esc(t('email_hint')))
+          .replace(/\{\{S_PHONE_HINT\}\}/g, esc(t('phone_hint')))
+          .replace(/\{\{S_FINE\}\}/g, esc(t('fine')))
+          .replace(/\{\{S_DONE_LEDE\}\}/g, esc(t('done_lede')))
+          .replace(/\{\{S_STEP1_T\}\}/g, esc(t('step1_title')))
+          .replace(/\{\{S_STEP1_P\}\}/g, esc(t('step1_text')))
+          .replace(/\{\{S_STEP2_T\}\}/g, esc(t('step2_title')))
+          .replace(/\{\{S_STEP2_P\}\}/g, esc(t('step2_text')))
+          .replace(/\{\{S_STEP3_T\}\}/g, esc(t('step3_title')))
+          .replace(/\{\{S_STEP3_P\}\}/g, esc(t('step3_text')))
           .replace(/\{\{DAYS\}\}/g, days)
           .replace(/\{\{MONTHS\}\}/g, months)
           .replace(/\{\{YEARS\}\}/g, years)

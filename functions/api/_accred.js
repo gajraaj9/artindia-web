@@ -572,12 +572,18 @@ ${escHtml(SIGNATURE)}</td></tr>
 </table></td></tr></table></body></html>`;
 }
 
-/** The "we have you" email, sent the moment a form is submitted. */
-export const receivedMail = (person, team) => ({
-  to: person.email,
-  subject: say('mail_received_subject', person.lang),
-  lines: [say('received', person.lang), '', passName(team, person.lang)],
-});
+/**
+ * The "we have you" email, sent the moment a form is submitted.
+ *
+ * The code line only goes to a team that gets a code. Everyone else is told
+ * what will happen to them and nothing that will not.
+ */
+export function receivedMail(person, team) {
+  const lang = person.lang;
+  const lines = [say('received', lang), '', passName(team, lang)];
+  if (team && team.promoCode) lines.push('', say('mail_received_code', lang));
+  return { to: person.email, subject: say('mail_received_subject', lang), lines };
+}
 
 /**
  * The "you are in" email.
