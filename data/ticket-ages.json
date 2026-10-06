@@ -1,13 +1,32 @@
 {
-  "_comment": "Which age group each public ticket type admits, for the dashboard's \"people coming\" figures. Ticket type ids come from scripts/tt-ticket-types.mjs. Anything not listed here counts as an adult and the dashboard names it in a notice, so a new ticket type is visible rather than silently miscounted. Team pass types (TT_TYPE_*) are never public and never in these counts.",
+  "_comment": "Which age group each public ticket type admits, for the dashboard's \"people coming\" figures. Ticket type ids come from scripts/tt-ticket-types.mjs. Every public type is listed, adults included, so the dashboard's unmapped notice fires only for a type nobody has accounted for yet: a type that falls through to the default silently is the case that notice exists for. Team pass types (TT_TYPE_*) are never public and are never in these counts.",
   "default": "adult",
   "groups": [
-    { "key": "adult", "label": { "en": "Adults" } },
-    { "key": "teen", "label": { "en": "13 to 18" } },
-    { "key": "child", "label": { "en": "Under 12" } }
+    {
+      "key": "adult",
+      "label": {
+        "en": "Adults"
+      }
+    },
+    {
+      "key": "teen",
+      "label": {
+        "en": "13 to 18"
+      }
+    },
+    {
+      "key": "child",
+      "label": {
+        "en": "Under 12"
+      }
+    }
   ],
   "ages": {
     "tt_6865730": "teen",
-    "tt_6753537": "child"
+    "tt_6753537": "child",
+    "tt_6753483": "adult",
+    "tt_6753514": "adult",
+    "tt_6753460": "adult",
+    "tt_6904903": "adult"
   }
 }

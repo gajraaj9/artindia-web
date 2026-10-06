@@ -1297,22 +1297,57 @@ test('the Refresh button and the navigation survive a failure', () => {
 
 /* -------------------------------------------------------------- the ages */
 
-test('the mapping names the two child types and everything else is an adult', () => {
+test('every public ticket type on the box office is named in the mapping', () => {
   assert.equal(ageOf('tt_6865730'), 'teen', 'Child 13-18');
   assert.equal(ageOf('tt_6753537'), 'child', 'Child Below 12');
-  for (const id of ['tt_presale', 'tt_online', 'tt_gate', 'tt_anything_new', '']) {
-    assert.equal(ageOf(id), 'adult', `${id} should fall back to adult`);
+  for (const id of ['tt_6753483', 'tt_6753514', 'tt_6753460', 'tt_6904903']) {
+    assert.equal(ageOf(id), 'adult', `${id} should be an adult ticket`);
   }
-  /* Adult is the fallback because it cannot undercount the site. */
+  /* Anything nobody has accounted for still falls through to adult, which
+     cannot undercount the site. */
+  assert.equal(ageOf('tt_something_new'), 'adult');
+  assert.equal(ageOf(''), 'adult');
+
   assert.deepEqual(AGE_KEYS, ['adult', 'teen', 'child']);
   assert.deepEqual(AGE_GROUPS.map(g => g.key), ['adult', 'teen', 'child']);
   assert.deepEqual(blankAges(), { adult: 0, teen: 0, child: 0 });
 
-  /* The mapping is a data file, not an environment variable. */
+  /* The mapping is a data file, not an environment variable, and it lists
+     the adults too so the notice only fires for a genuine stranger. */
   const cfg = JSON.parse(readFileSync(join(ROOT, 'data/ticket-ages.json'), 'utf8'));
-  assert.equal(cfg.ages.tt_6865730, 'teen');
-  assert.equal(cfg.ages.tt_6753537, 'child');
   assert.equal(cfg.default, 'adult');
+  assert.deepEqual(cfg.ages, {
+    tt_6865730: 'teen',
+    tt_6753537: 'child',
+    tt_6753483: 'adult',
+    tt_6753514: 'adult',
+    tt_6753460: 'adult',
+    tt_6904903: 'adult',
+  });
+});
+
+test('the six live types raise no notice, and a seventh would', () => {
+  const live = {
+    tt_6753483: 40, tt_6753514: 12, tt_6753460: 9, tt_6904903: 3,
+    tt_6865730: 7, tt_6753537: 11,
+  };
+  const a = aggregate([], live, { ...OPTS, typePrices: {
+    tt_6753483: 1000, tt_6753514: 1200, tt_6753460: 1500, tt_6904903: 1500,
+    tt_6865730: 1000, tt_6753537: 0,
+  } });
+
+  assert.deepEqual(a.unmapped, [], 'nothing on sale today is a stranger');
+  assert.deepEqual(a.ages, { adult: 64, teen: 7, child: 11 });
+  assert.equal(a.people, 82);
+  assert.equal(a.ages.adult + a.ages.teen + a.ages.child, a.people);
+
+  /* A type nobody has accounted for is counted as an adult and named. */
+  const b = aggregate([], { ...live, tt_brand_new: 5 }, { ...OPTS,
+    typeNames: { tt_brand_new: 'Sunday Only' },
+    typePrices: { tt_brand_new: 800 } });
+  assert.deepEqual(b.unmapped, [{ id: 'tt_brand_new', name: 'Sunday Only', issued: 5 }]);
+  assert.equal(b.ages.adult, 64 + 5, 'and it joins the adults, which cannot undercount');
+  assert.equal(b.people, 87);
 });
 
 test('the three age figures always add up to people coming', () => {
