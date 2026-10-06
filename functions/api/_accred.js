@@ -33,11 +33,18 @@ export const rejectedPhoneKey = e164 => `rejected:phone:${e164}`;
 export const rejectedEmailKey = a => `rejected:email:${String(a).toLowerCase()}`;
 export const ipKey = (ip, day) => `ipcap:${day}:${ip}`;
 export const salesKey = id => `codesales:${id}`;
+export const refusalKey = (ts, n) => `refused:${ts}:${n}`;
 
 /* A day of submits from one address. The cap exists to stop a script, not to
    stop a team lead entering twelve people in a row. */
 export const IP_CAP_PER_DAY = 40;
 export const SALES_CACHE_SECONDS = 600;
+
+/* The refusals list. Long enough to cover a weekend of a link going round the
+   wrong group, short enough that it is never a second database of people who
+   did not get in. */
+export const REFUSAL_CAP = 200;
+export const REFUSAL_TTL_SECONDS = 14 * 24 * 3600;
 
 /* ----------------------------------------------------------------- random */
 
@@ -168,12 +175,37 @@ export async function tt(env, path, { method = 'GET', form = null, query = null 
   let parsed = null;
   try { parsed = text ? JSON.parse(text) : null; } catch { /* kept as text below */ }
   if (!res.ok) {
-    const e = new Error(`ticket tailor ${method} ${path} -> ${res.status} ${text.slice(0, 300)}`);
+    const e = new Error(`ticket tailor ${method} ${path} -> ${res.status} ${ttMessage(parsed, text)}`);
     e.status = res.status;
+    e.detail = ttMessage(parsed, text);
+    e.where = path;
     throw e;
   }
   return parsed;
 }
+
+/**
+ * What Ticket Tailor actually said, in words an approver can act on.
+ *
+ * Their errors come back as `{ errors: [{ message }] }` most of the time and
+ * as a bare string the rest of it, so both are read and the raw body is the
+ * last resort. Capped at 300 characters: this ends up on a card on a phone.
+ *
+ * The request is never quoted back, only the response, so there is no path by
+ * which the API key or the Authorization header reaches a screen or a record.
+ */
+export function ttMessage(parsed, text = '') {
+  const list = parsed && Array.isArray(parsed.errors) ? parsed.errors : null;
+  const words = list
+    ? list.map(e => String((e && (e.message || e.description || e.code)) || '')).filter(Boolean).join('; ')
+    : String((parsed && (parsed.message || parsed.error)) || '');
+  return (words || String(text || '')).replace(/\s+/g, ' ').trim().slice(0, 300);
+}
+
+/** Belt and braces: nothing that looks like a credential leaves this module. */
+export const scrubSecret = v => String(v || '')
+  .replace(/Basic\s+[A-Za-z0-9+/=]+/gi, 'Basic [redacted]')
+  .replace(/\bsk_[A-Za-z0-9_-]{6,}/g, 'sk_[redacted]');
 
 /* POST /v1/issued_tickets answers { data: [ticket] }; POST /v1/discounts
    answers the discount object itself. The asymmetry is theirs, so it is
@@ -707,11 +739,57 @@ export const LOCK_STALE_MS = 2 * 60 * 1000;
 export const STEPS = ['ticket', 'discount', 'brevo', 'email', 'whatsapp'];
 
 const nowIso = () => new Date().toISOString();
-const failed = reason => `failed:${reason}`;
+const failed = reason => `failed:${scrubSecret(reason)}`;
 
-/** True when a step still has to run: never run, or run and failed. */
-const todo = (person, step, only) =>
-  (!only || only.includes(step)) && person.steps[step] !== 'done';
+/* A step that a dry run did not really perform. Said out loud rather than
+   recorded as "done", because a dry run that reads like a success is how a
+   fake ticket ends up believed. */
+export const SKIPPED = 'skipped (dry run)';
+
+/** Anything made up by a dry run, which a live approval must not believe. */
+export const isDryId = v => /^dry_/.test(String(v || ''));
+
+/** True when a step still has to run: never run, run and failed, or skipped. */
+const todo = (person, step, only, force = false) => {
+  if (only && !only.includes(step)) return false;
+  if (force && only) return true;          // Resend: run it again anyway
+  return person.steps[step] !== 'done';
+};
+
+/** When each step last ran. Older records have none, and show blank. */
+function markStep(person, step, result) {
+  person.steps[step] = result;
+  person.stepAt = person.stepAt || {};
+  person.stepAt[step] = nowIso();
+}
+
+/**
+ * Throw away anything a dry run invented, so a live approval starts clean.
+ *
+ * A record approved while TEAM_DRY_RUN was true holds a ticket id that no
+ * box office has ever heard of. Approving it again for real must issue a real
+ * ticket, not look at the fake one and decide there is nothing to do.
+ */
+export async function clearDryResults(kv, person) {
+  let changed = false;
+  if (person.tt && isDryId(person.tt.issuedTicketId)) {
+    person.tt = null;
+    person.steps.ticket = null;
+    changed = true;
+  }
+  if (person.promo && isDryId(person.promo.discountId)) {
+    if (person.promo.code) await kv.delete(promoKey(person.promo.code));
+    person.promo = null;
+    person.steps.discount = null;
+    changed = true;
+  }
+  /* Brevo, the email and the WhatsApp leave nothing behind to inspect, so a
+     dry run's word for them is all there is, and it is not good enough. */
+  for (const step of ['brevo', 'email', 'whatsapp']) {
+    if (person.steps[step] === SKIPPED) { person.steps[step] = null; changed = true; }
+  }
+  return changed;
+}
 
 /**
  * Why this person cannot be approved at all, or '' when they can.
@@ -729,6 +807,23 @@ export function approvalBlocker(env, person, team) {
 }
 
 /**
+ * The same thing as a sentence, because the code goes in the record and this
+ * goes on the card. A reason an approver cannot act on is not a reason.
+ */
+export function blockerText(code, team = null) {
+  const name = (team && team.name && team.name.en) || 'this team';
+  if (/^no_ticket_type_for_/.test(code)) {
+    const key = code.replace('no_ticket_type_for_', '');
+    return `No ticket type is set for ${name}. Set TT_TYPE_${key.toUpperCase()} in Cloudflare.`;
+  }
+  return {
+    unknown_team: 'This person is on a team that no longer exists.',
+    no_tt_event_id: 'TT_EVENT_ID is not set, so there is no event to issue against.',
+    no_tt_api_key: 'TT_API_KEY is not set, so nothing can be issued.',
+  }[code] || code;
+}
+
+/**
  * Issue the pass, then everything that hangs off it.
  *
  * The order is the brief's order and it matters: rule 3 says a person is never
@@ -739,7 +834,7 @@ export function approvalBlocker(env, person, team) {
  *
  * `only` retries a subset of steps on an already-approved record.
  */
-export async function approve(env, kv, { id, approver, only = null, log = null }) {
+export async function approve(env, kv, { id, approver, only = null, log = null, force = false }) {
   const person = await getPerson(kv, id);
   if (!person) return { ok: false, error: 'unknown_person' };
 
@@ -760,12 +855,20 @@ export async function approve(env, kv, { id, approver, only = null, log = null }
     }
   }
 
+  const dryRunNow = dryRun(env);
+  /* Live now, and this record remembers a dry run. Nothing it was told then
+     is true, so it is forgotten before any step decides it has been done. */
+  if (!dryRunNow) await clearDryResults(kv, person);
+
   const blocked = approvalBlocker(env, person, team);
   if (blocked) {
-    person.steps.ticket = failed(blocked);
+    const detail = blockerText(blocked, team);
+    markStep(person, 'ticket', failed(detail));
+    person.ttError = { where: 'setup', status: 0, detail, at: nowIso() };
     person.status = 'pending';
+    person.lockedAt = null;
     await putPerson(kv, person);
-    return { ok: false, error: blocked, person };
+    return { ok: false, error: blocked, detail, person };
   }
 
   if (!retrying) {
@@ -774,14 +877,14 @@ export async function approve(env, kv, { id, approver, only = null, log = null }
     await putPerson(kv, person);
   }
 
-  const dry = dryRun(env);
+  const dry = dryRunNow;
   /* On a dry run Brevo and the email are the two steps that reach a real
      person, so they run only for an address Ravi has listed as his own. */
   const mayReachOut = !dry || isTestAddress(env, person.email);
 
   /* 2. The ticket. The child's own name is on the child's pass; the parent is
         only the contact. The date of birth is not sent. */
-  if (todo(person, 'ticket', only)) {
+  if (todo(person, 'ticket', only, force)) {
     const fullName = person.child
       ? `${person.child.firstName} ${person.child.lastName}`.trim()
       : `${person.firstName} ${person.lastName}`.trim();
@@ -791,7 +894,7 @@ export async function approve(env, kv, { id, approver, only = null, log = null }
            one, and nothing was asked of it. The email shows the barcode text
            alone, which is what a missing image looks like in the real thing. */
         person.tt = { issuedTicketId: `dry_tkt_${token(10)}`, barcode: `dry_${token(8)}`, qrUrl: '' };
-        person.steps.ticket = 'done';
+        markStep(person, 'ticket', SKIPPED);
       } else {
         const existing = await findIssuedTicket(env, person.id);
         const issued = existing || await issueTicket(env, {
@@ -803,15 +906,24 @@ export async function approve(env, kv, { id, approver, only = null, log = null }
         });
         if (!issued || !issued.id) throw new Error('no issued ticket id in the response');
         person.tt = ticketFacts(issued);
-        person.steps.ticket = 'done';
+        markStep(person, 'ticket', 'done');
+        person.ttError = null;
         if (existing) person.adoptedTicket = true;
       }
     } catch (e) {
-      person.steps.ticket = failed(String(e.message || e).slice(0, 200));
+      /* What they said, kept apart from the word "failed" so the page can
+         print it as a sentence instead of a parse. */
+      const status = Number(e.status) || 0;
+      const detail = scrubSecret(e.detail || e.message || e);
+      person.ttError = { where: 'ticket', status, detail: String(detail).slice(0, 300), at: nowIso() };
+      markStep(person, 'ticket', failed(status ? `${status} ${detail}` : detail));
       person.status = 'pending';
       person.lockedAt = null;
       await putPerson(kv, person);
-      return { ok: false, error: 'ticket_failed', detail: person.steps.ticket, person };
+      return {
+        ok: false, error: 'ticket_failed', status,
+        detail: person.ttError.detail, ttError: person.ttError, person,
+      };
     }
     await putPerson(kv, person);
   }
@@ -819,11 +931,11 @@ export async function approve(env, kv, { id, approver, only = null, log = null }
   /* 3. The code, on the teams that have one. A collision is a new four
         characters, not an error: the first part is their own first name and
         there are only so many Shreyas. */
-  if (team.promoCode && todo(person, 'discount', only)) {
+  if (team.promoCode && todo(person, 'discount', only, force)) {
     try {
       if (dry) {
         person.promo = { code: promoCodeFor(person.firstName), discountId: `dry_dsc_${token(10)}` };
-        person.steps.discount = 'done';
+        markStep(person, 'discount', SKIPPED);
       } else {
         let made = null;
         for (let attempt = 0; attempt < 5 && !made; attempt++) {
@@ -842,10 +954,13 @@ export async function approve(env, kv, { id, approver, only = null, log = null }
         if (!made) throw new Error('could not find a free code in five tries');
         person.promo = made;
         await kv.put(promoKey(made.code), JSON.stringify({ id: person.id, discountId: made.discountId }));
-        person.steps.discount = 'done';
+        markStep(person, 'discount', 'done');
       }
     } catch (e) {
-      person.steps.discount = failed(String(e.message || e).slice(0, 200));
+      const status = Number(e.status) || 0;
+      const detail = scrubSecret(e.detail || e.message || e);
+      person.ttError = { where: 'discount', status, detail: String(detail).slice(0, 300), at: nowIso() };
+      markStep(person, 'discount', failed(status ? `${status} ${detail}` : detail));
     }
     await putPerson(kv, person);
   }
@@ -867,38 +982,38 @@ export async function approve(env, kv, { id, approver, only = null, log = null }
   }
 
   /* 5. Brevo. The accreditation list and nothing else. */
-  if (todo(person, 'brevo', only)) {
+  if (todo(person, 'brevo', only, force)) {
     if (!mayReachOut) {
-      person.steps.brevo = 'done';
+      markStep(person, 'brevo', SKIPPED);
       console.log('accred dry-run: skipped brevo for', person.id);
     } else {
       const r = await pushToBrevo(env, { ...person, status: 'approved' }, team);
-      person.steps.brevo = r.ok ? 'done' : failed(r.reason);
+      markStep(person, 'brevo', r.ok ? 'done' : failed(r.reason));
     }
     await putPerson(kv, person);
   }
 
   /* 6. The email. */
-  if (todo(person, 'email', only)) {
+  if (todo(person, 'email', only, force)) {
     if (!mayReachOut) {
-      person.steps.email = 'done';
+      markStep(person, 'email', SKIPPED);
       console.log('accred dry-run: skipped email for', person.id);
     } else {
       const r = await sendMail(env, approvedMail(env, person, team));
       /* The email went out, the pass did not come with it. Not a failure: they
          have the inline image and the barcode. Said out loud all the same, and
          left retryable, because a retry is how it gets fixed. */
-      person.steps.email = r.ok
+      markStep(person, 'email', r.ok
         ? (r.attachmentFailed ? `done:no_attachment:${r.attachmentFailed}` : 'done')
-        : failed(r.reason);
+        : failed(r.reason));
     }
     await putPerson(kv, person);
   }
 
   /* 7. The WhatsApp. */
-  if (todo(person, 'whatsapp', only)) {
+  if (todo(person, 'whatsapp', only, force)) {
     const r = await sendTeamPass(env, kv, person, team, { log });
-    person.steps.whatsapp = r.ok ? 'done' : failed(r.reason);
+    markStep(person, 'whatsapp', r.ok ? (r.dry ? SKIPPED : 'done') : failed(r.reason));
     if (r.messageId) person.waMessageId = r.messageId;
     await putPerson(kv, person);
   }
@@ -909,6 +1024,55 @@ export async function approve(env, kv, { id, approver, only = null, log = null }
   if (approver) { person.decidedBy = approver; person.decidedAt = nowIso(); }
   await putPerson(kv, person);
   return { ok: true, person };
+}
+
+/* What a rejection remembers.
+ *
+ * The id alone was not enough: it blocked the whole phone number, and on the
+ * child team one number is a family. A mother whose eldest was turned down
+ * could then register none of the others. So the name goes in the key too,
+ * and the match has to be the same person, not the same household.
+ *
+ * Older keys hold a bare person id. They are read by looking the person up,
+ * so nothing written before this change stops working. */
+const rejectedMark = person => JSON.stringify({
+  id: person.id,
+  name: `${person.firstName} ${person.lastName}`.trim().toLowerCase(),
+  child: person.child ? `${person.child.firstName} ${person.child.lastName}`.trim().toLowerCase() : '',
+});
+
+async function readRejected(kv, key) {
+  const raw = await kv.get(key);
+  if (!raw) return null;
+  try {
+    const o = JSON.parse(raw);
+    if (o && o.id) return o;
+  } catch { /* an id written before the name was kept */ }
+  const p = await getPerson(kv, String(raw));
+  if (!p) return { id: String(raw), name: '', child: '' };
+  return rejectedMark(p) && JSON.parse(rejectedMark(p));
+}
+
+/**
+ * Is this submission the person who was turned down, or just their phone?
+ *
+ * The name has to match as well. On the child team it is the child's name that
+ * decides, because the parent's is the same on every form they fill in.
+ */
+export async function blockedAsRejected(kv, { phone, email, firstName, lastName, child, childTeam }) {
+  const want = `${firstName} ${lastName}`.trim().toLowerCase();
+  const wantChild = child ? `${child.firstName} ${child.lastName}`.trim().toLowerCase() : '';
+  for (const key of [phone && rejectedPhoneKey(phone), email && rejectedEmailKey(email)]) {
+    if (!key) continue;
+    const mark = await readRejected(kv, key);
+    if (!mark) continue;
+    /* A record from before the name was kept blocks on the contact alone,
+       which is the old behaviour and the safe side of the change. */
+    if (!mark.name && !mark.child) return true;
+    if (childTeam) { if (mark.child && mark.child === wantChild) return true; continue; }
+    if (mark.name === want) return true;
+  }
+  return false;
 }
 
 /**
@@ -930,8 +1094,8 @@ export async function reject(env, kv, { id, approver, note = '' }) {
   person.lockedAt = null;
   await putPerson(kv, person);
 
-  if (person.phone) await kv.put(rejectedPhoneKey(person.phone), person.id);
-  if (person.email) await kv.put(rejectedEmailKey(person.email), person.id);
+  if (person.phone) await kv.put(rejectedPhoneKey(person.phone), rejectedMark(person));
+  if (person.email) await kv.put(rejectedEmailKey(person.email), rejectedMark(person));
 
   /* A rejected +1 reopens the artist's token, so the artist can name somebody
      else rather than losing the guest. */
@@ -965,7 +1129,8 @@ export async function restore(env, kv, { id, approver }) {
   for (const key of [person.phone && rejectedPhoneKey(person.phone),
     person.email && rejectedEmailKey(person.email)]) {
     if (!key) continue;
-    if (await kv.get(key) === person.id) await kv.delete(key);
+    const mark = await readRejected(kv, key);
+    if (mark && mark.id === person.id) await kv.delete(key);
   }
 
   person.status = 'pending';
@@ -1008,6 +1173,57 @@ export async function revoke(env, kv, { id, approver, note = '' }) {
     await pushToBrevo(env, person, team);
   }
   return { ok: true, person };
+}
+
+/* -------------------------------------------------------------- refusals */
+
+/**
+ * A form that was turned away, written down where an approver can see it.
+ *
+ * The person is told nothing but the same neutral line. This is the other
+ * half of that: somebody has to be able to see that eleven people hit a
+ * closed link this morning, or that a name keeps bouncing off a rejection,
+ * without reading a log stream.
+ *
+ * Deliberately not a record of a person: a first name and a last initial, so
+ * the list is useful for working out what is going wrong and useless as a
+ * mailing list. It expires on its own after fourteen days.
+ */
+export async function logRefusal(kv, { reason, team = '', label = '', firstName = '', lastName = '' }) {
+  if (!kv) return;
+  const at = new Date().toISOString();
+  try {
+    await kv.put(refusalKey(at, token(4)), JSON.stringify({
+      at,
+      reason,
+      team,
+      label,
+      firstName: String(firstName || '').trim().slice(0, 40),
+      lastInitial: String(lastName || '').trim().slice(0, 1).toUpperCase(),
+    }), { expirationTtl: REFUSAL_TTL_SECONDS });
+  } catch (e) {
+    console.error('accred: refusal log failed', String(e).slice(0, 120));
+  }
+}
+
+/** Newest first, and trimmed to the cap on the way out. */
+export async function allRefusals(kv, cap = REFUSAL_CAP) {
+  const keys = await listAll(kv, 'refused:', cap * 4);
+  const out = [];
+  for (const k of keys.sort().reverse().slice(0, cap)) {
+    const raw = await kv.get(k);
+    if (raw) out.push({ key: k, ...JSON.parse(raw) });
+  }
+  return out;
+}
+
+/* Past the cap, the oldest go. The TTL would get them eventually; this keeps
+   the list from being a thousand rows long in the meantime. */
+export async function trimRefusals(kv, cap = REFUSAL_CAP) {
+  const keys = (await listAll(kv, 'refused:', cap * 4)).sort();
+  const over = keys.length - cap;
+  for (let i = 0; i < over; i++) await kv.delete(keys[i]);
+  return Math.max(0, over);
 }
 
 /* ----------------------------------------------------------- registration */
@@ -1109,9 +1325,18 @@ export async function flagsFor(kv, env, draft, team, link = null) {
  * Writes nothing at all on any refusal, so a leaked link costs KV nothing.
  */
 export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
-  if (!regEnabled(env)) return { ok: false, message: 'inactive' };
-
   const lang = langOf(body.lang);
+
+  /* Every no is written down on the way out, so the people who have to answer
+     for a link can see what it is doing. The visitor's own message never
+     changes: one neutral line, whatever the reason. */
+  let about = { team: '', label: '', firstName: body.firstName, lastName: body.lastName };
+  const no = async (message, reason) => {
+    await logRefusal(kv, { ...about, reason: reason || message });
+    return { ok: false, message, why: reason || message };
+  };
+
+  if (!regEnabled(env)) return no('inactive', 'registration_off');
 
   /* The honeypot. A filled one is a bot, and a bot is told everything went
      fine: an error is feedback, and feedback is how the next attempt gets
@@ -1121,22 +1346,28 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
   const link = plus1
     ? { team: 'plus1', label: plus1.label || '', open: true, expected: 1, token: body.k }
     : await kv.get(linkKey(String(body.k || '')), 'json');
-  if (!link) return { ok: false, message: 'inactive' };
-  if (!link.open) return { ok: false, message: 'inactive' };
+  if (!link) return no('inactive', 'unknown_link');
+  about = { ...about, team: link.team, label: link.label || '' };
+  if (!link.open) return no('inactive', 'link_closed');
 
   const team = teamOf(link.team);
-  if (!team || team.inviteOnly) return { ok: false, message: 'inactive' };
+  if (!team || team.inviteOnly) return no('inactive', 'no_form_for_team');
 
-  if (registrationClosed(env)) return { ok: false, message: 'closed' };
+  if (registrationClosed(env)) return no('closed', 'closed');
 
   const bad = validate(body, team);
-  if (bad) return { ok: false, message: bad === 'dob_invalid' ? 'dob_invalid' : 'inactive', field: bad };
+  if (bad) {
+    const r = await no(bad === 'dob_invalid' ? 'dob_invalid' : 'inactive', bad);
+    return { ...r, field: bad };
+  }
 
   const phone = normalisePhone(body.phone);
   const email = String(body.email).trim().toLowerCase();
 
-  if (await kv.get(rejectedPhoneKey(phone))) return { ok: false, message: 'inactive' };
-  if (await kv.get(rejectedEmailKey(email))) return { ok: false, message: 'inactive' };
+  if (await blockedAsRejected(kv, {
+    phone, email, firstName: body.firstName, lastName: body.lastName,
+    child: team.childTeam ? body.child : null, childTeam: Boolean(team.childTeam),
+  })) return no('inactive', 'rejected_match');
 
   /* The same phone and the same name on the same link: a second tap on a
      slow button, or a form resubmitted by a back arrow. Success, nothing
@@ -1156,14 +1387,14 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
   const expected = await expectedFor(kv, link.team);
   const onLink = (await allPeople(kv)).filter(p =>
     p.linkToken === String(body.k) && p.status !== 'rejected');
-  if (onLink.length >= hardCap(link.expected || expected)) return { ok: false, message: 'inactive' };
+  if (onLink.length >= hardCap(link.expected || expected)) return no('inactive', 'cap');
 
   /* Forty a day from one address. High enough that a team lead typing in
      thirty children from one laptop never notices it. */
   if (ip) {
     const day = new Date().toISOString().slice(0, 10);
     const used = Number(await kv.get(ipKey(ip, day))) || 0;
-    if (used >= IP_CAP_PER_DAY) return { ok: false, message: 'inactive' };
+    if (used >= IP_CAP_PER_DAY) return no('inactive', 'ip_cap');
     await kv.put(ipKey(ip, day), String(used + 1), { expirationTtl: 2 * 24 * 3600 });
   }
 

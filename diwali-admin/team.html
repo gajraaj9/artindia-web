@@ -66,7 +66,28 @@
     border: 1px solid var(--warm); color: var(--warm);
   }
   .chip.bad { border-color: var(--bad); color: var(--bad); }
-  .steps { font-size: .78rem; color: var(--muted); margin: .4rem 0 0; word-break: break-word; }
+  .steps { font-size: .78rem; color: var(--muted); margin: .5rem 0 0; }
+  .step { display: flex; gap: .5rem; align-items: baseline; padding: .1rem 0; }
+  .step-n { flex: 0 0 4.6rem; }
+  .step-v { flex: 1 1 auto; min-width: 0; word-break: break-word; }
+  .step-t { flex: 0 0 auto; opacity: .75; font-variant-numeric: tabular-nums; }
+  .step.bad .step-v { color: var(--bad); font-weight: 600; }
+  .step.warn .step-v { color: var(--warm); }
+  .step-tail { padding-top: .25rem; word-break: break-all; }
+  .when { margin: .25rem 0 0; font-variant-numeric: tabular-nums; }
+  .refusal {
+    margin: .5rem 0 0; padding: .45rem .6rem; border-radius: .4rem;
+    border: 1px solid var(--bad); color: var(--bad); font-size: .85rem;
+    font-weight: 600; word-break: break-word;
+  }
+  #msg[data-bad] {
+    color: var(--bad); font-weight: 600; border: 1px solid var(--bad);
+    border-radius: .4rem; padding: .5rem .6rem;
+  }
+  .refrow { display: flex; gap: .6rem; flex-wrap: wrap; padding: .35rem 0;
+    border-bottom: 1px solid var(--line); font-size: .85rem; }
+  .refrow .t { color: var(--muted); font-variant-numeric: tabular-nums; flex: 0 0 7.5rem; }
+  .refrow .r { color: var(--bad); font-weight: 600; }
   .acts { display: flex; gap: .4rem; flex-wrap: wrap; margin: .6rem 0 0; }
   .acts button, .bar button, form button {
     font: inherit; padding: .45rem .8rem; border-radius: .4rem; cursor: pointer;
@@ -110,11 +131,13 @@
       <button type="button" role="tab" data-tab="queue" aria-selected="true">Queue</button>
       <button type="button" role="tab" data-tab="people" aria-selected="false">People</button>
       <button type="button" role="tab" data-tab="links" aria-selected="false">Links</button>
+      <button type="button" role="tab" data-tab="refused" aria-selected="false">Refused</button>
     </div>
     <p class="muted" id="msg"></p>
     <section id="queue"></section>
     <section id="people" hidden></section>
     <section id="links" hidden></section>
+    <section id="refused" hidden></section>
   </div>
 </main>
 
@@ -134,7 +157,33 @@
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
-  function note(t) { $('msg').textContent = t || ''; }
+  function note(t, bad) {
+    var el = $('msg');
+    el.textContent = t || '';
+    if (bad) el.dataset.bad = '1'; else delete el.dataset.bad;
+  }
+
+  /* Brussels, always. The festival is in Brussels and so is everyone reading
+     this; a UTC stamp on a card is one subtraction between a person and the
+     answer to "did that just happen". */
+  var WHEN = null;
+  try {
+    WHEN = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Brussels', day: 'numeric', month: 'short',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    });
+  } catch (e) { WHEN = null; }
+
+  /* "6 Oct, 08:47" */
+  function when(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d)) return '';
+    if (!WHEN) return String(iso).slice(0, 16).replace('T', ' ');
+    var parts = {};
+    WHEN.formatToParts(d).forEach(function (x) { parts[x.type] = x.value; });
+    return parts.day + ' ' + parts.month + ', ' + parts.hour + ':' + parts.minute;
+  }
 
   function api(method, body) {
     return fetch('/api/team-admin', {
@@ -178,20 +227,45 @@
     return out.length ? '<div class="chips">' + out.join('') + '</div>' : '';
   }
 
+  var STEPS = ['ticket', 'discount', 'brevo', 'email', 'whatsapp'];
+  var isDry = function (v) { return /^dry_/.test(String(v || '')); };
+
+  /* One step, as a line: what it did, when, and in red with the reason when
+     Ticket Tailor said no. The reason is the whole point of this. An approver
+     should never have to open a log to find out why a ticket was refused. */
+  function steprow(p, n) {
+    var v = p.steps && p.steps[n];
+    var at = p.stepAt && p.stepAt[n] ? when(p.stepAt[n]) : '';
+    var cls = '', text;
+
+    if (!v) {
+      text = 'not run';
+    } else if (v.indexOf('failed:') === 0) {
+      cls = ' bad';
+      text = v.slice('failed:'.length);
+    } else if (v.indexOf('done:no_attachment') === 0) {
+      cls = ' warn';
+      text = 'sent, no QR file (' + v.split(':').pop() + ')';
+    } else {
+      text = v;
+    }
+    return '<div class="step' + cls + '"><span class="step-n">' + esc(n) + '</span>'
+      + '<span class="step-v">' + esc(text) + '</span>'
+      + '<span class="step-t">' + esc(at) + '</span></div>';
+  }
+
   function stepline(p) {
-    var names = ['ticket', 'discount', 'brevo', 'email', 'whatsapp'];
-    var bits = names.map(function (n) {
-      var v = p.steps && p.steps[n];
-      /* done:no_attachment:<why> is an email that went without the QR file.
-         Shortened here so the line stays readable on a phone. */
-      if (typeof v === 'string' && v.indexOf('done:no_attachment') === 0) {
-        return n + ': sent, no QR file (' + v.split(':').pop() + ')';
-      }
-      return n + ': ' + (v || 'not run');
-    });
-    if (p.tt && p.tt.issuedTicketId) bits.push('ticket id: ' + p.tt.issuedTicketId);
-    if (p.promo && p.promo.code) bits.push('code: ' + p.promo.code);
-    return '<p class="steps">' + esc(bits.join(' · ')) + '</p>';
+    var rows = STEPS.map(function (n) { return steprow(p, n); }).join('');
+    var tail = [];
+    if (p.tt && p.tt.issuedTicketId) {
+      tail.push('ticket ' + p.tt.issuedTicketId + (isDry(p.tt.issuedTicketId) ? ' (dry run)' : ''));
+    }
+    if (p.promo && p.promo.code) {
+      tail.push('code ' + p.promo.code + (isDry(p.promo.discountId) ? ' (dry run)' : ''));
+    }
+    return '<div class="steps">' + rows
+      + (tail.length ? '<div class="step-tail">' + esc(tail.join(' \u00b7 ')) + '</div>' : '')
+      + '</div>';
   }
 
   function head(p) {
@@ -209,7 +283,31 @@
     if (t && t.blocked) {
       who += '<div class="chips"><span class="chip bad">' + esc(t.blocked) + '</span></div>';
     }
+    who += history(p);
+    /* What Ticket Tailor said, at the top of the card and in red, because it
+       is the thing the approver has to act on. */
+    if (p.ttError && p.ttError.detail) {
+      who += '<div class="refusal">Ticket Tailor refused'
+        + (p.ttError.where === 'discount' ? ' the discount' : ' the ticket') + ': '
+        + esc((p.ttError.status ? p.ttError.status + ' ' : '') + p.ttError.detail) + '</div>';
+    }
     return who;
+  }
+
+  /* When they registered, and when somebody decided about them. */
+  function history(p) {
+    var bits = [];
+    if (p.createdAt) bits.push('registered ' + when(p.createdAt));
+    if (p.decidedAt) {
+      var verb = p.status === 'approved' ? 'approved'
+        : p.status === 'rejected' ? 'rejected'
+          : p.status === 'revoked' ? 'revoked' : 'decided';
+      bits.push(verb + ' ' + when(p.decidedAt) + (p.decidedBy ? ' by ' + p.decidedBy : ''));
+    }
+    if (p.restoredAt) {
+      bits.push('restored ' + when(p.restoredAt) + (p.restoredBy ? ' by ' + p.restoredBy : ''));
+    }
+    return bits.length ? '<div class="muted when">' + esc(bits.join(' \u00b7 ')) + '</div>' : '';
   }
 
   function renderQueue() {
@@ -288,14 +386,16 @@
 
     var html = list.map(function (p) {
       return '<div class="card" data-id="' + esc(p.id) + '">' + head(p) + chips(p)
+        /* Who decided and when is on the history line in head(); this is the
+           status word itself, which People needs because it mixes them. */
         + '<div class="muted">' + esc(p.status)
-        + (p.decidedBy ? ' by ' + esc(p.decidedBy) : '')
-        + (p.restoredBy ? ' · restored by ' + esc(p.restoredBy) : '')
         + (p.note ? ' · ' + esc(p.note) : '') + '</div>'
         + stepline(p)
         + '<div class="acts">'
         + (p.status === 'pending' ? '<button type="button" class="go" data-act="approve">Approve</button>' : '')
         + (p.status === 'approved' ? '<button type="button" data-act="retry">Retry failed steps</button>' : '')
+        + (p.status === 'approved' ? '<button type="button" data-act="resend" data-step="email">Resend email</button>' : '')
+        + (p.status === 'approved' && p.phone ? '<button type="button" data-act="resend" data-step="whatsapp">Resend WhatsApp</button>' : '')
         + (p.status === 'approved' ? '<button type="button" class="no" data-act="revoke">Revoke</button>' : '')
         + (p.status === 'pending' ? '<button type="button" class="no" data-act="reject">Reject</button>' : '')
         + (p.status === 'rejected' ? '<button type="button" data-act="restore">Restore</button>' : '')
@@ -369,6 +469,52 @@
     $('links').innerHTML = form + rows + teamRows;
   }
 
+  /* Forms that were turned away. The visitor got one neutral line whatever
+     the reason; this is where the reason lives, so somebody can see that a
+     link has been sent to the wrong group before eleven people have bounced
+     off it. A first name and a last initial, never a mailing list. */
+  var REASONS = {
+    rejected_match: 'already rejected',
+    cap: 'link is full',
+    ip_cap: 'too many from one address',
+    closed: 'registration closed',
+    link_closed: 'link closed',
+    unknown_link: 'unknown link',
+    registration_off: 'form switched off',
+    no_form_for_team: 'team has no form',
+    dob_invalid: 'date of birth',
+    consent: 'consent not ticked',
+    email: 'email',
+    phone: 'phone number',
+    name: 'name',
+    role: 'role',
+    child: "child's name"
+  };
+
+  function renderRefused() {
+    var list = D.refused || [];
+    if (!list.length) {
+      $('refused').innerHTML = '<p class="muted">Nothing has been turned away.</p>';
+      return;
+    }
+    $('refused').innerHTML = '<p class="muted">' + list.length
+      + ' in the last 14 days, newest first.</p><div class="card">'
+      + list.map(function (r) {
+        var who = [r.firstName, r.lastInitial ? r.lastInitial + '.' : ''].join(' ').trim();
+        var where = [teamName(r.team), r.label].filter(Boolean).join(' \u00b7 ');
+        return '<div class="refrow"><span class="t">' + esc(when(r.at)) + '</span>'
+          + '<span>' + esc(who || 'someone') + '</span>'
+          + '<span class="muted">' + esc(where) + '</span>'
+          + '<span class="r">' + esc(REASONS[r.reason] || r.reason) + '</span></div>';
+      }).join('') + '</div>';
+  }
+
+  function selectTab(tab) {
+    document.querySelectorAll('[role=tab]').forEach(function (b) {
+      b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === tab));
+    });
+  }
+
   function render() {
     $('who').textContent = D.approver;
     $('who').hidden = false;
@@ -379,10 +525,11 @@
     $('reg').className = 'pill ' + (D.settings.regEnabled ? 'on' : 'off');
     $('reg').hidden = false;
 
-    ['queue', 'people', 'links'].forEach(function (t) { $(t).hidden = t !== TAB; });
+    ['queue', 'people', 'links', 'refused'].forEach(function (t) { $(t).hidden = t !== TAB; });
     if (TAB === 'queue') renderQueue();
     if (TAB === 'people') renderPeople();
     if (TAB === 'links') renderLinks();
+    if (TAB === 'refused') renderRefused();
   }
 
   /* ----------------------------------------------------------------- csv */
@@ -394,7 +541,8 @@
   function csv() {
     var cols = ['firstName', 'lastName', 'email', 'phone', 'team', 'label', 'role',
       'childFirstName', 'childLastName', 'childDob', 'salutation', 'title',
-      'organisation', 'rsvp', 'status', 'approver', 'promoCode', 'ticketsSold'];
+      'organisation', 'rsvp', 'status', 'approver', 'registered', 'decided',
+      'promoCode', 'ticketsSold'];
     function cell(v) {
       var s = String(v == null ? '' : v);
       return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
@@ -407,7 +555,8 @@
         p.child ? p.child.firstName : '', p.child ? p.child.lastName : '', p.child ? p.child.dob : '',
         v.salutation || '', v.jobTitle || '', v.organisation || '',
         v.attending == null ? '' : (v.attending ? 'accepted' : 'declined'),
-        p.status, p.decidedBy || '', (p.promo && p.promo.code) || '', p.ticketsSold == null ? '' : p.ticketsSold
+        p.status, p.decidedBy || '', when(p.createdAt), when(p.decidedAt),
+        (p.promo && p.promo.code) || '', p.ticketsSold == null ? '' : p.ticketsSold
       ].map(cell).join(','));
     });
     var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
@@ -440,16 +589,56 @@
     }).catch(function () { note('Could not reach the server.'); });
   }
 
+  /* The person the server just wrote, spliced into the list we already hold.
+     A failed approval leaves somebody sitting in the queue, and they have to
+     appear now: a fresh GET can miss a write that has not propagated, and the
+     first live approval that failed was invisible for exactly that reason. */
+  function absorb(person) {
+    if (!person || !person.id || !D) return false;
+    for (var i = 0; i < D.people.length; i++) {
+      if (D.people[i].id === person.id) { D.people[i] = person; return true; }
+    }
+    D.people.push(person);
+    D.people.sort(function (a, b) {
+      return String(a.createdAt).localeCompare(String(b.createdAt));
+    });
+    return true;
+  }
+
+  /* Why this was refused, in the words the server used. */
+  function refusalText(d) {
+    if (d.error === 'ticket_failed' && d.detail) {
+      return 'Ticket Tailor refused: ' + (d.status ? d.status + ' ' : '') + d.detail;
+    }
+    if (d.detail) return d.detail;
+    if (d.error) return 'Refused: ' + d.error;
+    return 'Refused: ' + d.httpStatus;
+  }
+
   function act(body) {
-    note('Working…');
+    note('Working\u2026');
     return api('POST', body).then(function (d) {
-      if (!d.ok) { note('Refused: ' + (d.error || d.detail || d.httpStatus)); return d; }
+      /* Draw what came back first, whether it worked or not, then catch up
+         with the server in the background. */
+      var drawn = absorb(d.person);
+      if (drawn) render();
+
+      if (!d.ok) {
+        note(refusalText(d), true);
+        /* A refusal still changes the record, so the rest of the page is
+           refreshed too, quietly. */
+        api('GET').then(function (fresh) {
+          if (fresh.ok) { D = fresh; absorb(d.person); render(); }
+        }).catch(function () {});
+        return d;
+      }
+
+      note(d.skipped ? 'Nothing to do: ' + d.skipped : 'Done.');
       return api('GET').then(function (fresh) {
         if (fresh.ok) { D = fresh; render(); }
-        note(d.skipped ? 'Nothing to do: ' + d.skipped : 'Done.');
         return d;
       });
-    }).catch(function () { note('Could not reach the server.'); });
+    }).catch(function () { note('Could not reach the server.', true); });
   }
 
   document.addEventListener('click', function (ev) {
@@ -460,9 +649,7 @@
 
     if (tab) {
       TAB = tab;
-      document.querySelectorAll('[role=tab]').forEach(function (b) {
-        b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === tab));
-      });
+      selectTab(tab);
       render();
       return;
     }
@@ -495,6 +682,10 @@
       act({ action: 'revoke', id: id, note: note2 });
       return;
     }
+    if (a === 'resend') {
+      act({ action: 'resend', id: id, step: btn.getAttribute('data-step') });
+      return;
+    }
     if (a === 'restore') {
       /* Not a decision, an undo: it puts them back in the queue and lets them
          use the form again. Somebody still has to approve them. */
@@ -520,7 +711,15 @@
           dob: $('a-cdob').value.trim()
         };
       }
-      act(body).then(function () { $('addwrap').innerHTML = ''; });
+      act(body).then(function (d) {
+        if (!d) return;
+        /* A bad phone number never created anybody: leave the form up with the
+           reason on it. Anything else did, so the form goes and the queue
+           shows the new record, failure and all. */
+        if (!d.ok && !d.person) return;
+        $('addwrap').innerHTML = '';
+        if (!d.ok) { TAB = 'queue'; selectTab('queue'); render(); }
+      });
       return;
     }
     if (a === 'link_create') {

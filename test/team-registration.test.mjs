@@ -21,6 +21,8 @@ import {
   plus1Key, promoKey, phoneKey, rejectedPhoneKey, teamCfgKey, expectedFor,
   allowedOrigin, brevoAttributesFor, approvedMail, receivedMail, IP_CAP_PER_DAY,
   restore, htmlMail, ticketFacts, rejectedEmailKey, qrFileName, fetchQrAttachment,
+  SKIPPED, isDryId, ttMessage, scrubSecret, logRefusal, allRefusals, trimRefusals,
+  clearDryResults, blockedAsRejected, REFUSAL_CAP,
 } from '../functions/api/_accred.js';
 import { onRequestGet as adminGet, onRequestPost as adminPost } from '../functions/api/team-admin.js';
 import { onRequestGet as formGet } from '../functions/api/team-form.js';
@@ -51,6 +53,7 @@ function memoryKv(seed = {}) {
 }
 
 const ADMIN = { ravi: 'tok-ravi-123', keerthi: 'tok-keerthi-456' };
+const STEPS_ALL = ['ticket', 'discount', 'brevo', 'email', 'whatsapp'];
 
 /** Live settings: everything on, nothing dry. The default for most tests. */
 const ENV = (over = {}) => ({
@@ -112,7 +115,7 @@ function world({ fail = '', discountCollision = false, existingTicket = null, bu
     }
 
     if (url.includes('api.tickettailor.com')) {
-      if (fail === 'tt') return reply(502, { errors: [{ message: 'no inventory' }] });
+      if (fail === 'tt') return reply(422, { errors: [{ message: 'Ticket type is sold out' }] });
       if (url.includes('/issued_tickets') && method === 'GET') {
         return reply(200, { data: existingTicket ? [existingTicket] : [] });
       }
@@ -344,7 +347,10 @@ test('a closed link, a closed registration and a switched-off module all refuse'
   const w = world();
   try {
     const shut = await withLink('artist', { open: false });
-    assert.deepEqual(await register(ENV(), shut.kv, FORM(), {}), { ok: false, message: 'inactive' });
+    const r = await register(ENV(), shut.kv, FORM(), {});
+    assert.equal(r.ok, false);
+    assert.equal(r.message, 'inactive');
+    assert.equal(r.why, 'link_closed', 'the reason is for the approvers, not the visitor');
 
     const open = await withLink('artist');
     const late = await register(ENV({ TEAM_CLOSE_AT: '2020-01-01T00:00:00Z' }), open.kv, FORM(), {});
@@ -378,7 +384,7 @@ test('the same phone and the same name on the same link is one person', async ()
   } finally { w.restore(); }
 });
 
-test('a rejected phone can never register again, on any link', async () => {
+test('a rejected person cannot come back, and nobody else is blocked with them', async () => {
   const { kv } = await withLink('artist');
   const w = world();
   try {
@@ -387,9 +393,79 @@ test('a rejected phone can never register again, on any link', async () => {
     await reject(env, kv, { id: r.person.id, approver: 'ravi', note: 'not on the list' });
     assert.ok(await kv.get(rejectedPhoneKey('+32474919900')));
 
-    const back = await register(env, kv, FORM({ firstName: 'Shreyaa' }), { ip: '1.2.3.4' });
+    /* Them again, on any link: still no. */
+    const back = await register(env, kv, FORM(), { ip: '1.2.3.4' });
     assert.equal(back.message, 'inactive');
+    assert.equal(back.why, 'rejected_match');
     assert.equal((await people(kv)).length, 1, 'no second row');
+
+    /* Somebody else on the same phone: a partner, a flatmate, the one handset
+       a group shares. A rejection is about a person, not a number. */
+    const other = await register(env, kv, FORM({
+      firstName: 'Rahul', lastName: 'Desai', email: 'rahul@example.com',
+    }), { ip: '1.2.3.4' });
+    assert.ok(other.ok, 'the whole phone number was blocked');
+    assert.equal((await people(kv)).length, 2);
+  } finally { w.restore(); }
+});
+
+test('a rejected child does not take their brothers and sisters with them', async () => {
+  const { kv } = await withLink('child', { expected: 50 });
+  const w = world();
+  try {
+    const env = ENV();
+    const base = { ...FORM(), role: '' };
+    const aarav = await register(env, kv, {
+      ...base, child: { firstName: 'Aarav', lastName: 'Menon', dob: '2016-05-04' },
+    }, {});
+    await reject(env, kv, { id: aarav.person.id, approver: 'ravi', note: 'not in the class' });
+
+    /* The same parent, the same phone, the same email, a different child. */
+    const diya = await register(env, kv, {
+      ...base, child: { firstName: 'Diya', lastName: 'Menon', dob: '2018-01-09' },
+    }, {});
+    assert.ok(diya.ok, 'a parent whose one child was rejected could register no sibling');
+    assert.equal(diya.person.child.firstName, 'Diya');
+
+    /* Aarav himself, though, is still turned down. */
+    const again = await register(env, kv, {
+      ...base, child: { firstName: 'Aarav', lastName: 'Menon', dob: '2016-05-04' },
+    }, {});
+    assert.equal(again.message, 'inactive');
+    assert.equal(again.why, 'rejected_match');
+  } finally { w.restore(); }
+});
+
+test('a rejection written before the name was kept is read through the person', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV();
+    const r = await register(env, kv, FORM(), {});
+    await reject(env, kv, { id: r.person.id, approver: 'ravi', note: 'no' });
+
+    /* The old format: a bare person id, which is what is sitting in KV from
+       before this change. The name is still on the person record, so the new
+       rule reads it from there and nothing is lost. */
+    await kv.put(rejectedPhoneKey('+32474919900'), r.person.id);
+    await kv.delete(rejectedEmailKey('shreya@example.com'));
+
+    const them = await register(env, kv, FORM(), {});
+    assert.equal(them.message, 'inactive', 'the rejected person is still turned down');
+
+    const other = await register(env, kv, FORM({
+      firstName: 'Someone', lastName: 'Else', email: 'else@example.com',
+    }), {});
+    assert.ok(other.ok, 'somebody else on that phone is not');
+
+    /* And when even the person record is gone, there is no name to compare,
+       so it falls back to blocking the contact. That is the safe side. */
+    await kv.delete(personKey(r.person.id));
+    const blind = await register(env, kv, FORM({
+      firstName: 'Third', lastName: 'Person', email: 'third@example.com',
+    }), {});
+    assert.equal(blind.message, 'inactive',
+      'with nothing left to compare, the old behaviour stands');
   } finally { w.restore(); }
 });
 
@@ -1041,8 +1117,10 @@ test('a dry run simulates the ticket, the code and the WhatsApp, and reaches nob
     assert.equal(done.person.status, 'approved');
     assert.match(done.person.tt.issuedTicketId, /^dry_tkt_/);
     assert.match(done.person.promo.discountId, /^dry_dsc_/);
+    /* Said out loud, not recorded as done: a dry run that reads like a success
+       is how a fake ticket ends up believed. */
     assert.deepEqual(done.person.steps, {
-      ticket: 'done', discount: 'done', brevo: 'done', email: 'done', whatsapp: 'done',
+      ticket: SKIPPED, discount: SKIPPED, brevo: SKIPPED, email: SKIPPED, whatsapp: SKIPPED,
     });
     assert.equal(w.calls.length, 0,
       'a dry run reached Ticket Tailor, Brevo, Meta or all three');
@@ -1359,11 +1437,11 @@ test('restoring one person does not un-remember a sibling on the same phone', as
     await reject(env, kv, { id: one.person.id, approver: 'ravi', note: 'a' });
     await reject(env, kv, { id: two.person.id, approver: 'ravi', note: 'b' });
     /* The second rejection owns the phone key now. */
-    assert.equal(await kv.get(rejectedPhoneKey('+32474919900')), two.person.id);
+    const owner = () => kv.get(rejectedPhoneKey('+32474919900'), 'json').then(m => m && m.id);
+    assert.equal(await owner(), two.person.id);
 
     await restore(env, kv, { id: one.person.id, approver: 'ravi' });
-    assert.equal(await kv.get(rejectedPhoneKey('+32474919900')), two.person.id,
-      'the other rejection still stands');
+    assert.equal(await owner(), two.person.id, 'the other rejection still stands');
     assert.equal(await kv.get(rejectedEmailKey('shreya@example.com')), null,
       'but this one released its own email');
   } finally { w.restore(); }
@@ -1571,5 +1649,393 @@ test('a dry run attaches nothing, because there is nothing to attach', async () 
     const sent = JSON.parse(w.brevo().find(c => c.url.includes('/smtp/email')
       && JSON.parse(c.body).subject === COPY.mail_approved_subject.en).body);
     assert.ok(!('attachment' in sent));
+  } finally { w.restore(); }
+});
+
+/* -------------------------------------------- 1. why a ticket was refused */
+
+test('a refused ticket comes back with what Ticket Tailor said', async () => {
+  const { kv } = await withLink('artist');
+  let id;
+  const clean = world();
+  try {
+    id = (await register(ENV({ ACCRED: kv }), kv, FORM(), {})).person.id;
+  } finally { clean.restore(); }
+
+  const w = world({ fail: 'tt' });
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await approve(env, kv, { id, approver: 'ravi' });
+
+    assert.equal(r.ok, false);
+    assert.equal(r.error, 'ticket_failed');
+    assert.equal(r.status, 422, 'the HTTP status reaches the page');
+    assert.equal(r.detail, 'Ticket type is sold out', 'and so do their own words');
+    assert.deepEqual(r.ttError.where, 'ticket');
+    assert.ok(r.ttError.at, 'and when it happened');
+
+    /* The same thing is on the record, so a page that loads later still shows it. */
+    assert.equal(r.person.ttError.detail, 'Ticket Tailor refused'
+      ? r.person.ttError.detail : 'Ticket type is sold out');
+    assert.match(r.person.steps.ticket, /^failed:422 Ticket type is sold out/);
+    assert.ok(r.person.stepAt.ticket, 'the step is stamped even when it failed');
+    assert.equal(r.person.status, 'pending', 'and they are back in the queue');
+  } finally { w.restore(); }
+});
+
+test('nothing that looks like a credential reaches a record or a screen', async () => {
+  assert.equal(scrubSecret('Basic c2tfbGl2ZV9hYmM6'), 'Basic [redacted]');
+  assert.equal(scrubSecret('key sk_live_abcdef123456'), 'key sk_[redacted]');
+
+  const { kv } = await withLink('artist');
+  let id;
+  const clean = world();
+  try { id = (await register(ENV({ ACCRED: kv }), kv, FORM(), {})).person.id; }
+  finally { clean.restore(); }
+
+  /* A server that echoes the request back, which is the shape of mistake that
+     puts an Authorization header into an error message. */
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    if (String(url).includes('issued_tickets')) {
+      return new Response(JSON.stringify({
+        errors: [{ message: `rejected: ${(init.headers || {}).authorization} sk_live_SECRET` }],
+      }), { status: 401, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  try {
+    const r = await approve(ENV({ ACCRED: kv, TT_API_KEY: 'sk_live_SECRET' }), kv,
+      { id, approver: 'ravi' });
+    const blob = JSON.stringify(r);
+    assert.ok(!blob.includes('sk_live_SECRET'), 'the API key reached the response');
+    assert.ok(!/Basic [A-Za-z0-9+/=]{8,}/.test(blob), 'an Authorization header reached the response');
+    assert.match(r.detail, /\[redacted\]/);
+  } finally { globalThis.fetch = real; }
+});
+
+test('a refused discount is reported too, and never costs the ticket', async () => {
+  const { kv } = await withLink('artist');
+  const w = world({ fail: 'discount' });
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM(), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+
+    assert.ok(done.ok, 'a code that would not mint must not stop the pass');
+    assert.equal(done.person.status, 'approved');
+    assert.equal(done.person.tt.issuedTicketId, 'it_1');
+    assert.match(done.person.steps.discount, /^failed:400 /);
+    assert.equal(done.person.ttError.where, 'discount');
+  } finally { w.restore(); }
+});
+
+test('their errors are read however they are shaped, and never over 300 characters', () => {
+  assert.equal(ttMessage({ errors: [{ message: 'a' }, { message: 'b' }] }), 'a; b');
+  assert.equal(ttMessage({ message: 'one thing' }), 'one thing');
+  assert.equal(ttMessage(null, '  <html>502</html>\n'), '<html>502</html>');
+  assert.equal(ttMessage({ errors: [{ message: 'x'.repeat(400) }] }).length, 300);
+  assert.equal(ttMessage(null, ''), '');
+});
+
+/* ---------------------------------------- 2. a failed add must be visible */
+
+test('an add that fails at the ticket step still answers with the record', async () => {
+  const kv = memoryKv();
+  const w = world({ fail: 'tt' });
+  try {
+    const env = ENV({ ACCRED: kv });
+    const res = await adminPost({
+      request: req('POST', {
+        action: 'person_add', team: 'crew', firstName: 'Ravi', lastName: 'Kaushik',
+        email: 'ravi@artindia.be', phone: '0474 91 99 00', role: 'Director', lang: 'en',
+      }, { 'x-admin-token': ADMIN.ravi }),
+      env,
+    });
+    assert.equal(res.status, 409);
+    const d = await res.json();
+
+    assert.equal(d.ok, false);
+    assert.ok(d.person, 'without the person the page has nothing to draw');
+    assert.equal(d.person.status, 'pending', 'they sit in the queue and can be tried again');
+    assert.equal(d.detail, 'Ticket type is sold out');
+    assert.equal(d.status, 422);
+
+    /* And they really are stored, so the next GET finds them too. */
+    const payload = await (await adminGet({
+      request: req('GET', null, { 'x-admin-token': ADMIN.ravi }), env,
+    })).json();
+    assert.equal(payload.people.length, 1);
+    assert.equal(payload.people[0].id, d.person.id);
+  } finally { w.restore(); }
+});
+
+test('a team with no ticket type set says so in words, before Ticket Tailor is called', async () => {
+  const kv = memoryKv();
+  const w = world();
+  try {
+    /* The test environment has no TT_TYPE_CORE, which is what an unset
+       variable in Cloudflare looks like. */
+    const env = ENV({ ACCRED: kv });
+    const res = await adminPost({
+      request: req('POST', {
+        action: 'person_add', team: 'core', firstName: 'Ravi', lastName: 'Kaushik',
+        email: 'ravi@artindia.be', phone: '0474 91 99 00', role: 'Director', lang: 'en',
+      }, { 'x-admin-token': ADMIN.ravi }),
+      env,
+    });
+    const d = await res.json();
+
+    assert.equal(d.ok, false);
+    assert.equal(d.error, 'no_ticket_type_for_core');
+    assert.equal(d.detail,
+      'No ticket type is set for Core team. Set TT_TYPE_CORE in Cloudflare.');
+    assert.ok(d.person, 'the record is still there to try again');
+    assert.equal(d.person.status, 'pending');
+    assert.equal(d.person.ttError.where, 'setup');
+    assert.equal(w.tt().length, 0, 'nothing was asked of Ticket Tailor');
+  } finally { w.restore(); }
+});
+
+test('approve, reject, restore and revoke all answer with the record', async () => {
+  const { kv } = await withLink('crew');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const id = (await register(env, kv, FORM({ role: 'Stage' }), {})).person.id;
+    const call = body => adminPost({
+      request: req('POST', body, { 'x-admin-token': ADMIN.ravi }), env,
+    }).then(r => r.json());
+
+    for (const [body, status] of [
+      [{ action: 'approve', id }, 'approved'],
+      [{ action: 'revoke', id, note: 'x' }, 'revoked'],
+    ]) {
+      const d = await call(body);
+      assert.ok(d.person, `${body.action} answered without the record`);
+      assert.equal(d.person.status, status);
+    }
+
+    const id2 = (await register(env, kv, FORM({
+      firstName: 'Tom', phone: '+32470111222', email: 'tom@example.com', role: 'Rigging',
+    }), {})).person.id;
+    const rej = await call({ action: 'reject', id: id2, note: 'no' });
+    assert.equal(rej.person.status, 'rejected');
+    const res = await call({ action: 'restore', id: id2 });
+    assert.equal(res.person.status, 'pending');
+    assert.equal(res.person.restoredBy, 'ravi');
+  } finally { w.restore(); }
+});
+
+/* ------------------------------------------ 4 and 5. dry run is not truth */
+
+test('a dry run says skipped, not done', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv, TEAM_DRY_RUN: 'true' });
+    const r = await register(env, kv, FORM(), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+    for (const step of ['ticket', 'discount', 'brevo', 'email', 'whatsapp']) {
+      assert.equal(done.person.steps[step], SKIPPED, step);
+      assert.ok(done.person.stepAt[step], `${step} has no time`);
+    }
+    assert.ok(isDryId(done.person.tt.issuedTicketId));
+    assert.ok(isDryId(done.person.promo.discountId));
+  } finally { w.restore(); }
+});
+
+test('approving for real throws away everything the dry run invented', async () => {
+  const { kv } = await withLink('artist');
+  let id, dryCode;
+  const dry = world();
+  try {
+    const env = ENV({ ACCRED: kv, TEAM_DRY_RUN: 'true' });
+    id = (await register(env, kv, FORM(), {})).person.id;
+    const d = await approve(env, kv, { id, approver: 'ravi' });
+    dryCode = d.promo ? d.promo.code : d.person.promo.code;
+    assert.ok(isDryId(d.person.tt.issuedTicketId));
+  } finally { dry.restore(); }
+
+  /* Live, and the record is approved already. Without clearing it, the fake
+     ticket would be believed and no real one would ever be issued. */
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const live = await approve(env, kv, { id, approver: 'ravi', only: STEPS_ALL });
+
+    assert.equal(live.person.tt.issuedTicketId, 'it_1', 'a real ticket was issued');
+    assert.ok(!isDryId(live.person.promo.discountId));
+    assert.equal(live.person.steps.ticket, 'done');
+    assert.equal(live.person.steps.email, 'done');
+    assert.equal(await kv.get(promoKey(dryCode)), null, 'the made-up code was released');
+    assert.equal(w.tt().filter(c => c.method === 'POST' && c.url.includes('issued_tickets')).length, 1);
+  } finally { w.restore(); }
+});
+
+test('clearing dry results leaves a real record alone', async () => {
+  const kv = memoryKv();
+  const real = {
+    id: 'p_1', tt: { issuedTicketId: 'it_9', barcode: 'b' },
+    promo: { code: 'A-1', discountId: 'dsc_9' },
+    steps: { ticket: 'done', discount: 'done', brevo: 'done', email: 'done', whatsapp: 'done' },
+  };
+  assert.equal(await clearDryResults(kv, real), false);
+  assert.equal(real.tt.issuedTicketId, 'it_9');
+
+  const fake = {
+    id: 'p_2', tt: { issuedTicketId: 'dry_tkt_1' },
+    promo: { code: 'B-2', discountId: 'dry_dsc_1' },
+    steps: { ticket: SKIPPED, discount: SKIPPED, brevo: SKIPPED, email: SKIPPED, whatsapp: SKIPPED },
+  };
+  await kv.put(promoKey('B-2'), '{}');
+  assert.equal(await clearDryResults(kv, fake), true);
+  assert.equal(fake.tt, null);
+  assert.equal(fake.promo, null);
+  assert.deepEqual(fake.steps,
+    { ticket: null, discount: null, brevo: null, email: null, whatsapp: null });
+  assert.equal(await kv.get(promoKey('B-2')), null);
+});
+
+/* -------------------------------------------------- 7. the refusals list */
+
+test('every refusal is written down, with a name nobody could mail', async () => {
+  const { kv } = await withLink('collab', { expected: 1, label: 'Antwerp group' });
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    await register(env, kv, FORM({ consent: false }), {});
+    await register(env, kv, FORM({ email: 'not-an-email' }), {});
+    await register(env, kv, FORM({ k: 'NOPE' }), {});
+    await register(ENV({ ACCRED: kv, TEAM_CLOSE_AT: '2020-01-01T00:00:00Z' }), kv, FORM(), {});
+
+    const list = await allRefusals(kv);
+    assert.equal(list.length, 4);
+    assert.deepEqual(list.map(r => r.reason).sort(),
+      ['closed', 'consent', 'email', 'unknown_link']);
+
+    const one = list.find(r => r.reason === 'consent');
+    assert.equal(one.firstName, 'Shreya');
+    assert.equal(one.lastInitial, 'M', 'an initial, not a surname');
+    assert.ok(!('lastName' in one), 'no surname is kept');
+    assert.ok(!JSON.stringify(list).includes('shreya@example.com'), 'no address is kept');
+    assert.ok(!JSON.stringify(list).includes('32474919900'), 'no phone is kept');
+    assert.equal(one.team, 'collab');
+    assert.equal(one.label, 'Antwerp group');
+    assert.ok(one.at);
+  } finally { w.restore(); }
+});
+
+test('a honeypot is a bot and is not worth a line', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    await register(ENV({ ACCRED: kv }), kv, FORM({ hp: 'Acme' }), {});
+    assert.equal((await allRefusals(kv)).length, 0);
+  } finally { w.restore(); }
+});
+
+test('the refusals list is capped and newest first', async () => {
+  const kv = memoryKv();
+  for (let i = 0; i < REFUSAL_CAP + 12; i++) {
+    await logRefusal(kv, { reason: 'cap', firstName: `P${i}`, lastName: 'X' });
+  }
+  const trimmed = await trimRefusals(kv);
+  assert.equal(trimmed, 12, 'the oldest twelve went');
+  const list = await allRefusals(kv);
+  assert.equal(list.length, REFUSAL_CAP);
+  assert.ok(list[0].at >= list[list.length - 1].at, 'newest first');
+});
+
+/* ------------------------------------------------------- 8. add a person */
+
+test('add person normalises the number and refuses one WhatsApp cannot reach', async () => {
+  const kv = memoryKv();
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const add = body => adminPost({
+      request: req('POST', { action: 'person_add', team: 'core', lang: 'en', ...body },
+        { 'x-admin-token': ADMIN.ravi }),
+      env,
+    });
+
+    const bad = await add({
+      firstName: 'A', lastName: 'B', email: 'a@b.be', phone: 'ring the office',
+    });
+    assert.equal(bad.status, 400);
+    const d = await bad.json();
+    assert.equal(d.error, 'bad_phone');
+    assert.match(d.detail, /\+32 474 91 99 00/, 'it says what a good one looks like');
+    assert.equal((await people(kv)).length, 0, 'nobody was created');
+
+    const ok = await add({
+      firstName: 'A', lastName: 'B', email: 'a@b.be', phone: '0474 91 99 00',
+    });
+    const made = (await ok.json()).person;
+    assert.equal(made.phone, '+32474919900');
+    assert.ok(await kv.get(phoneKey('+32474919900')), 'Diya can find them by number');
+
+    /* No number at all is still allowed: press contacts arrive by email. */
+    const none = await add({ firstName: 'C', lastName: 'D', email: 'c@d.be' });
+    assert.equal((await none.json()).person.phone, '');
+  } finally { w.restore(); }
+});
+
+/* --------------------------------------------------------- 9. resending */
+
+test('resend runs that one step again even though it says done', async () => {
+  const { kv } = await withLink('crew');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const id = (await register(env, kv, FORM({ role: 'Stage' }), {})).person.id;
+    await approve(env, kv, { id, approver: 'ravi' });
+    const before = { emails: w.brevo().filter(c => c.url.includes('/smtp/email')).length,
+      was: w.wa().length };
+
+    const call = step => adminPost({
+      request: req('POST', { action: 'resend', id, step }, { 'x-admin-token': ADMIN.keerthi }), env,
+    }).then(r => r.json());
+
+    const mail = await call('email');
+    assert.ok(mail.ok);
+    assert.equal(mail.person.steps.email, 'done');
+    assert.equal(w.brevo().filter(c => c.url.includes('/smtp/email')).length, before.emails + 1,
+      'a second email really went out');
+
+    const wa = await call('whatsapp');
+    assert.ok(wa.ok);
+    assert.equal(w.wa().length, before.was + 1);
+
+    /* And it is only ever those two. */
+    const no = await adminPost({
+      request: req('POST', { action: 'resend', id, step: 'ticket' },
+        { 'x-admin-token': ADMIN.ravi }), env,
+    });
+    assert.equal(no.status, 400);
+    assert.equal(w.tt().filter(c => c.method === 'POST').length, 1, 'no second ticket');
+  } finally { w.restore(); }
+});
+
+/* ------------------------------------------------------- 6. the stamps */
+
+test('every step and every decision is stamped', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM(), {});
+    assert.ok(r.person.createdAt, 'registered when?');
+
+    const done = await approve(env, kv, { id: r.person.id, approver: 'keerthi' });
+    assert.ok(done.person.decidedAt);
+    assert.equal(done.person.decidedBy, 'keerthi');
+    for (const step of ['ticket', 'discount', 'brevo', 'email', 'whatsapp']) {
+      assert.ok(done.person.stepAt[step], `${step} has no time`);
+      assert.ok(!isNaN(Date.parse(done.person.stepAt[step])), `${step} time is not a date`);
+    }
+    assert.ok(done.person.stepAt.ticket <= done.person.stepAt.whatsapp,
+      'the stamps run in the order the steps did');
   } finally { w.restore(); }
 });

@@ -11,13 +11,14 @@
  * chat transcripts, and this route reads a list of children's dates of birth.
  */
 
-import { json } from './_shared.js';
+import { json, normalisePhone } from './_shared.js';
 import { botKey, logMessage, LOG_SECONDS } from './_bot.js';
 import {
   TEAMS, approverFor, allLinks, allPeople, approve, reject, revoke, restore, expectedFor,
   teamCfgKey, linkKey, teamOf, token, dryRun, regEnabled, closeAt, ticketTypeFor,
   approvalBlocker, getPerson, putPerson, addIdTo, phoneKey, emailKey, newPersonId,
-  ageOnFestival, validDob, langOf, STEPS, hardCap,
+  ageOnFestival, validDob, langOf, STEPS, hardCap, allRefusals, trimRefusals,
+  SKIPPED, isDryId,
 } from './_accred.js';
 
 /* The caller, or null. 503 when the secret is unset: an admin route with no
@@ -46,6 +47,8 @@ export async function onRequestGet({ request, env }) {
   const kv = env.ACCRED;
   const people = await allPeople(kv);
   const links = await allLinks(kv);
+  await trimRefusals(kv);
+  const refused = await allRefusals(kv);
 
   const counts = {};
   for (const p of people) {
@@ -92,6 +95,7 @@ export async function onRequestGet({ request, env }) {
       cap: hardCap(l.expected),
       url: `https://diwali.artindia.be/team/?k=${l.token}`,
     })),
+    refused,
     people: people
       .map(p => ({
         ...p,
@@ -141,6 +145,23 @@ export async function onRequestPost({ request, env }) {
       const p = await getPerson(kv, String(body.id));
       if (!p) return json(404, { ok: false, error: 'unknown_person' });
       const r = await approve(env, kv, { id: p.id, approver, log: logger(kv, p) });
+      /* Even a refusal answers with the record. A failed approval leaves a
+         person sitting in the queue, and the page draws them from this rather
+         than from a read that may not see the write yet. */
+      return json(r.ok ? 200 : 409, r);
+    }
+
+    /* One step, again, whether or not it says done. The Resend buttons. */
+    case 'resend': {
+      const step = String(body.step || '');
+      if (!['email', 'whatsapp'].includes(step)) {
+        return json(400, { ok: false, error: 'bad_step' });
+      }
+      const p = await getPerson(kv, String(body.id));
+      if (!p) return json(404, { ok: false, error: 'unknown_person' });
+      if (p.status !== 'approved') return json(409, { ok: false, error: 'not_approved', person: p });
+      const r = await approve(env, kv,
+        { id: p.id, approver, only: [step], force: true, log: logger(kv, p) });
       return json(r.ok ? 200 : 409, r);
     }
 
@@ -218,6 +239,19 @@ export async function onRequestPost({ request, env }) {
       if (team.childTeam && !validDob(body.child && body.child.dob)) {
         return json(400, { ok: false, error: 'dob_invalid' });
       }
+      /* A number typed over the phone, with spaces, a 0 in front and maybe a
+         country code. It has to be the same shape as one the form produced,
+         or Diya will never find them and Brevo will hold two of them. */
+      const phone = String(body.phone || '').trim() ? normalisePhone(body.phone) : '';
+      if (String(body.phone || '').trim() && !phone) {
+        return json(400, {
+          ok: false,
+          error: 'bad_phone',
+          detail: 'That is not a number WhatsApp can reach. Use the international '
+            + 'form, for example +32 474 91 99 00.',
+        });
+      }
+
       const person = {
         id: newPersonId(),
         team: team.key,
@@ -226,7 +260,7 @@ export async function onRequestPost({ request, env }) {
         firstName: String(body.firstName || '').trim().slice(0, 60),
         lastName: String(body.lastName || '').trim().slice(0, 60),
         email: String(body.email || '').trim().toLowerCase(),
-        phone: String(body.phone || '').trim(),
+        phone,
         role: String(body.role || '').trim().slice(0, 60),
         lang: langOf(body.lang),
         child: team.childTeam ? {
