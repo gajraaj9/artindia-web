@@ -195,7 +195,11 @@ const referralTag = order => String(order.referral_tag || '').trim().slice(0, 12
  * codes: there is nobody behind them to credit, and a KV read per order for a
  * key that cannot exist is a round trip spent on nothing.
  */
-const CHANNEL_TAGS = [[/^ig-/i, 'instagram']];
+/* A tag that names a channel rather than a person. `team-` is a sale that came
+   through a team member's own /c/ link: it is tagged so the funnel can see it,
+   it credits nobody a referral, and the order itself is an ordinary paid order
+   with ordinary lucky draw entries. */
+const CHANNEL_TAGS = [[/^ig-/i, 'instagram'], [/^team-/i, 'team']];
 
 function channelOf(tag) {
   for (const [re, source] of CHANNEL_TAGS) if (re.test(tag)) return source;

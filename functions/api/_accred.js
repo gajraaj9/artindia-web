@@ -584,14 +584,20 @@ export async function fetchQrAttachment(url, name) {
 export const qrFileName = firstName =>
   `Brussels Diwali Festival pass - ${String(firstName || '').trim() || 'guest'}.png`;
 
-export async function sendMail(env, { to, subject, lines, qr = null }) {
+/** A line list as plain text: a heading is just its words. */
+export const asText = lines => lines
+  .filter(l => l !== null && l !== undefined)
+  .map(l => (l && typeof l === 'object' && l.h ? l.h : l));
+
+export async function sendMail(env, { to, subject, lines, qr = null, signature = true }) {
   const clean = lines.filter(l => l !== null && l !== undefined);
   /* The barcode is printed under the QR in the HTML, so it would read as a
      stray line if it were also in `lines`. The text half has no QR to print it
      under, so it gets it here: whatever strips the HTML, the number that opens
      the gate survives. */
-  const text = qr && qr.barcode ? [...clean, '', qr.barcode] : clean;
-  const body = [...text, '', SIGNATURE].join('\n');
+  const flat = asText(clean);
+  const text = qr && qr.barcode ? [...flat, '', qr.barcode] : flat;
+  const body = [...text, ...(signature ? ['', SIGNATURE] : [])].join('\n');
 
   /* Fetched now rather than stored on the record: it is a few hundred bytes of
      PNG that only matters for the seconds it takes to post this message. */
@@ -618,7 +624,7 @@ export async function sendMail(env, { to, subject, lines, qr = null }) {
         /* Both halves, always. The HTML is what carries the QR; the text is
            what a reader with images off, or a client that refuses HTML, still
            gets, and it names the barcode so a human on the gate can type it. */
-        htmlContent: htmlMail(clean, qr),
+        htmlContent: htmlMail(clean, qr, signature),
       }),
     });
     if (!res.ok) {
@@ -657,10 +663,18 @@ const linkify = line => escHtml(line)
  * a reader with remote images blocked sees the barcode text instead, which is
  * why the text is always printed under the image and never only inside it.
  */
-export function htmlMail(lines, qr = null) {
-  const body = lines.map(l => (l === ''
-    ? '<tr><td style="height:14px"></td></tr>'
-    : `<tr><td style="padding:0 0 4px">${linkify(l)}</td></tr>`)).join('');
+export function htmlMail(lines, qr = null, signature = true) {
+  const body = lines.map(l => {
+    if (l === '') return '<tr><td style="height:14px"></td></tr>';
+    /* A heading, which is a section title in bold and nothing cleverer: a
+       mail client is a browser from 2003 and <strong> is the part of it that
+       has never been in doubt. */
+    if (l && typeof l === 'object' && l.h) {
+      return '<tr><td style="padding:6px 0 4px">'
+        + `<strong style="font-size:16px">${escHtml(l.h)}</strong></td></tr>`;
+    }
+    return `<tr><td style="padding:0 0 4px">${linkify(l)}</td></tr>`;
+  }).join('');
 
   const pass = qr && (qr.url || qr.barcode)
     ? `<tr><td style="padding:22px 0 6px">
@@ -685,11 +699,18 @@ export function htmlMail(lines, qr = null) {
   style="max-width:520px;background:#ffffff;border-radius:12px;padding:26px 24px;
   font:15px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1b1714">
 ${body}${pass}
-<tr><td style="height:22px"></td></tr>
+${signature ? `<tr><td style="height:22px"></td></tr>
 <tr><td style="border-top:1px solid #e4ddd3;padding-top:14px;font-size:13px;color:#6b625a">
-${escHtml(SIGNATURE)}</td></tr>
+${escHtml(SIGNATURE)}</td></tr>` : ''}
 </table></td></tr></table></body></html>`;
 }
+
+/** The link a team member shares: short, and the code is the whole of it. */
+export const shareLink = code => `https://diwali.artindia.be/c/${encodeURIComponent(code)}`;
+
+/* A fill-in that leaves nothing behind when there is nothing to put in. */
+const fill = (key, lang, vars) => Object.entries(vars)
+  .reduce((out, [k, v]) => out.split(`{${k}}`).join(v), say(key, lang));
 
 /**
  * The "we have you" email, sent the moment a form is submitted.
@@ -699,51 +720,137 @@ ${escHtml(SIGNATURE)}</td></tr>
  */
 export function receivedMail(person, team) {
   const lang = person.lang;
-  const lines = [say('received', lang), '', passName(team, lang)];
+  const lines = [
+    fill('mail_greeting', lang, { FIRST: person.firstName }),
+    '',
+    say('mail_received_body', lang),
+  ];
   if (team && team.promoCode) lines.push('', say('mail_received_code', lang));
   return { to: person.email, subject: say('mail_received_subject', lang), lines };
 }
 
 /**
- * The "you are in" email.
- *
- * The QR code is not in here. Ticket Tailor sends that itself, from its own
- * address, and saying so is the difference between a person waiting for one
- * email and a person waiting for two.
+ * Everything after the letter: the pass, the code, the guest, the practical
+ * lines. Shared by both approved emails, because the practical half of a
+ * message does not change with who it is from.
  */
-export function approvedMail(env, person, team) {
+function practicalLines(env, person, team, { pass = true } = {}) {
   const lang = person.lang;
-  const lines = [
-    `${person.firstName},`,
-    '',
-    passName(team, lang),
-    '',
-    say('mail_qr', lang),
-  ];
-  if (person.promo && person.promo.code) {
-    lines.push('', say('mail_code', lang).replace('{CODE}', person.promo.code));
-  }
-  if (person.plus1Token) {
-    lines.push('', say('mail_plus1', lang)
-      .replace('{LINK}', `https://diwali.artindia.be/team/plus1/?k=${person.plus1Token}`));
-  }
-  const arrival = arrivalLine(team, lang);
-  if (arrival) lines.push('', arrival);
-  if (wallEnabled(env) && person.wallToken && env.WALL_URL) {
-    lines.push('', say('wall_invite', lang)
-      .replace('{LINK}', `${env.WALL_URL}?k=${person.wallToken}`));
+  const child = person.child ? person.child.firstName : '';
+  const lines = [];
+
+  /* Email B says where the QR is in its own opening, so it asks for no pass
+     block and does not end up saying it twice. */
+  if (pass) {
+    lines.push({ h: say('pass_heading', lang) });
+    lines.push(person.child
+      ? fill('pass_line_child', lang, { CHILD: child })
+      : fill('pass_line', lang, { TEAM: passName(team, lang) }));
   }
 
-  /* Named after whoever the pass is for, which on the child team is the child
-     and not the parent reading the email: a mother of three should not end up
-     with three files called after herself. */
-  const qr = {
-    url: (person.tt && person.tt.qrUrl) || '',
-    barcode: (person.tt && person.tt.barcode) || '',
-    fileName: qrFileName(person.child ? person.child.firstName : person.firstName),
-  };
-  return { to: person.email, subject: say('mail_approved_subject', lang), lines, qr };
+  if (person.promo && person.promo.code) {
+    const code = person.promo.code;
+    if (lines.length) lines.push('');
+    lines.push({ h: fill('code_heading', lang, { CODE: code }) });
+    lines.push(say('code_line', lang));
+    lines.push(fill('link_line', lang, { LINK: shareLink(code) }));
+  }
+
+  if (person.plus1Token) {
+    if (lines.length) lines.push('');
+    lines.push({ h: say('guest_heading', lang) });
+    lines.push(fill('guest_line', lang, {
+      LINK: `https://diwali.artindia.be/team/plus1/?k=${person.plus1Token}`,
+    }));
+  }
+
+  const arrival = arrivalLine(team, lang);
+  if (arrival) lines.push('', arrival);
+
+  if (wallEnabled(env) && person.wallToken && env.WALL_URL) {
+    lines.push('', fill('wall_invite', lang, { LINK: `${env.WALL_URL}?k=${person.wallToken}` }));
+  }
+
+  if (lines.length) lines.push('');
+  lines.push(say('questions', lang));
+  return lines;
 }
+
+/* Whose letter this person gets, or '' for the practical email. The field is
+   per team in data/teams.json, so who gets a letter is Ravi's to change
+   without a deploy of anything but the data. */
+export const letterOf = team => (team && team.letter) || '';
+
+/**
+ * Email A: a letter from Shreya, then the practical part.
+ *
+ * It opens as a letter and signs as one, and the festival's own sign-off is
+ * left off: a letter that ends with a person's name and then an organisation's
+ * reads like a form that was pretending.
+ */
+export function letterMail(env, person, team) {
+  const lang = person.lang;
+  const kind = letterOf(team);
+  const child = person.child ? person.child.firstName : '';
+
+  const lines = [
+    fill('mail_greeting', lang, { FIRST: person.firstName }),
+    '',
+    fill(`letter_${kind}`, lang, { CHILD: child }),
+    '',
+    kind === 'parent'
+      ? fill('letter_close_parent', lang, { CHILD: child })
+      : say('letter_close', lang),
+    '',
+    say('sign_thanks', lang),
+    'Shreya',
+    say('sign_role', lang),
+    '',
+    ...practicalLines(env, person, team),
+  ];
+
+  return {
+    to: person.email,
+    subject: fill('mail_a_subject', lang, { FIRST: person.firstName }),
+    lines,
+    signature: false,
+    qr: qrFor(person),
+  };
+}
+
+/** Email B: the practical one, for the teams with no letter. */
+export function practicalMail(env, person, team) {
+  const lang = person.lang;
+  const lines = [
+    fill('mail_greeting', lang, { FIRST: person.firstName }),
+    '',
+    fill('mail_b_confirm', lang, { TEAM: passName(team, lang) }),
+    '',
+    say('mail_b_when', lang),
+    '',
+    ...practicalLines(env, person, team, { pass: false }),
+  ];
+  return {
+    to: person.email,
+    subject: say('mail_approved_subject', lang),
+    lines,
+    qr: qrFor(person),
+  };
+}
+
+/* Named after whoever the pass is for, which on the child team is the child
+   and not the parent reading the email: a mother of three should not end up
+   with three files called after herself. */
+const qrFor = person => ({
+  url: (person.tt && person.tt.qrUrl) || '',
+  barcode: (person.tt && person.tt.barcode) || '',
+  fileName: qrFileName(person.child ? person.child.firstName : person.firstName),
+});
+
+/** The one a person actually gets. */
+export const approvedMail = (env, person, team) =>
+  (letterOf(team) ? letterMail : practicalMail)(env, person, team);
+
 
 /* --------------------------------------------------------------- the brevo */
 
@@ -798,6 +905,20 @@ export const teamTemplate = (env, withCode) => (withCode
   ? env.WA_TEMPLATE_TEAM || 'diwali_team_pass_en'
   : env.WA_TEMPLATE_TEAM_PLAIN || 'diwali_team_pass_plain_en');
 
+/* The one with a button on it, tried first for anybody who has a code. Its
+   button URL is https://diwali.artindia.be/c/{{1}} and the code fills the
+   placeholder, so the person taps rather than copies. */
+export const teamLinkTemplate = env =>
+  env.WA_TEMPLATE_TEAM_LINK || 'diwali_team_pass_en_v2';
+
+/* Meta's way of saying "not that template": it does not exist here, it is not
+   approved, it is paused, or the parameters do not fit it. Every one of these
+   means try the older one rather than leave somebody with no message. The
+   same list the buyer welcome falls back on. */
+export const TEMPLATE_ERROR_CODES = new Set([
+  132000, 132001, 132005, 132007, 132012, 132015, 132016, 132068, 132069, 133010,
+]);
+
 /**
  * The pass message.
  *
@@ -809,53 +930,96 @@ export const teamTemplate = (env, withCode) => (withCode
  * Best effort. A WhatsApp that does not arrive is a person who still has a
  * ticket and an email, so every failure is recorded as a step and swallowed.
  */
-export async function sendTeamPass(env, kv, person, team, { log } = {}) {
+/** The body parameters both pass templates take, in order. */
+const passParams = (person, team) => {
   const code = (person.promo && person.promo.code) || '';
-  const name = teamTemplate(env, Boolean(code));
-  const params = [{ type: 'text', text: person.firstName || 'there' },
+  const out = [{ type: 'text', text: person.firstName || 'there' },
     { type: 'text', text: passName(team, person.lang) }];
-  if (code) params.push({ type: 'text', text: code });
+  if (code) out.push({ type: 'text', text: code });
+  return out;
+};
 
-  const payload = {
+const passPayload = (person, team, name, { button = '' } = {}) => {
+  const components = [{ type: 'body', parameters: passParams(person, team) }];
+  if (button) {
+    components.push({
+      type: 'button',
+      sub_type: 'url',
+      index: '0',
+      parameters: [{ type: 'text', text: button }],
+    });
+  }
+  return {
     messaging_product: 'whatsapp',
     to: String(person.phone).replace(/^\+/, ''),
     type: 'template',
-    template: { name, language: { code: 'en' }, components: [{ type: 'body', parameters: params }] },
+    template: { name, language: { code: 'en' }, components },
   };
+};
+
+/** One POST to Meta, with the answer read the way the buyer welcome reads it. */
+async function postPass(env, payload) {
+  const r = await fetch(`${WA_API}/${env.WA_PHONE_ID}/messages`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${env.WA_TOKEN}`, 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const text = await r.text();
+  let parsed = null;
+  try { parsed = JSON.parse(text); } catch { /* kept as text */ }
+  return {
+    ok: r.ok,
+    status: r.status,
+    messageId: (parsed?.messages?.[0]?.id) || '',
+    error: parsed?.error || text.slice(0, 400),
+    code: Number(parsed?.error?.code) || null,
+  };
+}
+
+export async function sendTeamPass(env, kv, person, team, { log } = {}) {
+  const code = (person.promo && person.promo.code) || '';
+
+  /* With a code, the template with a button on it first: a person who taps
+     does not retype the code wrong. Without one there is no button to fill,
+     so the plain template is the only one. */
+  const first = code ? teamLinkTemplate(env) : teamTemplate(env, false);
+  const payload = passPayload(person, team, first, { button: code });
 
   if (dryRun(env)) {
-    console.log('accred wa dry-run', person.id, name, JSON.stringify(payload));
-    return { ok: true, dry: true, template: name, messageId: `dry_${token(10)}` };
+    console.log('accred wa dry-run', person.id, first, JSON.stringify(payload));
+    return { ok: true, dry: true, template: first, messageId: `dry_${token(10)}` };
   }
   if (!env.WA_PHONE_ID || !env.WA_TOKEN) return { ok: false, reason: 'no_wa_credentials' };
 
+  let used = first;
+  let fellBack = false;
   let res;
   try {
-    const r = await fetch(`${WA_API}/${env.WA_PHONE_ID}/messages`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${env.WA_TOKEN}`, 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const text = await r.text();
-    let parsed = null;
-    try { parsed = JSON.parse(text); } catch { /* kept as text */ }
-    res = {
-      ok: r.ok,
-      status: r.status,
-      messageId: (parsed?.messages?.[0]?.id) || '',
-      error: parsed?.error || text.slice(0, 400),
-    };
+    res = await postPass(env, payload);
+
+    /* The v2 template is not there, not approved, or does not fit. The older
+       one has no button and goes out instead: a pass with no button beats no
+       pass at all. Logged loudly, because a fallback nobody notices is a v2
+       that is quietly never used. */
+    if (!res.ok && code && TEMPLATE_ERROR_CODES.has(res.code)) {
+      const older = teamTemplate(env, true);
+      console.error('accred wa template', first, 'refused with', res.code,
+        JSON.stringify(res.error), '- falling back to', older);
+      used = older;
+      fellBack = true;
+      res = await postPass(env, passPayload(person, team, older));
+    }
   } catch (e) {
     return { ok: false, reason: 'threw' };
   }
 
   if (!res.ok) {
-    console.error('accred wa failed', person.id, name, res.status, JSON.stringify(res.error));
-    return { ok: false, reason: `wa_${res.status}` };
+    console.error('accred wa failed', person.id, used, res.status, JSON.stringify(res.error));
+    return { ok: false, reason: `wa_${res.status}`, template: used };
   }
 
-  if (log) await log(res.messageId, name);
-  return { ok: true, messageId: res.messageId, template: name };
+  if (log) await log(res.messageId, used);
+  return { ok: true, messageId: res.messageId, template: used, fellBack };
 }
 
 /* ------------------------------------------------------------ the pipeline */
@@ -1145,8 +1309,11 @@ export async function approve(env, kv, { id, approver, only = null, log = null, 
   /* 7. The WhatsApp. */
   if (todo(person, 'whatsapp', only, force)) {
     const r = await sendTeamPass(env, kv, person, team, { log });
-    markStep(person, 'whatsapp', r.ok ? (r.dry ? SKIPPED : 'done') : failed(r.reason));
+    markStep(person, 'whatsapp', r.ok
+      ? (r.dry ? SKIPPED : `done:${r.template}${r.fellBack ? ' (fallback)' : ''}`)
+      : failed(r.reason));
     if (r.messageId) person.waMessageId = r.messageId;
+    if (r.template) person.waTemplate = r.template;
     await putPerson(kv, person);
   }
 
@@ -1770,17 +1937,26 @@ export async function passAnswer(env, kv, { person, team }) {
 }
 
 /** "My code": the code, and one line they can forward without editing it. */
-export function codeAnswer(person) {
+/**
+ * "My code": two messages, not one.
+ *
+ * The first explains. The second is written in their own voice and carries
+ * nothing else, so they can hold it down, forward it, and be done. A single
+ * message with an explanation on top is a message nobody can forward without
+ * editing it first, and nobody edits it: they retype the code wrong instead.
+ */
+export function codeMessages(person) {
   const lang = person.lang;
   const code = person.promo && person.promo.code;
-  if (!code) return '';
-  return [
-    say('bot_code', lang).replace('{CODE}', code),
-    say('bot_code_forward', lang)
-      .replace('{CODE}', code)
-      .replace('{LINK}', 'https://diwali.artindia.be/go/buy?cta=team'),
-  ].join('\n\n');
+  if (!code) return [];
+  const link = shareLink(code);
+  const put = key => say(key, lang).split('{CODE}').join(code).split('{LINK}').join(link);
+  return [put('bot_code'), put('bot_code_forward')];
 }
+
+/* The same thing as one string, for the web widget and for anything that can
+   only say one thing at a time. */
+export const codeAnswer = person => codeMessages(person).join('\n\n');
 
 /**
  * "Tickets sold": how far their code has travelled.

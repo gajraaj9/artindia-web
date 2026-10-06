@@ -33,7 +33,7 @@ import {
   DAY_SECONDS, KEEP_SECONDS, LOG_SECONDS, SEEN_SECONDS, utcDay, stamp, logMessage,
 } from './_bot.js';
 import {
-  teamMemberFor, passAnswer, codeAnswer, salesAnswer, pendingAnswer,
+  teamMemberFor, passAnswer, codeMessages, salesAnswer, pendingAnswer,
 } from './_accred.js';
 
 const text = (status, body) =>
@@ -426,9 +426,14 @@ async function runButton(env, kv, buttonId, ctx) {
       await say(env, kv, phone, await passAnswer(env, env.ACCRED, team), 'canned', about);
       return;
     }
-    const answer = buttonId === 'MY_CODE'
-      ? codeAnswer(team.person)
-      : await salesAnswer(env, env.ACCRED, team.person);
+    if (buttonId === 'MY_CODE') {
+      /* Two messages: the explanation, then the one they forward untouched. */
+      const msgs = codeMessages(team.person);
+      if (!msgs.length) { await say(env, kv, phone, fallback, 'fallback', about); return; }
+      for (const text of msgs) await say(env, kv, phone, text, 'canned', about);
+      return;
+    }
+    const answer = await salesAnswer(env, env.ACCRED, team.person);
     await say(env, kv, phone, answer || fallback, answer ? 'canned' : 'fallback', about);
     return;
   }

@@ -263,6 +263,9 @@
     if (p.promo && p.promo.code) {
       tail.push('code ' + p.promo.code + (isDry(p.promo.discountId) ? ' (dry run)' : ''));
     }
+    if (p.promo && p.promo.code && !isDry(p.promo.discountId)) {
+      tail.push('link diwali.artindia.be/c/' + p.promo.code);
+    }
     (p.promoHistory || []).forEach(function (h) {
       tail.push('was ' + h.code
         + (h.orders == null ? '' : ' (' + h.orders + ' orders)')

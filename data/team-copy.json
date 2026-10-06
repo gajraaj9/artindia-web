@@ -75,11 +75,6 @@
       "fr": "Inscrire une autre personne",
       "nl": "Nog iemand registreren"
     },
-    "received": {
-      "en": "Thank you. Your registration is waiting for approval by the festival team. You will hear from us by email and WhatsApp.",
-      "fr": "Merci. Votre inscription est en attente de validation par l'équipe du festival. Vous recevrez une réponse par e-mail et WhatsApp.",
-      "nl": "Bedankt. Je registratie wacht op goedkeuring door het festivalteam. Je hoort van ons via e-mail en WhatsApp."
-    },
     "inactive": {
       "en": "This link is not active. Please contact the person who sent it to you.",
       "fr": "Ce lien n'est pas actif. Contactez la personne qui vous l'a envoyé.",
@@ -99,16 +94,6 @@
       "en": "Your pass for the Brussels Diwali Festival",
       "fr": "Votre pass pour le Brussels Diwali Festival",
       "nl": "Je pas voor het Brussels Diwali Festival"
-    },
-    "mail_code": {
-      "en": "Your personal code {CODE} gives your friends and family 10% off a festival ticket until 23 October.",
-      "fr": "Votre code personnel {CODE} offre à vos proches 10 % de réduction sur un billet festival jusqu'au 23 octobre.",
-      "nl": "Met je persoonlijke code {CODE} krijgen je vrienden en familie 10% korting op een festivalticket tot 23 oktober."
-    },
-    "mail_plus1": {
-      "en": "You may bring one guest. Send them this link to register; it works once: {LINK}",
-      "fr": "Vous pouvez inviter une personne. Envoyez-lui ce lien pour s'inscrire ; il ne fonctionne qu'une fois : {LINK}",
-      "nl": "Je mag één gast meebrengen. Stuur deze link om te registreren; hij werkt één keer: {LINK}"
     },
     "error": {
       "en": "Something went wrong. Please try again.",
@@ -135,11 +120,6 @@
       "fr": "Billets vendus",
       "nl": "Tickets verkocht"
     },
-    "mail_qr": {
-      "en": "Your QR pass is in this email. Ticket Tailor may also send it to you separately.",
-      "fr": "Votre pass avec QR code se trouve dans cet e-mail. Ticket Tailor peut aussi vous l'envoyer séparément.",
-      "nl": "Je pas met QR-code staat in deze e-mail. Ticket Tailor kan hem ook apart sturen."
-    },
     "bot_pass": {
       "en": "{PASS}. Your QR ticket is in your email, at {EMAIL}.",
       "fr": "{PASS}. Votre billet avec QR code se trouve dans votre boîte e-mail, à l'adresse {EMAIL}.",
@@ -161,14 +141,14 @@
       "nl": "Je +1 is goedgekeurd: {NAME}."
     },
     "bot_code": {
-      "en": "Your code is {CODE}. Forward this:",
-      "fr": "Votre code est {CODE}. Transférez ce message :",
-      "nl": "Je code is {CODE}. Stuur dit door:"
+      "en": "Your personal code is {CODE} and your link is {LINK}. The next message is ready to forward to friends and family.",
+      "fr": "Votre code personnel est {CODE} et votre lien est {LINK}. Le message suivant est prêt à être transféré à vos proches.",
+      "nl": "Je persoonlijke code is {CODE} en je link is {LINK}. Het volgende bericht kun je zo doorsturen naar vrienden en familie."
     },
     "bot_code_forward": {
-      "en": "Use my code {CODE} for 10% off your Brussels Diwali Festival ticket: {LINK}",
-      "fr": "Utilisez mon code {CODE} pour 10 % de réduction sur votre billet du Brussels Diwali Festival : {LINK}",
-      "nl": "Gebruik mijn code {CODE} voor 10% korting op je ticket voor het Brussels Diwali Festival: {LINK}"
+      "en": "Join me at the Brussels Diwali Festival on 24 and 25 October at the Atomium. With my code {CODE} you get 10% off your ticket: {LINK}",
+      "fr": "Rejoignez-moi au Brussels Diwali Festival, les 24 et 25 octobre à l'Atomium. Avec mon code {CODE}, vous avez 10 % de réduction sur votre billet : {LINK}",
+      "nl": "Kom met mij naar het Brussels Diwali Festival, op 24 en 25 oktober aan het Atomium. Met mijn code {CODE} krijg je 10% korting op je ticket: {LINK}"
     },
     "bot_sales": {
       "en": "Orders with your code so far: {ORDERS}.",
@@ -254,6 +234,136 @@
       "en": "24 and 25 October 2026 · Atomium",
       "fr": "Les 24 et 25 octobre 2026 · Atomium",
       "nl": "24 en 25 oktober 2026 · Atomium"
+    },
+    "c_title": {
+      "en": "{FIRST} invites you to the Brussels Diwali Festival",
+      "fr": "{FIRST} vous invite au Brussels Diwali Festival",
+      "nl": "{FIRST} nodigt je uit op het Brussels Diwali Festival"
+    },
+    "c_offer": {
+      "en": "10% off individual festival tickets with this code",
+      "fr": "10 % de réduction sur les billets individuels du festival avec ce code",
+      "nl": "10% korting op individuele festivaltickets met deze code"
+    },
+    "c_button": {
+      "en": "Copy code and get tickets",
+      "fr": "Copier le code et réserver",
+      "nl": "Kopieer de code en koop tickets"
+    },
+    "c_hint": {
+      "en": "Paste the code at checkout, under Discount code. Valid until 23 October.",
+      "fr": "Collez le code au moment du paiement, dans le champ Code de réduction. Valable jusqu'au 23 octobre.",
+      "nl": "Plak de code bij het afrekenen, in het veld Kortingscode. Geldig tot 23 oktober."
+    },
+    "c_copied": {
+      "en": "Code copied",
+      "fr": "Code copié",
+      "nl": "Code gekopieerd"
+    },
+    "mail_a_subject": {
+      "en": "Welcome to the 10th Brussels Diwali Festival, {FIRST}",
+      "fr": "Bienvenue au 10e Brussels Diwali Festival, {FIRST}",
+      "nl": "Welkom op het 10e Brussels Diwali Festival, {FIRST}"
+    },
+    "mail_greeting": {
+      "en": "Dear {FIRST},",
+      "fr": "Bonjour {FIRST},",
+      "nl": "Dag {FIRST},"
+    },
+    "letter_core": {
+      "en": "Welcome to the team of the 10th Brussels Diwali Festival. For ten years this festival has existed because people like you give it their time, their evenings and their heart. Most of what you do is never seen by the public, and none of it would happen without you.",
+      "fr": "Bienvenue dans l'équipe du 10e Brussels Diwali Festival. Depuis dix ans, ce festival existe parce que des personnes comme vous lui donnent leur temps, leurs soirées et leur cœur. Le public ne voit presque rien de ce que vous faites, et rien ne serait possible sans vous.",
+      "nl": "Welkom in het team van het 10e Brussels Diwali Festival. Al tien jaar bestaat dit festival omdat mensen zoals jij er hun tijd, hun avonden en hun hart in steken. Het publiek ziet bijna niets van wat je doet, en zonder jou zou er niets van gebeuren."
+    },
+    "letter_artist": {
+      "en": "Welcome to the 10th Brussels Diwali Festival. For ten years this festival has been carried by artists who give their talent and their time to share India with Brussels. What you bring to the stage is what people take home with them.",
+      "fr": "Bienvenue au 10e Brussels Diwali Festival. Depuis dix ans, ce festival est porté par des artistes qui offrent leur talent et leur temps pour partager l'Inde avec Bruxelles. Ce que vous apportez sur scène, le public l'emporte avec lui.",
+      "nl": "Welkom op het 10e Brussels Diwali Festival. Al tien jaar wordt dit festival gedragen door artiesten die hun talent en hun tijd geven om India met Brussel te delen. Wat jij op het podium brengt, nemen mensen mee naar huis."
+    },
+    "letter_parent": {
+      "en": "Welcome to the 10th Brussels Diwali Festival, and thank you for the rehearsals, the costumes, the driving and the patience. Seeing {CHILD} and the other children on that stage is one of the moments that makes this festival what it is.",
+      "fr": "Bienvenue au 10e Brussels Diwali Festival, et merci pour les répétitions, les costumes, les trajets et la patience. Voir {CHILD} et les autres enfants sur cette scène fait partie des moments qui donnent à ce festival tout son sens.",
+      "nl": "Welkom op het 10e Brussels Diwali Festival, en bedankt voor de repetities, de kostuums, het heen en weer rijden en het geduld. {CHILD} en de andere kinderen op dat podium zien is een van de momenten die dit festival maken tot wat het is."
+    },
+    "letter_close": {
+      "en": "On 24 and 25 October, thousands of people will celebrate with us at the foot of the Atomium. I am proud that you are part of it, and I look forward to seeing you there.",
+      "fr": "Les 24 et 25 octobre, des milliers de personnes fêteront avec nous au pied de l'Atomium. Je suis fière que vous en fassiez partie et je me réjouis de vous y retrouver.",
+      "nl": "Op 24 en 25 oktober vieren duizenden mensen met ons feest aan de voet van het Atomium. Ik ben trots dat jij erbij bent en ik kijk ernaar uit je daar te zien."
+    },
+    "letter_close_parent": {
+      "en": "On 24 and 25 October, thousands of people will celebrate with us at the foot of the Atomium. I am proud that {CHILD} is part of it, and I look forward to seeing you there.",
+      "fr": "Les 24 et 25 octobre, des milliers de personnes fêteront avec nous au pied de l'Atomium. Je suis fière que {CHILD} en fasse partie et je me réjouis de vous y retrouver.",
+      "nl": "Op 24 en 25 oktober vieren duizenden mensen met ons feest aan de voet van het Atomium. Ik ben trots dat {CHILD} erbij is en ik kijk ernaar uit jullie daar te zien."
+    },
+    "sign_thanks": {
+      "en": "With gratitude,",
+      "fr": "Avec toute ma gratitude,",
+      "nl": "Met veel dank,"
+    },
+    "sign_role": {
+      "en": "Founder & Artistic Director, Art India",
+      "fr": "Fondatrice et directrice artistique, Art India",
+      "nl": "Oprichter en artistiek directeur, Art India"
+    },
+    "pass_heading": {
+      "en": "Your pass",
+      "fr": "Votre pass",
+      "nl": "Je pas"
+    },
+    "pass_line": {
+      "en": "{TEAM}. Your QR code is below and attached to this email. Show it on your phone at the gate.",
+      "fr": "{TEAM}. Votre QR code se trouve ci-dessous et en pièce jointe. Présentez-le sur votre téléphone à l'entrée.",
+      "nl": "{TEAM}. Je QR-code staat hieronder en zit als bijlage bij deze e-mail. Toon hem op je telefoon aan de ingang."
+    },
+    "pass_line_child": {
+      "en": "This pass is for {CHILD}. The QR code is below and attached to this email. Show it on your phone at the gate. Family members coming to watch need a festival ticket, and your personal code gives them 10% off.",
+      "fr": "Ce pass est celui de {CHILD}. Le QR code se trouve ci-dessous et en pièce jointe. Présentez-le sur votre téléphone à l'entrée. Les membres de la famille qui viennent assister au spectacle ont besoin d'un billet festival, et votre code personnel leur offre 10 % de réduction.",
+      "nl": "Deze pas is voor {CHILD}. De QR-code staat hieronder en zit als bijlage bij deze e-mail. Toon hem op je telefoon aan de ingang. Familieleden die komen kijken hebben een festivalticket nodig, en met je persoonlijke code krijgen ze 10% korting."
+    },
+    "code_heading": {
+      "en": "Your personal code: {CODE}",
+      "fr": "Votre code personnel : {CODE}",
+      "nl": "Je persoonlijke code: {CODE}"
+    },
+    "code_line": {
+      "en": "Share it with friends and family. It gives them 10% off individual festival tickets until 23 October.",
+      "fr": "Partagez-le avec vos proches. Il leur offre 10 % de réduction sur les billets individuels du festival jusqu'au 23 octobre.",
+      "nl": "Deel hem met vrienden en familie. Ze krijgen er 10% korting mee op individuele festivaltickets tot 23 oktober."
+    },
+    "link_line": {
+      "en": "Or simply send them your link: {LINK}",
+      "fr": "Ou envoyez-leur simplement votre lien : {LINK}",
+      "nl": "Of stuur hen gewoon je link: {LINK}"
+    },
+    "guest_heading": {
+      "en": "Your guest",
+      "fr": "Votre invité(e)",
+      "nl": "Je gast"
+    },
+    "guest_line": {
+      "en": "You may bring one guest. Send them this link to register. It works once: {LINK}",
+      "fr": "Vous pouvez inviter une personne. Envoyez-lui ce lien pour s'inscrire. Il ne fonctionne qu'une fois : {LINK}",
+      "nl": "Je mag één gast meebrengen. Stuur deze link om te registreren. Hij werkt één keer: {LINK}"
+    },
+    "questions": {
+      "en": "Questions? Write to diwali@artindia.be.",
+      "fr": "Une question ? Écrivez à diwali@artindia.be.",
+      "nl": "Vragen? Mail naar diwali@artindia.be."
+    },
+    "mail_b_confirm": {
+      "en": "Your pass for the 10th Brussels Diwali Festival is confirmed: {TEAM}. Thank you for being part of it.",
+      "fr": "Votre pass pour le 10e Brussels Diwali Festival est confirmé : {TEAM}. Merci d'en faire partie.",
+      "nl": "Je pas voor het 10e Brussels Diwali Festival is bevestigd: {TEAM}. Bedankt dat je erbij bent."
+    },
+    "mail_b_when": {
+      "en": "The festival takes place on 24 and 25 October 2026 at the Atomium, Brussels. Your QR code is below and attached to this email. Show it on your phone at the gate.",
+      "fr": "Le festival a lieu les 24 et 25 octobre 2026 à l'Atomium, à Bruxelles. Votre QR code se trouve ci-dessous et en pièce jointe. Présentez-le sur votre téléphone à l'entrée.",
+      "nl": "Het festival vindt plaats op 24 en 25 oktober 2026 aan het Atomium in Brussel. Je QR-code staat hieronder en zit als bijlage bij deze e-mail. Toon hem op je telefoon aan de ingang."
+    },
+    "mail_received_body": {
+      "en": "Thank you for registering for the 10th Brussels Diwali Festival. Your registration is with the festival team for approval, and you will hear from us by email and WhatsApp.",
+      "fr": "Merci pour votre inscription au 10e Brussels Diwali Festival. Elle est entre les mains de l'équipe du festival pour validation, et vous recevrez une réponse par e-mail et WhatsApp.",
+      "nl": "Bedankt voor je registratie voor het 10e Brussels Diwali Festival. Ze ligt nu bij het festivalteam ter goedkeuring, en je hoort van ons via e-mail en WhatsApp."
     }
   }
 }

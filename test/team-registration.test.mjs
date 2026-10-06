@@ -24,11 +24,13 @@ import {
   restore, htmlMail, ticketFacts, rejectedEmailKey, qrFileName, fetchQrAttachment,
   SKIPPED, isDryId, ttMessage, scrubSecret, logRefusal, allRefusals, trimRefusals,
   oneOf, describeBody, findIssuedTicket, issueTicket, createDiscount,
+  codeMessages, letterMail, practicalMail, letterOf, shareLink, asText,
   digits, isTeamCode, cleanCode, changeCode, ordersOn, codeHistoryOf,
   clearDryResults, blockedAsRejected, REFUSAL_CAP,
 } from '../functions/api/_accred.js';
 import { onRequestGet as adminGet, onRequestPost as adminPost } from '../functions/api/team-admin.js';
 import { onRequestGet as formGet } from '../functions/api/team-form.js';
+import { onRequestGet as cGet, onRequestHead as cHead } from '../functions/c/[code].js';
 import { onRequestPost as registerPost } from '../functions/api/team-register.js';
 import { buildMenu, menuTitles, menuKind, TEAM_ACTIONS } from '../functions/api/_bot.js';
 
@@ -203,6 +205,11 @@ function world({ fail = '', discountCollision = false, existingTicket = null, bu
 
     if (url.includes('graph.facebook.com')) {
       if (fail === 'wa') return reply(400, { error: { code: 131026, message: 'undeliverable' } });
+      /* Meta refusing the v2 template: it exists nowhere in this WABA. The
+         older one, which has no button, is accepted. */
+      if (fail === 'template_missing' && body.includes('_v2')) {
+        return reply(400, { error: { code: 132001, message: 'template name does not exist' } });
+      }
       return reply(200, { messages: [{ id: 'wamid.TEAM1' }] });
     }
 
@@ -709,8 +716,11 @@ test('approval runs the steps in order and leaves a complete record', async () =
     assert.equal(p.plus1Token.length, 20);
     assert.ok(p.wallToken, 'the artist team is on the wall');
     assert.equal(p.wallToken.length, 24);
-    assert.deepEqual(p.steps,
+    assert.deepEqual(
+      { ...p.steps, whatsapp: p.steps.whatsapp.split(':')[0] },
       { ticket: 'done', discount: 'done', brevo: 'done', email: 'done', whatsapp: 'done' });
+    assert.equal(p.steps.whatsapp, 'done:diwali_team_pass_en_v2',
+      'the card records which template went out');
 
     const order = w.calls.map(c => {
       if (/tickettailor\.com\/qr\//.test(c.url)) return 'qr';
@@ -809,7 +819,7 @@ test('a failed later step keeps the ticket, and retry runs only that step', asyn
   try {
     const env = ENV({ ACCRED: kv });
     const again = await approve(env, kv, { id, approver: 'keerthi', only: ['whatsapp'] });
-    assert.equal(again.person.steps.whatsapp, 'done');
+    assert.match(again.person.steps.whatsapp, /^done:/);
     assert.equal(again.person.tt.issuedTicketId, 'it_1', 'the ticket was not reissued');
     assert.equal(w2.tt().length, 0, 'retrying one step called Ticket Tailor not at all');
     assert.equal(w2.wa().length, 1);
@@ -1281,10 +1291,14 @@ test('the three pass answers say the right things, and the code line is forwarda
       'a main artist is told the state of their +1');
     assert.ok(!pass.includes(p.wallToken), 'the wall link is off until WALL_ENABLED');
 
-    const code = codeAnswer(member.person);
-    assert.match(code, new RegExp(p.promo.code));
-    assert.match(code, /10% off your Brussels Diwali Festival ticket/);
-    assert.match(code, /https:\/\/diwali\.artindia\.be\/go\/buy\?cta=team/);
+    const msgs = codeMessages(member.person);
+    assert.equal(msgs.length, 2, 'the explanation, then the one they forward');
+    assert.match(msgs[0], new RegExp(p.promo.code));
+    assert.match(msgs[0], /diwali\.artindia\.be\/c\//);
+    /* The second carries nothing but their own words, so it forwards whole. */
+    assert.match(msgs[1], /^Join me at the Brussels Diwali Festival/);
+    assert.match(msgs[1], new RegExp(`my code ${p.promo.code}`));
+    assert.match(msgs[1], new RegExp(`${p.promo.code}$`), 'it ends on the link');
 
     const sales = await salesAnswer(env, kv, member.person);
     assert.equal(sales, COPY.bot_sales.en.replace('{ORDERS}', '3'),
@@ -1313,7 +1327,11 @@ test('the buy link is taggable as a team sale', async () => {
   });
   const to = new URL(res.headers.get('location'));
   assert.equal(to.searchParams.get('ref'), 'site-team');
-  assert.match(codeAnswer({ lang: 'en', promo: { code: 'X-1' } }), /cta=team/);
+
+  /* What the bot actually hands out now is the person's own page, which tags
+     itself team-<code> on the way to the same box office. */
+  assert.match(codeAnswer({ lang: 'en', promo: { code: 'RAVI123' } }),
+    /https:\/\/diwali\.artindia\.be\/c\/RAVI123/);
 });
 
 test('a token is from the safe alphabet and a promo code reads as a name', () => {
@@ -1354,20 +1372,44 @@ test('both code formats are recognised, and a new one is letters and digits', ()
   assert.match(cleanCode('ABC').reason, /4 and 16/);
 });
 
-test('the emails say what they are for and sign as the festival', () => {
-  const team = teamOf('artist');
+test('the letter signs as Shreya and the practical email as the festival', () => {
   const person = {
     firstName: 'Shreya', lastName: 'Menon', email: 'shreya@example.com', lang: 'fr',
-    promo: { code: 'SHREYA-7KQ4' }, plus1Token: 'T'.repeat(20), team: 'artist', status: 'approved',
+    promo: { code: 'SHREYA412' }, plus1Token: 'T'.repeat(20), team: 'artist',
+    status: 'approved', tt: { barcode: 'al4R5', qrUrl: '' },
   };
-  const got = approvedMail(ENV(), person, team);
-  assert.equal(got.subject, COPY.mail_approved_subject.fr);
-  const body = got.lines.join('\n');
-  assert.match(body, /SHREYA-7KQ4/);
-  assert.match(body, /\/team\/plus1\/\?k=TTTTTTTTTTTTTTTTTTTT/);
-  assert.match(body, /Artistes principaux/);
 
-  const recv = receivedMail(person, team);
+  const a = letterMail(ENV(), person, teamOf('artist'));
+  assert.equal(a.subject, COPY.mail_a_subject.fr.replace('{FIRST}', 'Shreya'));
+  assert.equal(a.signature, false, 'a letter does not also sign as an organisation');
+  const body = asText(a.lines).join('\n');
+  assert.ok(body.startsWith(COPY.mail_greeting.fr.replace('{FIRST}', 'Shreya')));
+  assert.ok(body.includes(COPY.letter_artist.fr));
+  assert.ok(body.includes(COPY.letter_close.fr));
+  assert.ok(body.includes(COPY.sign_thanks.fr));
+  assert.ok(body.includes('Shreya'));
+  assert.ok(body.includes(COPY.sign_role.fr));
+  assert.ok(body.includes('SHREYA412'));
+  assert.ok(body.includes('/c/SHREYA412'), 'the letter carries their own link');
+  assert.ok(body.includes('/team/plus1/?k=TTTTTTTTTTTTTTTTTTTT'));
+  assert.ok(body.includes(COPY.questions.fr));
+
+  const b = practicalMail(ENV(), { ...person, team: 'crew', promo: null, plus1Token: null },
+    teamOf('crew'));
+  assert.equal(b.subject, COPY.mail_approved_subject.fr);
+  assert.notEqual(b.signature, false, 'this one does sign as the festival');
+  const bb = asText(b.lines);
+  const joined = bb.join('\n');
+  assert.ok(joined.includes(COPY.mail_b_confirm.fr.replace('{TEAM}', 'Équipe technique')));
+  assert.ok(joined.includes(COPY.mail_b_when.fr));
+  /* "Votre pass" as a heading of its own: the confirm line opens with the
+     same two words, so this checks the line and not the substring. */
+  assert.ok(!bb.includes(COPY.pass_heading.fr), 'it says where the QR is in its own opening');
+  assert.ok(!b.lines.some(l => l && l.h === COPY.pass_heading.fr));
+  assert.ok(!joined.includes('/c/'), 'a team with no code gets no code and no link');
+  assert.ok(!joined.includes(COPY.code_line.fr));
+
+  const recv = receivedMail(person, teamOf('artist'));
   assert.equal(recv.subject, COPY.mail_received_subject.fr);
   assert.equal(recv.to, 'shreya@example.com');
 });
@@ -1401,8 +1443,9 @@ test('the approved email carries the QR image and the barcode text under it', as
 
     assert.equal(p.tt.qrUrl, 'https://www.tickettailor.com/qr/1.png');
 
+    /* The artist team gets the letter, so its subject is the welcome one. */
     const sent = w.brevo().find(c => c.url.includes('/smtp/email')
-      && JSON.parse(c.body).subject === COPY.mail_approved_subject.en);
+      && JSON.parse(c.body).subject === COPY.mail_a_subject.en.replace('{FIRST}', 'Shreya'));
     const mail = JSON.parse(sent.body);
 
     assert.ok(mail.htmlContent, 'there is no HTML half to put an image in');
@@ -1412,7 +1455,7 @@ test('the approved email carries the QR image and the barcode text under it', as
 
     /* And the text half carries it too, so a stripped message still works. */
     assert.ok(mail.textContent.includes(p.tt.barcode));
-    assert.ok(mail.textContent.includes(COPY.mail_qr.en));
+    assert.ok(mail.textContent.includes(COPY.pass_line.en.replace('{TEAM}', 'Main artists')));
 
     /* send_email stays on: theirs arriving as well costs nothing. */
     const issue = w.tt().find(c => c.method === 'POST' && c.url.includes('issued_tickets'));
@@ -1601,7 +1644,7 @@ test('the approved email attaches the pass, fetched at send time', async () => {
     assert.equal(done.person.steps.email, 'done');
 
     const sent = JSON.parse(w.brevo().find(c => c.url.includes('/smtp/email')
-      && JSON.parse(c.body).subject === COPY.mail_approved_subject.en).body);
+      && JSON.parse(c.body).subject === COPY.mail_a_subject.en.replace('{FIRST}', 'Shreya')).body);
 
     assert.equal(sent.attachment.length, 1);
     assert.equal(sent.attachment[0].name, 'Brussels Diwali Festival pass - Shreya.png');
@@ -1628,7 +1671,7 @@ test('a pass that will not download still gets the email out, and says so', asyn
       'the step result names what went wrong');
 
     const sent = JSON.parse(w.brevo().find(c => c.url.includes('/smtp/email')
-      && JSON.parse(c.body).subject === COPY.mail_approved_subject.en).body);
+      && JSON.parse(c.body).subject === COPY.mail_a_subject.en.replace('{FIRST}', 'Shreya')).body);
     assert.ok(!('attachment' in sent), 'no empty attachment array');
     assert.ok(sent.htmlContent.includes('<img'), 'the inline image is untouched');
     assert.ok(sent.textContent.includes(done.person.tt.barcode));
@@ -2255,13 +2298,15 @@ test('the received email offers a code only to a team that gets one', () => {
   const lang = 'fr';
   const person = { firstName: 'Shreya', lastName: 'Menon', email: 's@x.be', lang };
 
-  const withCode = receivedMail(person, teamOf('artist'));
-  assert.ok(withCode.lines.join('\n').includes(COPY.mail_received_code[lang]));
+  const withCode = asText(receivedMail(person, teamOf('artist')).lines).join('\n');
+  assert.ok(withCode.includes(COPY.mail_received_code[lang]));
+  assert.ok(withCode.includes(COPY.mail_greeting[lang].replace('{FIRST}', 'Shreya')));
+  assert.ok(withCode.includes(COPY.mail_received_body[lang]));
 
-  const without = receivedMail(person, teamOf('crew'));
-  assert.ok(!without.lines.join('\n').includes(COPY.mail_received_code[lang]),
+  const without = asText(receivedMail(person, teamOf('crew')).lines).join('\n');
+  assert.ok(!without.includes(COPY.mail_received_code[lang]),
     'the technical crew gets no code, so it must not be promised one');
-  assert.ok(without.lines.join('\n').includes(COPY.received[lang]));
+  assert.ok(!without.includes('Équipe technique'), 'the bare team name line is gone');
 });
 
 test('the form endpoint says whether to promise a code', async () => {
@@ -2478,7 +2523,7 @@ test('a retry after a later failure adopts the ticket instead of issuing a secon
     assert.ok(again.person.adoptedTicket);
     assert.equal(w.tt().filter(c => c.method === 'POST' && c.url.includes('issued_tickets')).length, 0,
       'a second ticket was issued and a second credit spent');
-    assert.equal(again.person.steps.whatsapp, 'done');
+    assert.match(again.person.steps.whatsapp, /^done:/);
   } finally { w.restore(); }
 });
 
@@ -2822,4 +2867,386 @@ test('the admin page offers Change code only where there is one to change', () =
   assert.match(html, /could not be deleted and is still live/,
     'a stale code has to be loud');
   assert.match(html, /previousCodes/, 'the export keeps the old codes');
+});
+
+/* ------------------------------------------------- 1. the personal link page */
+
+const cPage = (code, env, headers = {}) => cGet({
+  request: new Request(`https://diwali.artindia.be/c/${code}`, { headers }),
+  params: { code },
+  env,
+});
+
+async function withCode(team = 'artist', over = {}) {
+  const { kv } = await withLink(team);
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM(over), {});
+    const p = (await approve(env, kv, { id: r.person.id, approver: 'ravi' })).person;
+    return { kv, person: p, env };
+  } finally { w.restore(); }
+}
+
+test('a known code shows the first name, the code, and a tagged way to buy', async () => {
+  const { kv, person } = await withCode();
+  const res = await cPage(person.promo.code, ENV({ ACCRED: kv }));
+
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /text\/html/);
+  assert.equal(res.headers.get('cache-control'), 'no-store');
+  assert.match(res.headers.get('x-robots-tag'), /noindex/);
+
+  const html = await res.text();
+  assert.ok(html.includes(COPY.c_title.en.replace('{FIRST}', 'Shreya')));
+  assert.ok(html.includes(person.promo.code));
+  assert.ok(html.includes(COPY.c_offer.en));
+  assert.ok(html.includes(COPY.c_button.en));
+  assert.ok(html.includes(COPY.c_hint.en));
+  assert.ok(html.includes(COPY.dateline.en));
+  assert.match(html, /<meta name="robots" content="noindex, nofollow">/);
+
+  /* Their first name and nothing else about them. */
+  assert.ok(!html.includes('Menon'), 'a surname is on the page');
+  assert.ok(!html.includes('shreya@example.com'), 'an address is on the page');
+  assert.ok(!html.includes('32474919900'), 'a phone number is on the page');
+  assert.ok(!html.includes(person.id), 'a person id is on the page');
+
+  /* The button is a real anchor, tagged, so it works with no script at all. */
+  const href = html.match(/<a class="cc-go" id="go" href="([^"]+)"/)[1].replace(/&amp;/g, '&');
+  const to = new URL(href);
+  assert.equal(to.searchParams.get('ref'), `team-${person.promo.code.toLowerCase()}`);
+  assert.match(to.hostname, /tickets\.artindia\.be/);
+});
+
+test('both code formats resolve, in upper or lower case', async () => {
+  const { kv, person } = await withCode();
+  /* An old dashed code, as it sits in KV from before the format changed. */
+  await kv.put(promoKey('SHREYA-7KQ4'),
+    JSON.stringify({ id: person.id, discountId: person.promo.discountId }));
+
+  for (const asked of [person.promo.code, person.promo.code.toLowerCase(),
+    'SHREYA-7KQ4', 'shreya-7kq4']) {
+    const res = await cPage(asked, ENV({ ACCRED: kv }));
+    assert.equal(res.status, 200, `${asked} did not resolve`);
+    const html = await res.text();
+    /* Whichever link they were sent, the page shows the code they hold now. */
+    assert.ok(html.includes(person.promo.code), `${asked} showed the wrong code`);
+  }
+});
+
+test('a changed code keeps the old link working and shows the new code', async () => {
+  const { kv, person, env } = await withCode();
+  const old = person.promo.code;
+  const w = world();
+  try {
+    await changeCode(env, kv, { id: person.id, code: 'RAVI123', approver: 'ravi' });
+  } finally { w.restore(); }
+
+  /* The old key was released because the old discount really went, so the old
+     link now falls through to the box office rather than naming anybody. */
+  const gone = await cPage(old, ENV({ ACCRED: kv }));
+  assert.equal(gone.status, 302);
+
+  const now = await cPage('RAVI123', ENV({ ACCRED: kv }));
+  assert.equal(now.status, 200);
+  assert.ok((await now.text()).includes('RAVI123'));
+});
+
+test('a code that failed to delete keeps naming the right person', async () => {
+  const { kv, person, env } = await withCode();
+  const old = person.promo.code;
+  const w = world({ fail: 'delete_discount' });
+  try {
+    await changeCode(env, kv, { id: person.id, code: 'RAVI123', approver: 'ravi' });
+  } finally { w.restore(); }
+
+  /* The old discount is still live in Ticket Tailor, so its link still works
+     and shows the code the person actually holds now. */
+  const res = await cPage(old, ENV({ ACCRED: kv }));
+  assert.equal(res.status, 200);
+  const html = await res.text();
+  assert.ok(html.includes('RAVI123'));
+});
+
+test('an unknown, revoked or dry-run code shows nobody and nothing', async () => {
+  const { kv, person, env } = await withCode();
+  const bare = ENV({ ACCRED: kv });
+
+  for (const asked of ['NOBODY999', 'not a code', '', 'RAVI123']) {
+    const res = await cPage(asked, bare);
+    assert.equal(res.status, 302, `${asked} should fall through`);
+    const to = new URL(res.headers.get('location'));
+    assert.equal(to.searchParams.get('ref'), null, 'no code on the way out');
+    assert.equal(res.headers.get('cache-control'), 'no-store');
+  }
+
+  /* Revoked: the record is no longer approved, so the link is nobody's. */
+  const w = world();
+  try {
+    await revoke(env, kv, { id: person.id, approver: 'ravi', note: 'left' });
+  } finally { w.restore(); }
+  assert.equal((await cPage(person.promo.code, bare)).status, 302);
+});
+
+test('past the last day a code can be used, every link is a plain redirect', async () => {
+  const { kv, person } = await withCode();
+  const res = await cPage(person.promo.code,
+    ENV({ ACCRED: kv, TEAM_CODE_EXPIRES_AT: '2020-01-01T00:00:00Z' }));
+  assert.equal(res.status, 302, 'an offer we cannot honour is not shown');
+});
+
+test('the page speaks the browser language and offers the other two', async () => {
+  const { kv, person } = await withCode();
+  const env = ENV({ ACCRED: kv });
+
+  for (const [header, lang] of [
+    ['fr-BE,fr;q=0.9,en;q=0.8', 'fr'],
+    ['nl-BE,nl;q=0.9', 'nl'],
+    ['en-GB,en', 'en'],
+    ['de-DE,de', 'en'],
+    ['', 'en'],
+  ]) {
+    const res = await cPage(person.promo.code, env, { 'accept-language': header });
+    const html = await res.text();
+    assert.ok(html.includes(COPY.c_title[lang].replace('{FIRST}', 'Shreya')),
+      `${header || '(none)'} should have answered in ${lang}`);
+    for (const other of ['en', 'fr', 'nl']) {
+      assert.ok(html.includes(`href="?lang=${other}"`), `${lang} does not offer ${other}`);
+    }
+  }
+
+  /* And the switcher wins over the browser. */
+  const forced = await cGet({
+    request: new Request('https://diwali.artindia.be/c/X?lang=nl',
+      { headers: { 'accept-language': 'fr-BE,fr' } }),
+    params: { code: person.promo.code },
+    env,
+  });
+  assert.ok((await forced.text()).includes(COPY.c_offer.nl));
+});
+
+test('the link previews with the festival image and the invitation', async () => {
+  const { kv, person } = await withCode();
+  const html = await (await cPage(person.promo.code, ENV({ ACCRED: kv }),
+    { 'accept-language': 'fr' })).text();
+  assert.match(html, /<meta property="og:title" content="Shreya vous invite/);
+  assert.match(html, /<meta property="og:description" content="10 % de r/);
+  assert.match(html, /<meta property="og:image" content="https:\/\/diwali\.artindia\.be\/og-diwali-fr\.png">/);
+  assert.match(html, /<meta name="twitter:card" content="summary_large_image">/);
+});
+
+test('a HEAD answers the same way, with no body', async () => {
+  const { kv, person } = await withCode();
+  const env = ENV({ ACCRED: kv });
+  const args = { request: new Request(`https://diwali.artindia.be/c/${person.promo.code}`), params: { code: person.promo.code }, env };
+
+  const head = await cHead(args);
+  assert.equal(head.status, 200);
+  assert.equal(head.headers.get('cache-control'), 'no-store');
+  assert.equal(await head.text(), '', 'a HEAD carries no body');
+
+  const miss = await cHead({ ...args, params: { code: 'NOBODY999' } });
+  assert.equal(miss.status, 302);
+});
+
+test('the page works with no script and reveals no code without one', async () => {
+  const { kv, person } = await withCode();
+  const html = await (await cPage(person.promo.code, ENV({ ACCRED: kv }))).text();
+  /* The button is an anchor with a real href, and the code is in the markup,
+     so a phone with the script blocked still buys a ticket. */
+  assert.match(html, /<a class="cc-go"[^>]*href="https:/);
+  assert.match(html, new RegExp(`<code class="cc-code" id="code">${person.promo.code}</code>`));
+  assert.match(html, /navigator\.clipboard/, 'and with a script it copies');
+  assert.match(html, /selectNodeContents/, 'with a selection fallback');
+});
+
+test('the route is served by the Functions worker', () => {
+  const routes = JSON.parse(readFileSync(join(DIST, '_routes.json'), 'utf8'));
+  assert.ok(routes.include.includes('/c/*'), '/c/ would be served as a static 404');
+});
+
+/* ------------------------------------------- the team tag in the buyer flow */
+
+test('a team sale is tagged, credits nobody, and still enters the draw', () => {
+  const src = readFileSync(join(ROOT, 'functions/api/tt-order.js'), 'utf8');
+  assert.match(src, /CHANNEL_TAGS = \[\[\/\^ig-\/i, 'instagram'\], \[\/\^team-\/i, 'team'\]\]/);
+  /* channelOf() is checked before the code shape, so a team- tag can never be
+     looked up as a referral code and can never credit anyone. */
+  assert.match(src, /if \(channelOf\(raw\)\) return '';/);
+  /* And nothing in the guard or the counting touches a team order, so a paid
+     ticket bought this way earns its draw entries like any other. */
+  assert.ok(!/team-/.test(src.slice(src.indexOf('function countTickets'),
+    src.indexOf('function questions'))), 'the draw must not know about teams');
+});
+
+/* ---------------------------------------------------------- 2. the letters */
+
+test('each team gets the letter the data says it gets', () => {
+  const by = k => TEAMS.find(t => t.key === k);
+  assert.equal(letterOf(by('core')), 'core');
+  for (const k of ['artist', 'collab', 'aimc']) assert.equal(letterOf(by(k)), 'artist', k);
+  assert.equal(letterOf(by('child')), 'parent');
+  for (const k of ['crew', 'dj', 'media', 'press', 'guest', 'plus1', 'vip']) {
+    assert.equal(letterOf(by(k)), '', k);
+  }
+});
+
+for (const lang of ['en', 'fr', 'nl']) {
+  test(`the three letters read correctly in ${lang}`, () => {
+    const base = {
+      firstName: 'Ravi', lastName: 'Kaushik', email: 'r@x.be', lang,
+      promo: null, plus1Token: null, child: null, tt: { barcode: 'b', qrUrl: '' },
+    };
+
+    for (const [team, key] of [['core', 'letter_core'], ['artist', 'letter_artist']]) {
+      const body = asText(letterMail(ENV(), { ...base, team }, teamOf(team)).lines).join('\n');
+      assert.ok(body.includes(COPY[key][lang]), `${team} opening`);
+      assert.ok(body.includes(COPY.letter_close[lang]), `${team} closing`);
+      assert.ok(!body.includes('{'), `${team} has an unfilled placeholder`);
+    }
+
+    /* The parent letter names the child, in the opening and in the closing,
+       and the pass line says whose pass it is. */
+    const parent = letterMail(ENV(), {
+      ...base, team: 'child', firstName: 'Anita',
+      child: { firstName: 'Aarav', lastName: 'Nair', dob: '2016-05-04' },
+      promo: { code: 'ANITA123', discountId: 'dsc_1' },
+    }, teamOf('child'));
+    const body = asText(parent.lines).join('\n');
+    assert.ok(body.includes(COPY.letter_parent[lang].replace('{CHILD}', 'Aarav')));
+    assert.ok(body.includes(COPY.letter_close_parent[lang].replace('{CHILD}', 'Aarav')));
+    assert.ok(body.includes(COPY.pass_line_child[lang].replace('{CHILD}', 'Aarav')));
+    assert.ok(!body.includes(COPY.pass_line[lang].split('{TEAM}')[1].trim()),
+      'the parent gets the child wording, not the ordinary one');
+    assert.ok(body.includes(COPY.mail_greeting[lang].replace('{FIRST}', 'Anita')),
+      'the greeting is the parent, who is reading it');
+    assert.ok(!body.includes('{'));
+    assert.ok(!body.includes('2016-05-04'), 'a date of birth reached an email');
+  });
+}
+
+test('a letter carries the sections in order and nothing it has no business carrying', () => {
+  const person = {
+    firstName: 'Ravi', lastName: 'K', email: 'r@x.be', lang: 'en', team: 'core',
+    promo: { code: 'RAVI123', discountId: 'dsc_1' }, plus1Token: null, child: null,
+    tt: { barcode: 'al4R5', qrUrl: 'https://tt/qr.png' },
+  };
+  const mail = letterMail(ENV(), person, teamOf('core'));
+  const flat = asText(mail.lines).join('\n');
+
+  const at = t => flat.indexOf(t);
+  assert.ok(at(COPY.mail_greeting.en.replace('{FIRST}', 'Ravi')) < at(COPY.letter_core.en));
+  assert.ok(at(COPY.letter_core.en) < at(COPY.letter_close.en));
+  assert.ok(at(COPY.letter_close.en) < at(COPY.sign_thanks.en));
+  assert.ok(at(COPY.sign_thanks.en) < at(COPY.pass_heading.en));
+  assert.ok(at(COPY.pass_heading.en) < at('Your personal code'));
+  assert.ok(at('Your personal code') < at(COPY.questions.en));
+
+  /* The headings really are headings, so the HTML can bold them. */
+  const heads = mail.lines.filter(l => l && l.h).map(l => l.h);
+  assert.deepEqual(heads, [COPY.pass_heading.en, 'Your personal code: RAVI123']);
+  const html = htmlMail(mail.lines, mail.qr, mail.signature);
+  assert.ok(html.includes(`<strong style="font-size:16px">${COPY.pass_heading.en}</strong>`));
+  assert.ok(!html.includes('Art India ASBL'), 'a letter signs once, as a person');
+
+  /* The sentence about Ticket Tailor sending it separately is gone. */
+  assert.ok(!/separate email/i.test(flat));
+  assert.ok(!/Ticket Tailor/i.test(flat));
+});
+
+test('a team with no code gets no code heading and no link', () => {
+  for (const team of ['crew', 'press']) {
+    const mail = approvedMail(ENV(), {
+      firstName: 'Stijn', lastName: 'V', email: 's@x.be', lang: 'nl', team,
+      promo: null, plus1Token: null, child: null, tt: { barcode: 'b', qrUrl: '' },
+    }, teamOf(team));
+    const flat = asText(mail.lines).join('\n');
+    assert.ok(!flat.includes('/c/'), `${team} was given a link`);
+    assert.ok(!flat.includes(COPY.code_line.nl), `${team} was promised a code`);
+    assert.ok(!mail.lines.some(l => l && l.h && l.h.includes(COPY.code_heading.nl.split('{')[0])));
+  }
+});
+
+test('the link in the email is the share link, built from the code', () => {
+  assert.equal(shareLink('RAVI123'), 'https://diwali.artindia.be/c/RAVI123');
+  assert.equal(shareLink('SHREYA-7KQ4'), 'https://diwali.artindia.be/c/SHREYA-7KQ4');
+});
+
+/* --------------------------------------------------- 3. the pass template */
+
+test('the pass goes out on the template with a button, carrying the code', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM(), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+
+    const sent = JSON.parse(w.wa().pop().body);
+    assert.equal(sent.template.name, 'diwali_team_pass_en_v2');
+
+    const body = sent.template.components.find(c => c.type === 'body');
+    assert.deepEqual(body.parameters.map(p => p.text),
+      ['Shreya', 'Main artists', done.person.promo.code]);
+
+    const button = sent.template.components.find(c => c.type === 'button');
+    assert.equal(button.sub_type, 'url');
+    assert.equal(button.index, '0');
+    assert.deepEqual(button.parameters, [{ type: 'text', text: done.person.promo.code }]);
+
+    assert.equal(done.person.steps.whatsapp, 'done:diwali_team_pass_en_v2');
+    assert.equal(done.person.waTemplate, 'diwali_team_pass_en_v2');
+  } finally { w.restore(); }
+});
+
+test('a template Meta will not send falls back to the older one', async () => {
+  const { kv } = await withLink('artist');
+  const w = world({ fail: 'template_missing' });
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM(), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+
+    assert.ok(done.ok);
+    assert.equal(done.person.steps.whatsapp, 'done:diwali_team_pass_en (fallback)',
+      'the card has to say the fallback was used');
+    assert.equal(done.person.waTemplate, 'diwali_team_pass_en');
+
+    const names = w.wa().map(c => JSON.parse(c.body).template.name);
+    assert.deepEqual(names, ['diwali_team_pass_en_v2', 'diwali_team_pass_en'],
+      'the one with a button first, then the one without');
+
+    /* The fallback has no button to fill. */
+    const second = JSON.parse(w.wa().pop().body);
+    assert.ok(!second.template.components.some(c => c.type === 'button'));
+  } finally { w.restore(); }
+});
+
+test('a send that fails for any other reason is not retried on the old template', async () => {
+  const { kv } = await withLink('artist');
+  const w = world({ fail: 'wa' });
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM(), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+    assert.match(done.person.steps.whatsapp, /^failed:/);
+    assert.equal(w.wa().length, 1, 'an undeliverable number is not a template problem');
+  } finally { w.restore(); }
+});
+
+test('a person with no code gets the plain template and no button', async () => {
+  const { kv } = await withLink('crew');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM({ role: 'Stage' }), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+
+    const sent = JSON.parse(w.wa().pop().body);
+    assert.equal(sent.template.name, 'diwali_team_pass_plain_en');
+    assert.ok(!sent.template.components.some(c => c.type === 'button'));
+    assert.equal(sent.template.components[0].parameters.length, 2);
+    assert.equal(done.person.steps.whatsapp, 'done:diwali_team_pass_plain_en');
+  } finally { w.restore(); }
 });

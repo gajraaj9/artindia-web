@@ -372,18 +372,14 @@ Transactional through the Brevo API, sender `BREVO_SENDER_EMAIL`, plain layout, 
 | consent | Art India may contact me by email and WhatsApp about my pass and the festival, and keeps my details to reach me for future Art India events. I can ask to be removed at any time: diwali@artindia.be | Art India peut me contacter par e-mail et WhatsApp au sujet de mon pass et du festival, et conserve mes coordonnées pour me joindre lors de ses prochains événements. Je peux demander leur suppression à tout moment : diwali@artindia.be | Art India mag mij via e-mail en WhatsApp contacteren over mijn pas en het festival, en bewaart mijn gegevens om mij te bereiken voor volgende evenementen van Art India. Ik kan op elk moment vragen om ze te verwijderen: diwali@artindia.be |
 | submit | Register | S'inscrire | Registreren |
 | another | Register another person | Inscrire une autre personne | Nog iemand registreren |
-| received | Thank you. Your registration is waiting for approval by the festival team. You will hear from us by email and WhatsApp. | Merci. Votre inscription est en attente de validation par l'équipe du festival. Vous recevrez une réponse par e-mail et WhatsApp. | Bedankt. Je registratie wacht op goedkeuring door het festivalteam. Je hoort van ons via e-mail en WhatsApp. |
 | inactive | This link is not active. Please contact the person who sent it to you. | Ce lien n'est pas actif. Contactez la personne qui vous l'a envoyé. | Deze link is niet actief. Neem contact op met de persoon die hem stuurde. |
 | closed | Registration is closed. Please contact your team lead. | Les inscriptions sont clôturées. Contactez votre responsable d'équipe. | De registratie is gesloten. Neem contact op met je teamverantwoordelijke. |
 | mail_received_subject | We received your registration | Nous avons bien reçu votre inscription | We hebben je registratie ontvangen |
 | mail_approved_subject | Your pass for the Brussels Diwali Festival | Votre pass pour le Brussels Diwali Festival | Je pas voor het Brussels Diwali Festival |
-| mail_code | Your personal code {CODE} gives your friends and family 10% off a festival ticket until 23 October. | Votre code personnel {CODE} offre à vos proches 10 % de réduction sur un billet festival jusqu'au 23 octobre. | Met je persoonlijke code {CODE} krijgen je vrienden en familie 10% korting op een festivalticket tot 23 oktober. |
-| mail_plus1 | You may bring one guest. Send them this link to register; it works once: {LINK} | Vous pouvez inviter une personne. Envoyez-lui ce lien pour s'inscrire ; il ne fonctionne qu'une fois : {LINK} | Je mag één gast meebrengen. Stuur deze link om te registreren; hij werkt één keer: {LINK} |
 | error | Something went wrong. Please try again. | Une erreur s'est produite. Veuillez réessayer. | Er ging iets mis. Probeer het opnieuw. |
 | btn_my_pass | My pass | Mon pass | Mijn pas |
 | btn_my_code | My code | Mon code | Mijn code |
 | btn_code_sales | Tickets sold | Billets vendus | Tickets verkocht |
-| mail_qr | Your QR pass is in this email. Ticket Tailor may also send it to you separately. | Votre pass avec QR code se trouve dans cet e-mail. Ticket Tailor peut aussi vous l'envoyer séparément. | Je pas met QR-code staat in deze e-mail. Ticket Tailor kan hem ook apart sturen. |
 | email_hint | Your pass is sent to this address. | Votre pass sera envoyé à cette adresse. | Je pas wordt naar dit adres gestuurd. |
 | phone_hint | With the country code, for example +32. | Avec l'indicatif du pays, par exemple +32. | Met de landcode, bijvoorbeeld +32. |
 | fine | Passes are sent after approval by the festival team. | Les pass sont envoyés après validation par l'équipe du festival. | Passen worden verstuurd na goedkeuring door het festivalteam. |
@@ -397,8 +393,82 @@ Transactional through the Brevo API, sender `BREVO_SENDER_EMAIL`, plain layout, 
 | step3_text | By email and WhatsApp. Your friends and family get 10% off individual festival tickets with it. | Par e-mail et WhatsApp. Il offre à vos proches 10 % de réduction sur les billets individuels du festival. | Via e-mail en WhatsApp. Je vrienden en familie krijgen er 10% korting mee op individuele festivaltickets. |
 | mail_received_code | Once approved, you will also receive a personal code to share: it gives your friends and family 10% off individual festival tickets. | Une fois votre inscription validée, vous recevrez aussi un code personnel à partager : il offre à vos proches 10 % de réduction sur les billets individuels du festival. | Na goedkeuring krijg je ook een persoonlijke code om te delen: je vrienden en familie krijgen er 10% korting mee op individuele festivaltickets. |
 | dateline | 24 and 25 October 2026 · Atomium | Les 24 et 25 octobre 2026 · Atomium | 24 en 25 oktober 2026 · Atomium |
+| c_title | {FIRST} invites you to the Brussels Diwali Festival | {FIRST} vous invite au Brussels Diwali Festival | {FIRST} nodigt je uit op het Brussels Diwali Festival |
+| c_offer | 10% off individual festival tickets with this code | 10 % de réduction sur les billets individuels du festival avec ce code | 10% korting op individuele festivaltickets met deze code |
+| c_button | Copy code and get tickets | Copier le code et réserver | Kopieer de code en koop tickets |
+| c_hint | Paste the code at checkout, under Discount code. Valid until 23 October. | Collez le code au moment du paiement, dans le champ Code de réduction. Valable jusqu'au 23 octobre. | Plak de code bij het afrekenen, in het veld Kortingscode. Geldig tot 23 oktober. |
+| c_copied | Code copied | Code copié | Code gekopieerd |
+| mail_a_subject | Welcome to the 10th Brussels Diwali Festival, {FIRST} | Bienvenue au 10e Brussels Diwali Festival, {FIRST} | Welkom op het 10e Brussels Diwali Festival, {FIRST} |
+| mail_greeting | Dear {FIRST}, | Bonjour {FIRST}, | Dag {FIRST}, |
+| letter_core | Welcome to the team of the 10th Brussels Diwali Festival. For ten years this festival has existed because people like you give it their time, their evenings and their heart. Most of what you do is never seen by the public, and none of it would happen without you. | Bienvenue dans l'équipe du 10e Brussels Diwali Festival. Depuis dix ans, ce festival existe parce que des personnes comme vous lui donnent leur temps, leurs soirées et leur cœur. Le public ne voit presque rien de ce que vous faites, et rien ne serait possible sans vous. | Welkom in het team van het 10e Brussels Diwali Festival. Al tien jaar bestaat dit festival omdat mensen zoals jij er hun tijd, hun avonden en hun hart in steken. Het publiek ziet bijna niets van wat je doet, en zonder jou zou er niets van gebeuren. |
+| letter_artist | Welcome to the 10th Brussels Diwali Festival. For ten years this festival has been carried by artists who give their talent and their time to share India with Brussels. What you bring to the stage is what people take home with them. | Bienvenue au 10e Brussels Diwali Festival. Depuis dix ans, ce festival est porté par des artistes qui offrent leur talent et leur temps pour partager l'Inde avec Bruxelles. Ce que vous apportez sur scène, le public l'emporte avec lui. | Welkom op het 10e Brussels Diwali Festival. Al tien jaar wordt dit festival gedragen door artiesten die hun talent en hun tijd geven om India met Brussel te delen. Wat jij op het podium brengt, nemen mensen mee naar huis. |
+| letter_parent | Welcome to the 10th Brussels Diwali Festival, and thank you for the rehearsals, the costumes, the driving and the patience. Seeing {CHILD} and the other children on that stage is one of the moments that makes this festival what it is. | Bienvenue au 10e Brussels Diwali Festival, et merci pour les répétitions, les costumes, les trajets et la patience. Voir {CHILD} et les autres enfants sur cette scène fait partie des moments qui donnent à ce festival tout son sens. | Welkom op het 10e Brussels Diwali Festival, en bedankt voor de repetities, de kostuums, het heen en weer rijden en het geduld. {CHILD} en de andere kinderen op dat podium zien is een van de momenten die dit festival maken tot wat het is. |
+| letter_close | On 24 and 25 October, thousands of people will celebrate with us at the foot of the Atomium. I am proud that you are part of it, and I look forward to seeing you there. | Les 24 et 25 octobre, des milliers de personnes fêteront avec nous au pied de l'Atomium. Je suis fière que vous en fassiez partie et je me réjouis de vous y retrouver. | Op 24 en 25 oktober vieren duizenden mensen met ons feest aan de voet van het Atomium. Ik ben trots dat jij erbij bent en ik kijk ernaar uit je daar te zien. |
+| letter_close_parent | On 24 and 25 October, thousands of people will celebrate with us at the foot of the Atomium. I am proud that {CHILD} is part of it, and I look forward to seeing you there. | Les 24 et 25 octobre, des milliers de personnes fêteront avec nous au pied de l'Atomium. Je suis fière que {CHILD} en fasse partie et je me réjouis de vous y retrouver. | Op 24 en 25 oktober vieren duizenden mensen met ons feest aan de voet van het Atomium. Ik ben trots dat {CHILD} erbij is en ik kijk ernaar uit jullie daar te zien. |
+| sign_thanks | With gratitude, | Avec toute ma gratitude, | Met veel dank, |
+| sign_role | Founder & Artistic Director, Art India | Fondatrice et directrice artistique, Art India | Oprichter en artistiek directeur, Art India |
+| pass_heading | Your pass | Votre pass | Je pas |
+| pass_line | {TEAM}. Your QR code is below and attached to this email. Show it on your phone at the gate. | {TEAM}. Votre QR code se trouve ci-dessous et en pièce jointe. Présentez-le sur votre téléphone à l'entrée. | {TEAM}. Je QR-code staat hieronder en zit als bijlage bij deze e-mail. Toon hem op je telefoon aan de ingang. |
+| pass_line_child | This pass is for {CHILD}. The QR code is below and attached to this email. Show it on your phone at the gate. Family members coming to watch need a festival ticket, and your personal code gives them 10% off. | Ce pass est celui de {CHILD}. Le QR code se trouve ci-dessous et en pièce jointe. Présentez-le sur votre téléphone à l'entrée. Les membres de la famille qui viennent assister au spectacle ont besoin d'un billet festival, et votre code personnel leur offre 10 % de réduction. | Deze pas is voor {CHILD}. De QR-code staat hieronder en zit als bijlage bij deze e-mail. Toon hem op je telefoon aan de ingang. Familieleden die komen kijken hebben een festivalticket nodig, en met je persoonlijke code krijgen ze 10% korting. |
+| code_heading | Your personal code: {CODE} | Votre code personnel : {CODE} | Je persoonlijke code: {CODE} |
+| code_line | Share it with friends and family. It gives them 10% off individual festival tickets until 23 October. | Partagez-le avec vos proches. Il leur offre 10 % de réduction sur les billets individuels du festival jusqu'au 23 octobre. | Deel hem met vrienden en familie. Ze krijgen er 10% korting mee op individuele festivaltickets tot 23 oktober. |
+| link_line | Or simply send them your link: {LINK} | Ou envoyez-leur simplement votre lien : {LINK} | Of stuur hen gewoon je link: {LINK} |
+| guest_heading | Your guest | Votre invité(e) | Je gast |
+| guest_line | You may bring one guest. Send them this link to register. It works once: {LINK} | Vous pouvez inviter une personne. Envoyez-lui ce lien pour s'inscrire. Il ne fonctionne qu'une fois : {LINK} | Je mag één gast meebrengen. Stuur deze link om te registreren. Hij werkt één keer: {LINK} |
+| questions | Questions? Write to diwali@artindia.be. | Une question ? Écrivez à diwali@artindia.be. | Vragen? Mail naar diwali@artindia.be. |
+| mail_b_confirm | Your pass for the 10th Brussels Diwali Festival is confirmed: {TEAM}. Thank you for being part of it. | Votre pass pour le 10e Brussels Diwali Festival est confirmé : {TEAM}. Merci d'en faire partie. | Je pas voor het 10e Brussels Diwali Festival is bevestigd: {TEAM}. Bedankt dat je erbij bent. |
+| mail_b_when | The festival takes place on 24 and 25 October 2026 at the Atomium, Brussels. Your QR code is below and attached to this email. Show it on your phone at the gate. | Le festival a lieu les 24 et 25 octobre 2026 à l'Atomium, à Bruxelles. Votre QR code se trouve ci-dessous et en pièce jointe. Présentez-le sur votre téléphone à l'entrée. | Het festival vindt plaats op 24 en 25 oktober 2026 aan het Atomium in Brussel. Je QR-code staat hieronder en zit als bijlage bij deze e-mail. Toon hem op je telefoon aan de ingang. |
+| mail_received_body | Thank you for registering for the 10th Brussels Diwali Festival. Your registration is with the festival team for approval, and you will hear from us by email and WhatsApp. | Merci pour votre inscription au 10e Brussels Diwali Festival. Elle est entre les mains de l'équipe du festival pour validation, et vous recevrez une réponse par e-mail et WhatsApp. | Bedankt voor je registratie voor het 10e Brussels Diwali Festival. Ze ligt nu bij het festivalteam ter goedkeuring, en je hoort van ons via e-mail en WhatsApp. |
 
 Email bodies: write them from these lines plus the pass type and the `arrival` line. Sign "Brussels Diwali Festival, Art India ASBL". No personal names.
+
+## 9A. The personal link, and the two approved emails
+
+### `/c/<CODE>`
+
+A team member's own page, and the thing they actually send. A code on its own
+has to be remembered, retyped and spelled correctly; this is a link they paste
+into a family group with their own name on it.
+
+- Both code shapes resolve, in any case: `RAVI123` and the older `SHREYA-7KQ4`.
+  A code changed through `code_change` keeps its old link working while the old
+  discount is still live, and the page always shows the code the person holds
+  now.
+- It shows their **first name only**, the dateline, the offer, the code in
+  large type, one button and the hint. Nothing else about the person is on the
+  page: no surname, no address, no number, no id.
+- The button copies the code and then goes to the box office with
+  `ref=team-<code in lower case>`. It is a real anchor with a real href, so it
+  works with no script, no clipboard and no permission.
+- Unknown, revoked, dry-run or past `TEAM_CODE_EXPIRES_AT`: a 302 to the box
+  office with no code and nobody named, exactly like a mistyped link.
+- `no-store`, `noindex`, Open Graph tags so it previews in WhatsApp, and the
+  language comes from the browser with a switcher at the top.
+- Every hit is logged through `logClick` with cta `team`.
+
+In `/api/tt-order`, `team-` is a `CHANNEL_TAGS` entry, so it is never looked up
+as a buyer referral code and credits nobody. Brevo gets `UTM_SOURCE=team` and
+`UTM_CAMPAIGN=team-<code>`. The order itself is an ordinary paid order and
+earns its lucky draw entries like any other.
+
+### The two approved emails
+
+Each team carries a `letter` field in `data/teams.json`: `core` for the core
+team, `artist` for artist, collab and aimc, `parent` for the child team, and
+`null` for everyone else. A team with a letter gets email A; the rest get
+email B.
+
+**A** opens as a letter from Shreya, in one of three voices, and signs as a
+person. It does not also carry the "Brussels Diwali Festival, Art India ASBL"
+line: a letter that ends with a name and then an organisation reads like a form
+that was pretending. Then the practical part: the pass, the code and the link,
+the guest, the arrival line, and where to write with a question.
+
+**B** is the practical part alone, opening with the confirmation and when the
+festival is, and it does sign as the festival.
+
+Both carry the QR inline and attached, unchanged. Neither says anything about
+Ticket Tailor sending the pass separately: our own email carries it.
 
 ## 10. Environment
 
