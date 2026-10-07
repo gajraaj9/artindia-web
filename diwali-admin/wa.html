@@ -107,6 +107,17 @@
   .panel { background: var(--card); border: 1px solid var(--line);
            border-radius: .6rem; padding: 1rem; margin-bottom: 1rem; }
   [hidden] { display: none !important; }
+
+  /* The shared admin navigation. Links are a thumb's width tall, because
+     these pages are opened backstage on a phone with somebody waiting. */
+  .adminnav { display: flex; flex-wrap: wrap; gap: .2rem .6rem; align-items: center;
+    margin: 0 0 .9rem; }
+  .adminnav a { display: inline-flex; align-items: center; min-height: 44px;
+    padding: 0 .35rem; color: var(--accent); text-decoration: none; font-size: .95rem; }
+  .adminnav a:hover { text-decoration: underline; }
+  .adminnav a[aria-current=page] { color: var(--ink); font-weight: 700;
+    text-decoration: none; cursor: default; }
+  .adminnav .sep { color: var(--muted); }
 </style>
 </head>
 <body>
@@ -117,11 +128,11 @@
     <span class="pill muted" id="web-pill">Web: …</span>
     <button type="button" id="refresh">Refresh</button>
     </header>
-  <p class="muted" style="margin:0 0 .9rem">
-    <a href="/admin/dashboard">Dashboard</a> ·
-    <a href="/admin/team">Team passes</a> ·
+    <nav class="adminnav" aria-label="Admin pages">
+    <a href="/admin/dashboard">Dashboard</a><span class="sep">·</span>
+    <a href="/admin/team">Team passes</a><span class="sep">·</span>
     <a href="/admin/wa" aria-current="page">WhatsApp</a>
-  </p>
+  </nav>
 
   <div class="panel" id="unlock">
     <div class="field">
@@ -150,7 +161,17 @@
 
 <script>
 (function () {
-  var KEY = 'artindia.wa.adminToken';
+  /* The same key every admin page uses, so one sign-in opens all of them.
+     The old key is picked up once and copied across, so nobody has to type
+     their token again because of this change. */
+  var KEY = 'artindia.team.token';
+  var OLD_KEY = 'artindia.wa.adminToken';
+  try {
+    if (!localStorage.getItem(KEY) && localStorage.getItem(OLD_KEY)) {
+      localStorage.setItem(KEY, localStorage.getItem(OLD_KEY));
+      localStorage.removeItem(OLD_KEY);
+    }
+  } catch (e) { /* no storage, so nothing to carry over */ }
   var $ = function (id) { return document.getElementById(id); };
   var data = null;
 

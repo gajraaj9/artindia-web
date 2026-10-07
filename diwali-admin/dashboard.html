@@ -120,6 +120,16 @@
           border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   .foot { margin: .4rem 0 0; font-size: .78rem; color: var(--muted); }
+
+  /* The shared admin navigation. Links are a thumb's width tall, because
+     these pages are opened backstage on a phone with somebody waiting. */
+  .adminnav { display: inline-flex; flex-wrap: wrap; gap: .2rem .6rem; align-items: center; }
+  .adminnav a { display: inline-flex; align-items: center; min-height: 44px;
+    padding: 0 .35rem; color: var(--accent); text-decoration: none; font-size: .95rem; }
+  .adminnav a:hover { text-decoration: underline; }
+  .adminnav a[aria-current=page] { color: var(--ink); font-weight: 700; cursor: default; }
+  .adminnav .sep { color: var(--muted); }
+  .sub button { min-height: 44px; }
 </style>
 </head>
 <body>
@@ -469,8 +479,11 @@
     $('days').textContent = 'Dashboard · ' + D.daysToGo + ' days to go';
     /* A view-only person is offered only the page they may read. */
     $('nav').innerHTML = D.viewer.revenue || D.viewer.admin
-      ? '<a href="/admin/team">Team passes</a> <a href="/admin/wa">WhatsApp</a>'
-      : '';
+      ? '<span class="adminnav">'
+        + '<a href="/admin/dashboard" aria-current="page">Dashboard</a>'
+        + '<span class="sep">\u00b7</span><a href="/admin/team">Team passes</a>'
+        + '<span class="sep">\u00b7</span><a href="/admin/wa">WhatsApp</a></span>'
+      : '<span class="adminnav"><a href="/admin/dashboard" aria-current="page">Dashboard</a></span>';
     $('asof').textContent = D.asOf ? '· As of ' + when(D.asOf) : '';
     $('refresh').hidden = false;
 

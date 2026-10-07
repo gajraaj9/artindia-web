@@ -20,7 +20,7 @@
  * else still works, because the clicks and the orders are ours.
  */
 
-import { json, safeEqual, listAll, CLICK_BLOBS } from './_shared.js';
+import { json, listAll, CLICK_BLOBS, waAdmin, waAdminConfigured } from './_shared.js';
 
 const GRAPHQL = 'https://api.cloudflare.com/client/v4/graphql';
 const SITE_HOST = 'diwali.artindia.be';
@@ -249,13 +249,14 @@ function group(rows, key) {
 }
 
 export async function onRequestGet({ request, env }) {
-  if (!env.WA_ADMIN_TOKEN) {
-    console.error('funnel: WA_ADMIN_TOKEN unset, refusing every request');
+  if (!waAdminConfigured(env)) {
+    console.error('funnel: no admin tokens set, refusing every request');
     return json(503, { ok: false, error: 'not_configured' });
   }
-  if (!safeEqual(request.headers.get('x-admin-token') || '', env.WA_ADMIN_TOKEN)) {
-    return json(401, { ok: false, error: 'unauthorized' });
-  }
+  /* A named admin or the shared WhatsApp token. A view-only token is not an
+     admin here and never will be: these endpoints send messages. */
+  const who = waAdmin(env, request.headers.get('x-admin-token'));
+  if (!who) return json(401, { ok: false, error: 'unauthorized' });
   if (!env.REFERRALS) return json(503, { ok: false, error: 'kv_not_bound' });
 
   const q = new URL(request.url).searchParams;

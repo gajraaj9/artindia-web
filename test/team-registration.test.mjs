@@ -32,6 +32,7 @@ import {
 } from '../functions/api/_accred.js';
 import { onRequestGet as adminGet, onRequestPost as adminPost } from '../functions/api/team-admin.js';
 import { onRequestGet as formGet } from '../functions/api/team-form.js';
+import { waAdmin, waAdminConfigured } from '../functions/api/_shared.js';
 import { onRequestGet as cGet, onRequestHead as cHead } from '../functions/c/[code].js';
 import { onRequestPost as registerPost } from '../functions/api/team-register.js';
 import { buildMenu, menuTitles, menuKind, TEAM_ACTIONS } from '../functions/api/_bot.js';
@@ -3404,10 +3405,14 @@ test('a confirmation also appears at the bottom of the screen', () => {
 
 test('a redraw does not throw the page about under somebody s thumb', () => {
   const html = adminPage();
-  const act = html.slice(html.indexOf('function act(body, btn)'));
-  assert.match(act.slice(0, 2000), /var scroll = window\.scrollY;/);
-  assert.equal((act.slice(0, 2600).match(/window\.scrollTo\(0, scroll\)/g) || []).length, 2,
+  const act = html.slice(html.indexOf('function act(body, btn)'),
+    html.indexOf("document.addEventListener('click'"));
+  assert.match(act, /var scroll = window\.scrollY;/);
+  assert.equal((act.match(/window\.scrollTo\(0, scroll\)/g) || []).length, 2,
     'after the first draw and after the catch-up');
+  /* And opening a row keeps its place too. */
+  const click = html.slice(html.indexOf("var row = btn.getAttribute('data-row')"));
+  assert.match(click.slice(0, 400), /window\.scrollTo\(0, scroll\)/);
 });
 
 test('a quick repeat asks before it sends again', () => {
@@ -3767,4 +3772,172 @@ test('a record being approved offers nothing to press until it is stale', () => 
   assert.ok(q.includes('data-act="reject"'), 'and one that does not is rejected');
   assert.ok(q.indexOf('hasTicket') < q.indexOf('data-act="revoke"'),
     'which of the two is on the ticket, not on the mood');
+});
+
+/* --------------------------------------------- one sign-in for all of it */
+
+/* A device carrying a team token could reach /admin/team and the dashboard
+   but bounced off /admin/wa: that page asked wa-admin, got a 401, asked the
+   dashboard, was let in, and redirected. */
+
+test('the WhatsApp endpoints take a named admin token as well as the shared one', () => {
+  const env = {
+    WA_ADMIN_TOKEN: 'tok-shared',
+    TEAM_ADMIN_TOKENS: JSON.stringify(ADMIN),
+    DASH_VIEW_TOKENS: JSON.stringify({ stijn: 'tok-stijn' }),
+  };
+
+  assert.deepEqual(waAdmin(env, 'tok-shared'), { name: '', shared: true },
+    'the old shared token still works, and still has no name');
+  assert.deepEqual(waAdmin(env, ADMIN.ravi), { name: 'ravi', shared: false });
+  assert.deepEqual(waAdmin(env, ADMIN.keerthi), { name: 'keerthi', shared: false });
+
+  /* A view-only token reads the dashboard and nothing else. These endpoints
+     send messages. */
+  assert.equal(waAdmin(env, 'tok-stijn'), null);
+  assert.equal(waAdmin(env, 'guess'), null);
+  assert.equal(waAdmin(env, ''), null);
+  assert.equal(waAdmin(env, null), null);
+
+  /* Either kind of token configured is enough for the door to exist. */
+  assert.equal(waAdminConfigured({}), false);
+  assert.equal(waAdminConfigured({ WA_ADMIN_TOKEN: 'x' }), true);
+  assert.equal(waAdminConfigured({ TEAM_ADMIN_TOKENS: '{}' }), true);
+
+  /* A broken secret lets nobody in rather than everybody. */
+  assert.equal(waAdmin({ TEAM_ADMIN_TOKENS: 'not json' }, 'anything'), null);
+  /* And with no shared token at all, a named admin is still an admin. */
+  assert.deepEqual(waAdmin({ TEAM_ADMIN_TOKENS: JSON.stringify(ADMIN) }, ADMIN.ravi),
+    { name: 'ravi', shared: false });
+});
+
+test('every WhatsApp endpoint uses the same door', () => {
+  for (const f of ['wa-admin', 'wa-send', 'wa-status', 'wa-unanswered', 'funnel']) {
+    const src = readFileSync(join(ROOT, `functions/api/${f}.js`), 'utf8');
+    assert.match(src, /waAdmin\(env, request\.headers\.get\('x-admin-token'\)\)/,
+      `${f} still has a door of its own`);
+    assert.match(src, /waAdminConfigured\(env\)/, f);
+    /* Nothing compares the shared token by hand any more. */
+    assert.ok(!/safeEqual\([^)]*WA_ADMIN_TOKEN/.test(src), `${f} still checks by hand`);
+  }
+});
+
+test('a reply carries the name of whoever sent it', () => {
+  const src = readFileSync(join(ROOT, 'functions/api/wa-send.js'), 'utf8');
+  assert.match(src, /\.\.\.\(who\.name \? \{ by: who\.name \} : \{\}\)/,
+    '"a reply went out" is a fact; "Keerthi replied" is one somebody can follow up');
+});
+
+test('the admin pages share one key, and pick the old one up once', () => {
+  for (const rel of ['diwali-admin/wa.html', 'diwali-admin/reply.html']) {
+    const html = readFileSync(join(ROOT, rel), 'utf8');
+    assert.match(html, /var KEY = 'artindia\.team\.token';/, `${rel} still has a key of its own`);
+    assert.match(html, /var OLD_KEY = 'artindia\.wa\.adminToken';/);
+    /* Carried across once, then the old one goes, so nobody signs in twice. */
+    assert.match(html, /localStorage\.setItem\(KEY, localStorage\.getItem\(OLD_KEY\)\)/);
+    assert.match(html, /localStorage\.removeItem\(OLD_KEY\)/);
+    assert.match(html, /if \(!localStorage\.getItem\(KEY\) && localStorage\.getItem\(OLD_KEY\)\)/,
+      'and only when there is nothing under the new key');
+  }
+  /* The other two already used it. */
+  for (const rel of ['diwali-admin/team.html', 'diwali-admin/dashboard.html']) {
+    assert.match(readFileSync(join(ROOT, rel), 'utf8'), /'artindia\.team\.token'/);
+  }
+});
+
+test('the navigation is the same everywhere, and a thumb can hit it', () => {
+  for (const rel of ['diwali-admin/team.html', 'diwali-admin/wa.html',
+    'diwali-admin/dashboard.html']) {
+    const html = readFileSync(join(ROOT, rel), 'utf8');
+    assert.match(html, /\.adminnav a \{[^}]*min-height: 44px/, `${rel} has a nav a thumb misses`);
+    /* Inside the nav element itself. The page's own <h1> says "Team passes"
+       too, and a heading is not a link. */
+    const from = html.indexOf('adminnav', html.indexOf('</style>'));
+    assert.ok(from > 0, `${rel} has no navigation`);
+    const nav = html.slice(from, from + 600);
+    const at = s => nav.indexOf(s);
+    for (const w of ['>Dashboard<', '>Team passes<', '>WhatsApp<']) {
+      assert.ok(at(w) > 0, `${rel} has no ${w} link in its navigation`);
+    }
+    assert.ok(at('>Dashboard<') < at('>Team passes<'),
+      `${rel} does not put the dashboard first`);
+    assert.ok(at('>Team passes<') < at('>WhatsApp<'),
+      `${rel} has WhatsApp before team passes`);
+  }
+  /* The page you are on is not a link to itself. */
+  const team = readFileSync(join(ROOT, 'diwali-admin/team.html'), 'utf8');
+  assert.match(team, /<a href="\/admin\/team" aria-current="page">/);
+  const wa = readFileSync(join(ROOT, 'diwali-admin/wa.html'), 'utf8');
+  assert.match(wa, /<a href="\/admin\/wa" aria-current="page">/);
+});
+
+/* ------------------------------------------------ the People tab, compact */
+
+test('a person is one row, with a status pill and the last change', () => {
+  const html = adminPage();
+  assert.match(html, /class="phead"/);
+  assert.match(html, /class="st ' \+ esc\(p\.status\)/);
+  assert.match(html, /function lastChange\(p\)/);
+  /* Name and status on one line, team and code on the next. */
+  assert.match(html, /teamName\(p\.team\), code\]\.filter\(Boolean\)\.join/);
+  /* And never the date of birth out here. */
+  const row = html.slice(html.indexOf('var rows = list.map'), html.indexOf('$(\'people\').innerHTML'));
+  assert.ok(!/child\.dob/.test(row), "a child's date of birth is not row furniture");
+  assert.ok(!/childAge/.test(row));
+  assert.match(html, /Never the child's date of birth out here/);
+});
+
+test('the row header is a real button that says whether it is open', () => {
+  const html = adminPage();
+  assert.match(html, /<button type="button" class="phead" data-row="/);
+  assert.match(html, /aria-expanded="' \+ open \+ '"/);
+  assert.match(html, /aria-controls="body-/);
+  /* The dot is decoration; the reason is words for anyone not looking. */
+  assert.match(html, /<span class="dot[^"]*" aria-hidden="true">/);
+  assert.match(html, /needs attention: ' \+ esc\(why\)/);
+  assert.match(html, /\.vh \{ position: absolute/);
+  /* A row is tall enough to hit. */
+  assert.match(html, /\.phead \{[^}]*min-height: 56px/);
+});
+
+test('the dot appears for each of the three things worth looking at', () => {
+  const html = adminPage();
+  const fn = html.slice(html.indexOf('function attention(p)'), html.indexOf('function lastChange'));
+  assert.match(fn, /indexOf\('failed:'\) === 0/, 'a step that failed');
+  assert.match(fn, /p\.staleCode/, 'an old code still live');
+  assert.match(fn, /Date\.now\(\) - Date\.parse\(p\.lockedAt\) > 120000/,
+    'approving for more than two minutes');
+  /* And nothing else earns one. */
+  assert.match(fn, /return '';/);
+});
+
+test('open rows survive a redraw, an action, and the list coming back', () => {
+  const html = adminPage();
+  assert.match(html, /var OPEN = \{\};/);
+  /* Kept outside the markup, so re-rendering cannot shut them. */
+  assert.match(html, /var open = !!OPEN\[p\.id\];/);
+  assert.match(html, /if \(OPEN\[row\]\) delete OPEN\[row\]; else OPEN\[row\] = true;/);
+  /* Several at once: nothing clears the others. */
+  assert.ok(!/OPEN = \{\};\s*OPEN\[/.test(html), 'opening one row must not close the rest');
+  /* A row opens by itself while something is happening to it. */
+  assert.match(html, /if \(body\.id\) OPEN\[body\.id\] = true;/);
+});
+
+test('the counts above the list are also the quick filters', () => {
+  const html = adminPage();
+  assert.match(html, /data-status="' \+ st \+ '" aria-pressed="/);
+  assert.match(html, /var st = btn\.getAttribute\('data-status'\);/);
+  assert.match(html, /if \(st !== null\)/, 'an empty string is All, not nothing');
+  /* Newest change first. */
+  assert.match(html, /String\(lastChange\(b\)\)\.localeCompare\(String\(lastChange\(a\)\)\)/);
+});
+
+test('the Queue keeps whole cards, and People builds the same card inside a row', () => {
+  const html = adminPage();
+  assert.match(html, /function personCard\(p\)/);
+  assert.match(html, /\(open \? personCard\(p\) : ''\)/, 'the card is only built when it is shown');
+  /* The queue is untouched: full cards, with its own actions. */
+  assert.match(html, /queueActions\(p, t\) \+ resultLine\(p\.id\)/);
+  assert.ok(!/class="phead"[^]*?function renderQueue/.test(html),
+    'the queue must not have become a list of rows');
 });

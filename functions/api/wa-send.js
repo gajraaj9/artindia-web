@@ -14,7 +14,7 @@
  * Env: WA_ADMIN_TOKEN, WA_TOKEN, WA_PHONE_ID.
  */
 
-import { json, safeEqual, normalisePhone } from './_shared.js';
+import { json, normalisePhone, waAdmin, waAdminConfigured } from './_shared.js';
 import { sendText, logMessage } from './_bot.js';
 
 /* Outside the 24h window. Meta will not deliver a free-form message and the
@@ -22,13 +22,14 @@ import { sendText, logMessage } from './_bot.js';
 const WINDOW_CLOSED = 131047;
 
 export async function onRequestPost({ request, env }) {
-  if (!env.WA_ADMIN_TOKEN) {
-    console.error('wa-send: WA_ADMIN_TOKEN unset, refusing every request');
+  if (!waAdminConfigured(env)) {
+    console.error('wa-send: no admin tokens set, refusing every request');
     return json(503, { ok: false, error: 'not_configured' });
   }
-  if (!safeEqual(request.headers.get('x-admin-token') || '', env.WA_ADMIN_TOKEN)) {
-    return json(401, { ok: false, error: 'unauthorized' });
-  }
+  /* A named admin or the shared WhatsApp token. A view-only token is not an
+     admin here and never will be: these endpoints send messages. */
+  const who = waAdmin(env, request.headers.get('x-admin-token'));
+  if (!who) return json(401, { ok: false, error: 'unauthorized' });
 
   let payload;
   try { payload = await request.json(); }
@@ -49,7 +50,12 @@ export async function onRequestPost({ request, env }) {
     /* Into the same transcript as everything else, so the dashboard shows a
        team reply in line rather than a gap in the conversation. */
     if (env.REFERRALS) {
-      await logMessage(env.REFERRALS, to, { dir: 'out', kind: 'admin', text: body });
+      /* Named, when the token had a name on it. "A reply went out" is a
+         fact; "Keerthi replied" is one somebody can follow up. */
+      await logMessage(env.REFERRALS, to, {
+        dir: 'out', kind: 'admin', text: body,
+        ...(who.name ? { by: who.name } : {}),
+      });
     }
     console.log('wa-send ok', to, res.messageId);
     return json(200, { ok: true, to, message_id: res.messageId });

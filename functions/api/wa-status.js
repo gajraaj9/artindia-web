@@ -16,16 +16,17 @@
  * Needs the REFERRALS KV binding.
  */
 
-import { json, safeEqual, statusKey, orderKey } from './_shared.js';
+import { json, waAdmin, waAdminConfigured, statusKey, orderKey } from './_shared.js';
 
 export async function onRequestGet({ request, env }) {
-  if (!env.WA_ADMIN_TOKEN) {
-    console.error('wa-status: WA_ADMIN_TOKEN unset, refusing every request');
+  if (!waAdminConfigured(env)) {
+    console.error('wa-status: no admin tokens set, refusing every request');
     return json(503, { ok: false, error: 'not_configured' });
   }
   /* Constant time, and never logged: the token is the only thing standing in
-     front of recipient phone numbers. */
-  if (!safeEqual(request.headers.get('x-admin-token') || '', env.WA_ADMIN_TOKEN)) {
+     front of recipient phone numbers. A named admin or the shared WhatsApp
+     token; a view-only token is neither. */
+  if (!waAdmin(env, request.headers.get('x-admin-token'))) {
     return json(401, { ok: false, error: 'unauthorized' });
   }
   if (!env.REFERRALS) {

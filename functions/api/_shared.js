@@ -387,3 +387,42 @@ export async function upsertContact(env, email, attributes = {}, listIds) {
   }
   return { ok: false, status: first.status, detail: first.body };
 }
+
+/* ------------------------------------------------------- the admin door */
+
+/**
+ * Who is asking, for the WhatsApp pages.
+ *
+ * These endpoints were guarded by WA_ADMIN_TOKEN alone, which meant a device
+ * carrying a team token could reach /admin/team and the dashboard but bounced
+ * off /admin/wa: the page asked wa-admin, got a 401, asked the dashboard,
+ * was let in, and redirected. One sign-in now opens all of them.
+ *
+ * A named admin from TEAM_ADMIN_TOKENS is accepted and is the name recorded
+ * against whatever they do. The old shared WA_ADMIN_TOKEN still works and has
+ * no name, because it never had one.
+ *
+ * DASH_VIEW_TOKENS is deliberately not consulted. A view-only token may read
+ * the dashboard and nothing else, and these endpoints send messages.
+ *
+ * Returns `{ name }` or null. `name` is '' for the shared token.
+ */
+export function waAdmin(env, presented) {
+  const token = String(presented || '');
+  if (!token) return null;
+
+  if (env.WA_ADMIN_TOKEN && safeEqual(String(env.WA_ADMIN_TOKEN), token)) {
+    return { name: '', shared: true };
+  }
+
+  let named = {};
+  try { named = JSON.parse(env.TEAM_ADMIN_TOKENS || '{}') || {}; } catch { named = {}; }
+  for (const [name, tok] of Object.entries(named)) {
+    if (safeEqual(String(tok), token)) return { name, shared: false };
+  }
+  return null;
+}
+
+/** True when there is no way for anybody to get in at all. */
+export const waAdminConfigured = env =>
+  Boolean(env.WA_ADMIN_TOKEN || env.TEAM_ADMIN_TOKENS);

@@ -84,12 +84,57 @@
     color: var(--bad); font-weight: 600; border: 1px solid var(--bad);
     border-radius: .4rem; padding: .5rem .6rem;
   }
+  /* The People tab is a list to scan, not forty cards to scroll past. One
+     row each, opened in place when somebody wants the detail. */
+  .plist { background: var(--card); border: 1px solid var(--line);
+    border-radius: .7rem; overflow: hidden; }
+  .prow { border-bottom: 1px solid var(--line); }
+  .prow:last-child { border-bottom: 0; }
+  .phead {
+    display: flex; align-items: center; gap: .55rem; width: 100%;
+    min-height: 56px; padding: .5rem .75rem; text-align: left;
+    background: none; border: 0; border-radius: 0; color: inherit;
+    font: inherit; cursor: pointer;
+  }
+  .phead:hover { background: rgba(127, 127, 127, .07); }
+  .phead .dot { flex: 0 0 auto; width: .55rem; height: .55rem; border-radius: 50%;
+    background: var(--warm); }
+  .phead .dot.none { background: transparent; }
+  .phead .who { flex: 1 1 auto; min-width: 0; }
+  .phead .nm { display: block; font-weight: 700; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  .phead .sub2 { display: block; font-size: .8rem; color: var(--muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .phead .rt { flex: 0 0 auto; display: flex; align-items: center; gap: .45rem; }
+  .phead .when2 { font-size: .78rem; color: var(--muted);
+    font-variant-numeric: tabular-nums; }
+  .phead .caret { color: var(--muted); font-size: .7rem; width: .8rem; text-align: center; }
+  .pbody { padding: 0 .75rem .75rem; }
+  /* A phone gets two lines and loses the timestamp, which is in the card. */
+  @media (max-width: 30rem) { .phead .when2 { display: none; } }
+
+  .st { font-size: .66rem; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase; padding: .15rem .4rem; border-radius: .3rem;
+    border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .st.approved { border-color: var(--ok); color: var(--ok); }
+  .st.pending { border-color: var(--warm); color: var(--warm); }
+  .st.approving { border-color: var(--accent); color: var(--accent); }
+  .st.rejected, .st.revoked { border-color: var(--bad); color: var(--bad); }
+
+  .counts { display: flex; flex-wrap: wrap; gap: .35rem; margin: 0 0 .7rem; }
+  .counts button { min-height: 36px; font-size: .82rem; padding: .3rem .6rem; }
+  /* For a screen reader: the dot is decoration, the words are the thing. */
+  .vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .counts button[aria-pressed=true] { border-color: var(--accent); color: var(--accent);
+    font-weight: 700; }
+
   .refrow { display: flex; gap: .6rem; flex-wrap: wrap; padding: .35rem 0;
     border-bottom: 1px solid var(--line); font-size: .85rem; }
   .refrow .t { color: var(--muted); font-variant-numeric: tabular-nums; flex: 0 0 7.5rem; }
   .refrow .r { color: var(--bad); font-weight: 600; }
   .acts { display: flex; gap: .4rem; flex-wrap: wrap; margin: .6rem 0 0; }
-  .acts button, .bar button, form button {
+  .acts button, .bar button, .counts button, form button {
     font: inherit; padding: .45rem .8rem; border-radius: .4rem; cursor: pointer;
     border: 1px solid var(--line); background: var(--card); color: var(--ink);
   }
@@ -135,6 +180,17 @@
     .toast { animation: rise .18s ease-out; }
     @keyframes rise { from { opacity: 0; translate: -50% .5rem; } }
   }
+
+  /* The shared admin navigation. Links are a thumb's width tall, because
+     these pages are opened backstage on a phone with somebody waiting. */
+  .adminnav { display: flex; flex-wrap: wrap; gap: .2rem .6rem; align-items: center;
+    margin: 0 0 .9rem; }
+  .adminnav a { display: inline-flex; align-items: center; min-height: 44px;
+    padding: 0 .35rem; color: var(--accent); text-decoration: none; font-size: .95rem; }
+  .adminnav a:hover { text-decoration: underline; }
+  .adminnav a[aria-current=page] { color: var(--ink); font-weight: 700;
+    text-decoration: none; cursor: default; }
+  .adminnav .sep { color: var(--muted); }
 </style>
 </head>
 <body>
@@ -145,11 +201,11 @@
     <span class="pill" id="mode" hidden></span>
     <span class="pill" id="reg" hidden></span>
   </header>
-  <p class="muted" style="margin:0 0 .9rem">
-    <a href="/admin/dashboard">Dashboard</a> ·
-    <a href="/admin/team" aria-current="page">Team passes</a> ·
+    <nav class="adminnav" aria-label="Admin pages">
+    <a href="/admin/dashboard">Dashboard</a><span class="sep">·</span>
+    <a href="/admin/team" aria-current="page">Team passes</a><span class="sep">·</span>
     <a href="/admin/wa">WhatsApp</a>
-  </p>
+  </nav>
 
   <div class="card" id="unlock" hidden>
     <label for="token">Admin token</label>
@@ -202,6 +258,9 @@
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
+  /* A number a person reads, with the thousands separated. */
+  function n(v) { return Number(v || 0).toLocaleString('en-GB'); }
+
   function note(t, bad) {
     var el = $('msg');
     el.textContent = t || '';
@@ -439,6 +498,36 @@
     return '<h2>Everyone, by team</h2><div class="card">' + rows + '</div>';
   }
 
+  /* Which rows are open. Kept outside the markup so a redraw, an action, or
+     the list coming back from the server does not shut everything again. */
+  var OPEN = {};
+
+  /* Why a row is worth looking at. One of three things, and the dot says
+     there is something rather than what, because the card says what. */
+  function attention(p) {
+    var steps = p.steps || {};
+    for (var k in steps) {
+      if (typeof steps[k] === 'string' && steps[k].indexOf('failed:') === 0) {
+        return 'a step failed';
+      }
+    }
+    if (p.staleCode) return 'the old code is still live';
+    if (p.status === 'approving' && p.lockedAt
+      && Date.now() - Date.parse(p.lockedAt) > 120000) {
+      return 'approving for more than two minutes';
+    }
+    return '';
+  }
+
+  /* The last thing that happened to this person, for the order and the row. */
+  function lastChange(p) {
+    var times = [p.createdAt, p.decidedAt, p.restoredAt, p.codeChangedAt, p.healedAt];
+    for (var k in (p.stepAt || {})) times.push(p.stepAt[k]);
+    return times.filter(Boolean).sort().pop() || '';
+  }
+
+  var STATUSES = ['pending', 'approving', 'approved', 'rejected', 'revoked'];
+
   function renderPeople() {
     var fTeam = (document.querySelector('[data-filter=team]') || {}).value || '';
     var fStatus = (document.querySelector('[data-filter=status]') || {}).value || '';
@@ -451,13 +540,24 @@
           + esc(t.name.en) + '</option>';
       }).join('') + '</select>'
       + '<select data-filter="status"><option value="">Any status</option>'
-      + ['pending', 'approving', 'approved', 'rejected', 'revoked'].map(function (s) {
-        return '<option value="' + s + '"' + (s === fStatus ? ' selected' : '') + '>' + s + '</option>';
+      + STATUSES.map(function (st) {
+        return '<option value="' + st + '"' + (st === fStatus ? ' selected' : '') + '>' + st + '</option>';
       }).join('') + '</select>'
       + '<input data-filter="q" placeholder="Name or phone" value="' + esc(q) + '">'
       + '<button type="button" data-act="csv">Export CSV</button>'
       + '<button type="button" data-act="addform">Add person</button>'
       + '</div><div id="addwrap"></div>';
+
+    /* How many of each, and each one a way to see only those. */
+    var counts = {};
+    D.people.forEach(function (p) { counts[p.status] = (counts[p.status] || 0) + 1; });
+    bar += '<div class="counts">'
+      + '<button type="button" data-status="" aria-pressed="' + (!fStatus) + '">All '
+      + n(D.people.length) + '</button>'
+      + STATUSES.filter(function (st) { return counts[st]; }).map(function (st) {
+        return '<button type="button" data-status="' + st + '" aria-pressed="'
+          + (fStatus === st) + '">' + esc(st) + ' ' + n(counts[st]) + '</button>';
+      }).join('') + '</div>';
 
     var list = D.people.filter(function (p) {
       if (fTeam && p.team !== fTeam) return false;
@@ -467,43 +567,70 @@
         if (hay.indexOf(q) < 0) return false;
       }
       return true;
+    }).slice().sort(function (a, b) {
+      /* Newest change first: what moved last is what somebody is looking for. */
+      return String(lastChange(b)).localeCompare(String(lastChange(a)));
     });
 
-    var html = list.map(function (p) {
-      return '<div class="card" data-id="' + esc(p.id) + '">' + head(p) + chips(p)
-        /* Who decided and when is on the history line in head(); this is the
-           status word itself, which People needs because it mixes them. */
-        + '<div class="muted">' + esc(p.status)
-        + (p.note ? ' · ' + esc(p.note) : '') + '</div>'
-        + stepline(p)
-        + '<div class="acts">'
-        + (p.status === 'pending' ? '<button type="button" class="go" data-act="approve">'
-          + esc(label(p.id, 'approve', '', 'Approve')) + '</button>' : '')
-        + (p.status === 'approved' ? '<button type="button" data-act="retry">'
-          + esc(label(p.id, 'retry', '', 'Retry failed steps')) + '</button>' : '')
-        + (p.status === 'approved' && p.promo && p.promo.code && !isDry(p.promo.discountId)
-          ? '<button type="button" data-act="code_change">'
-            + esc(label(p.id, 'code_change', '', 'Change code')) + '</button>' : '')
-        + (p.status === 'approved'
-          ? '<button type="button" data-act="resend" data-step="email"'
-            + (heldLabel(p.id, 'resend', 'email') ? ' class="done"' : '') + '>'
-            + esc(label(p.id, 'resend', 'email', 'Resend email')) + '</button>' : '')
-        + (p.status === 'approved' && p.phone
-          ? '<button type="button" data-act="resend" data-step="whatsapp"'
-            + (heldLabel(p.id, 'resend', 'whatsapp') ? ' class="done"' : '') + '>'
-            + esc(label(p.id, 'resend', 'whatsapp', 'Resend WhatsApp')) + '</button>' : '')
-        + (p.status === 'approved' ? '<button type="button" class="no" data-act="revoke">'
-          + esc(label(p.id, 'revoke', '', 'Revoke')) + '</button>' : '')
-        + (p.status === 'pending' ? '<button type="button" class="no" data-act="reject">'
-          + esc(label(p.id, 'reject', '', 'Reject')) + '</button>' : '')
-        + (p.status === 'rejected' ? '<button type="button" data-act="restore">'
-          + esc(label(p.id, 'restore', '', 'Restore')) + '</button>' : '')
-        + '</div>' + resultLine(p.id) + '</div>';
+    var rows = list.map(function (p) {
+      var open = !!OPEN[p.id];
+      var why = attention(p);
+      var code = (p.promo && p.promo.code) || '';
+      /* Never the child's date of birth out here: that lives in the card. */
+      var second = [teamName(p.team), code].filter(Boolean).join(' \u00b7 ');
+
+      return '<div class="prow" data-id="' + esc(p.id) + '">'
+        + '<button type="button" class="phead" data-row="' + esc(p.id) + '"'
+        + ' aria-expanded="' + open + '" aria-controls="body-' + esc(p.id) + '"'
+        + (why ? ' title="' + esc(why) + '"' : '') + '>'
+        + '<span class="dot' + (why ? '' : ' none') + '" aria-hidden="true"></span>'
+        + '<span class="who"><span class="nm">' + esc(p.firstName + ' ' + p.lastName)
+        + (why ? '<span class="vh"> needs attention: ' + esc(why) + '</span>' : '')
+        + '</span>'
+        + '<span class="sub2">' + esc(second) + '</span></span>'
+        + '<span class="rt"><span class="st ' + esc(p.status) + '">' + esc(p.status) + '</span>'
+        + '<span class="when2">' + esc(when(lastChange(p))) + '</span>'
+        + '<span class="caret" aria-hidden="true">' + (open ? '\u25b2' : '\u25bc') + '</span>'
+        + '</span></button>'
+        + '<div class="pbody" id="body-' + esc(p.id) + '"' + (open ? '' : ' hidden') + '>'
+        + (open ? personCard(p) : '')
+        + '</div></div>';
     }).join('');
 
     $('people').innerHTML = bar
       + '<p class="muted">' + list.length + ' of ' + D.people.length + '</p>'
-      + (html || '<p class="muted">Nobody yet.</p>');
+      + (rows ? '<div class="plist">' + rows + '</div>' : '<p class="muted">Nobody yet.</p>');
+  }
+
+  /* The card as it has always been, now rendered inside its row. */
+  function personCard(p) {
+    return '<div data-id="' + esc(p.id) + '">' + head(p) + chips(p)
+      + '<div class="muted">' + esc(p.status)
+      + (p.note ? ' \u00b7 ' + esc(p.note) : '') + '</div>'
+      + stepline(p)
+      + '<div class="acts">'
+      + (p.status === 'pending' ? '<button type="button" class="go" data-act="approve">'
+        + esc(label(p.id, 'approve', '', 'Approve')) + '</button>' : '')
+      + (p.status === 'approved' ? '<button type="button" data-act="retry">'
+        + esc(label(p.id, 'retry', '', 'Retry failed steps')) + '</button>' : '')
+      + (p.status === 'approved' && p.promo && p.promo.code && !isDry(p.promo.discountId)
+        ? '<button type="button" data-act="code_change">'
+          + esc(label(p.id, 'code_change', '', 'Change code')) + '</button>' : '')
+      + (p.status === 'approved'
+        ? '<button type="button" data-act="resend" data-step="email"'
+          + (heldLabel(p.id, 'resend', 'email') ? ' class="done"' : '') + '>'
+          + esc(label(p.id, 'resend', 'email', 'Resend email')) + '</button>' : '')
+      + (p.status === 'approved' && p.phone
+        ? '<button type="button" data-act="resend" data-step="whatsapp"'
+          + (heldLabel(p.id, 'resend', 'whatsapp') ? ' class="done"' : '') + '>'
+          + esc(label(p.id, 'resend', 'whatsapp', 'Resend WhatsApp')) + '</button>' : '')
+      + (p.status === 'approved' ? '<button type="button" class="no" data-act="revoke">'
+        + esc(label(p.id, 'revoke', '', 'Revoke')) + '</button>' : '')
+      + (p.status === 'pending' ? '<button type="button" class="no" data-act="reject">'
+        + esc(label(p.id, 'reject', '', 'Reject')) + '</button>' : '')
+      + (p.status === 'rejected' ? '<button type="button" data-act="restore">'
+        + esc(label(p.id, 'restore', '', 'Restore')) + '</button>' : '')
+      + '</div>' + resultLine(p.id) + '</div>';
   }
 
   function addForm() {
@@ -852,6 +979,9 @@
   function act(body, btn) {
     note('Working\u2026');
     busy(btn, true);
+    /* Whatever is happening to this person is worth seeing, so the row is
+       open while it happens and stays open if it went wrong. */
+    if (body.id) OPEN[body.id] = true;
     /* A redraw must not throw the page about under somebody's thumb. */
     var scroll = window.scrollY;
 
@@ -898,6 +1028,26 @@
     if (!btn) return;
     var a = btn.getAttribute('data-act');
     var tab = btn.getAttribute('data-tab');
+
+    /* A row header. Open in place, several at once, and the page stays
+       where it was. */
+    var row = btn.getAttribute('data-row');
+    if (row) {
+      var scroll = window.scrollY;
+      if (OPEN[row]) delete OPEN[row]; else OPEN[row] = true;
+      render();
+      window.scrollTo(0, scroll);
+      return;
+    }
+
+    /* A status count, used as a filter. */
+    var st = btn.getAttribute('data-status');
+    if (st !== null) {
+      var sel = document.querySelector('[data-filter=status]');
+      if (sel) { sel.value = st; }
+      renderPeople();
+      return;
+    }
 
     if (tab) {
       TAB = tab;

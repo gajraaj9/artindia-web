@@ -106,7 +106,17 @@
 
 <script>
 (function () {
-  var KEY = 'artindia.wa.adminToken';
+  /* The same key every admin page uses, so one sign-in opens all of them.
+     The old key is picked up once and copied across, so nobody has to type
+     their token again because of this change. */
+  var KEY = 'artindia.team.token';
+  var OLD_KEY = 'artindia.wa.adminToken';
+  try {
+    if (!localStorage.getItem(KEY) && localStorage.getItem(OLD_KEY)) {
+      localStorage.setItem(KEY, localStorage.getItem(OLD_KEY));
+      localStorage.removeItem(OLD_KEY);
+    }
+  } catch (e) { /* no storage, so nothing to carry over */ }
   var $ = function (id) { return document.getElementById(id); };
 
   /* localStorage throws outright in some privacy modes, so every touch of it

@@ -15,7 +15,7 @@
  * Env: WA_ADMIN_TOKEN. Needs the REFERRALS KV binding.
  */
 
-import { json, safeEqual, truthy } from './_shared.js';
+import { json, truthy, waAdmin, waAdminConfigured } from './_shared.js';
 import { botKey, listAll, webKey } from './_bot.js';
 
 /* A dashboard is a glance, not an archive. Past this many conversations the
@@ -56,13 +56,14 @@ const newestFirst = field => (a, b) =>
   String(b[field] || '').localeCompare(String(a[field] || ''));
 
 export async function onRequestGet({ request, env }) {
-  if (!env.WA_ADMIN_TOKEN) {
-    console.error('wa-admin: WA_ADMIN_TOKEN unset, refusing every request');
+  if (!waAdminConfigured(env)) {
+    console.error('wa-admin: no admin tokens set, refusing every request');
     return json(503, { ok: false, error: 'not_configured' });
   }
-  if (!safeEqual(request.headers.get('x-admin-token') || '', env.WA_ADMIN_TOKEN)) {
-    return json(401, { ok: false, error: 'unauthorized' });
-  }
+  /* A named admin or the shared WhatsApp token. A view-only token is not an
+     admin here and never will be: these endpoints send messages. */
+  const who = waAdmin(env, request.headers.get('x-admin-token'));
+  if (!who) return json(401, { ok: false, error: 'unauthorized' });
   if (!env.REFERRALS) return json(503, { ok: false, error: 'kv_not_bound' });
 
   const kv = env.REFERRALS;
