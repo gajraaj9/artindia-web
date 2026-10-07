@@ -90,21 +90,25 @@ One static page plus a small script, in the site's own look (tokens from the exi
 - Fields, all required: first name, last name, email, WhatsApp number, role or act (free text, 2 to 60 chars). Child team: child's first and last name and date of birth (three selects, day, month, year, so it works the same on every phone), then "Parent or guardian" first name, last name, email, WhatsApp number. Show the `dob_why` line under the date.
 - Required checkbox with the consent line (section 9). No pre-ticked box.
 - "Add another person" after a successful submit resets the form and keeps the link, so a lead can enter several people in a row. One person per submit.
-- Honeypot field. No third-party script, no captcha service.
+- A hidden trap field. No third-party script, no captcha service. It has no label and a name that reads as nothing a browser recognises (`tf_x7`), because a field labelled "Company" is a field a password manager fills in, and the people it caught were real.
 - Language: from `<html lang>` with the site's usual switcher.
 
 ### 4.2 `POST /api/team-register`
 
 Body `{ k, firstName, lastName, email, phone, role, child?, consent, lang, hp }`.
 
-- Origin check as in `/api/chat`. Honeypot filled → 200 and store nothing.
+- Origin check as in `/api/chat`. Trap field filled → stored as `pending` with the flag `hidden_field_filled` and the first 40 characters of what was in it, and nothing is sent: no "received" email, no Brevo contact. The approver sees the flag, reads what was typed and decides. Every pass is issued by hand, so this is a queue, not a way in. At most 5 of these per IP a day are stored; past that the submission is refused and logged as `flag_cap`.
 - Validate: `isEmail`, `normalisePhone` must return a number, consent true. Child team: `child.dob` is a real date and the child is under 18 on 24 October 2026; otherwise refuse with the `dob_invalid` message.
 - Refuse (same polite message, no detail) when: link closed, registration closed (`TEAM_CLOSE_AT`, default `2026-10-18T23:59:00+02:00`), the link already holds `2 × expected` people (minimum 10), or this phone or email was already rejected.
-- Same phone and same name on the same link → treat as a repeat submit: return success, store nothing new.
+- Same phone and same name on the same link → treat as a repeat submit: return success, store nothing new. A match against a **revoked** person is not a repeat: they are asking to be considered again, so it is stored as a new `pending` registration.
 - Flags, never blocks: same phone or email on another person (`dup_phone`, `dup_email`; on the child team a shared parent phone is normal, so flag only when the child's name also matches), same person in another team (`other_team`), link above its expected number (`over_expected`), email found in Brevo list 12 (`already_buyer`).
 - Per-IP cap of 40 submits a day in KV.
-- Store as `pending`. Send the "received" email (section 8). Upsert the Brevo contact with `REG_STATUS=pending`. No WhatsApp at this stage.
-- Response `{ ok: true }` and the page shows the "received" message.
+- Store as `pending`. Send the "received" email (section 8), unless the submission is flagged. Upsert the Brevo contact with `REG_STATUS=pending`. No WhatsApp at this stage.
+- Response `{ ok: true }` and the page shows the "received" message. A flagged one answers the same way: the person is not told they tripped anything.
+
+#### The submission log
+
+Every POST writes one line, whatever became of it, under `sub:<iso>:<token>` with a 60-day TTL: time, link label, team, first and last name, and the outcome, one of `stored`, `flagged`, `repeat` (naming the person it matched) or `refused` (with the reason). No date of birth, no email, no phone number: enough to recognise somebody who says they filled the form in, and not enough to contact anyone. It is the **Log** tab of `/admin/team`, newest first, filterable by outcome. It replaced a refusals-only list, which could not answer the question that mattered, because a submission that was dropped appeared in it nowhere at all.
 
 ### 4.3 +1 page `/team/plus1/?k=<plus1 token>`
 

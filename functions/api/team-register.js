@@ -45,7 +45,8 @@ export async function onRequestPost({ request, env }) {
   if (!r.ok) {
     return json(200, { ok: false, message: r.message, text: say(r.message, lang) });
   }
-  /* A bot, a repeat and a real new row all look the same from the outside. */
+  /* A flagged form, a repeat and a real new row all answer the same way. A
+     person who tripped the trap is not told so, and neither is a robot. */
   return json(200, { ok: true, text: say('received', lang) });
 }
 

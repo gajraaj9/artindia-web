@@ -95,7 +95,8 @@
 .tf-note{margin:16px 0 0;padding:14px 16px;border:1px solid var(--line);
   border-radius:11px;line-height:1.5}
 .tf-note[data-bad="1"]{border-color:#d2694f;color:#f0a68e}
-.tf-hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.tf-hp{position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;
+  overflow:hidden;opacity:0;pointer-events:none}
 
 /* ------------------------------------------------------- the success screen */
 .tf-done{padding-top:8px}
@@ -186,7 +187,15 @@
     </label>
     <p class="tf-fine">{{S_FINE}}</p>
 
-    <p class="tf-hp"><label>Company<input type="text" name="hp" tabindex="-1" autocomplete="off"></label></p>
+    <!-- A trap for something filling the form in automatically. It has no
+         label and a name that matches no contact or address field, because a
+         password manager that sees "Company" fills it in and a real person is
+         then flagged as a robot. autocomplete="off" alone was not enough:
+         managers ignore it. Off screen, out of the tab order, hidden from
+         assistive technology, and a filled one no longer discards anybody. -->
+    <p class="tf-hp" aria-hidden="true">
+      <input type="text" name="tf_x7" id="tf_x7" tabindex="-1"
+             autocomplete="new-password" spellcheck="false" value=""></p>
 
     <button type="submit" class="tf-go" id="tf-submit">{{S_SUBMIT}}</button>
     <p class="tf-note" id="tf-msg" hidden></p>
@@ -292,7 +301,7 @@
       phone: f.get('phone') || '',
       role: f.get('role') || '',
       consent: form.consent.checked,
-      hp: f.get('hp') || ''
+      hp: f.get('tf_x7') || ''
     };
     if (!document.getElementById('tf-child-set').hidden) {
       payload.child = {

@@ -17,7 +17,7 @@ import {
   TEAMS, approverFor, allLinks, allPeople, approve, reject, revoke, restore, expectedFor,
   teamCfgKey, linkKey, teamOf, token, dryRun, regEnabled, closeAt, ticketTypeFor,
   approvalBlocker, getPerson, putPerson, addIdTo, phoneKey, emailKey, newPersonId,
-  ageOnFestival, validDob, langOf, STEPS, hardCap, allRefusals, trimRefusals,
+  ageOnFestival, validDob, langOf, STEPS, hardCap, allSubmissions, trimSubmissions,
   SKIPPED, isDryId, changeCode, recentlySent, markSent, RESEND_LOCK_SECONDS,
   finishIfDone, stepsOutstanding,
 } from './_accred.js';
@@ -59,8 +59,8 @@ export async function onRequestGet({ request, env }) {
     if (done) { people[i] = done; healed += 1; }
   }
   if (healed) console.log('accred: finished', healed, 'record(s) on an admin read');
-  await trimRefusals(kv);
-  const refused = await allRefusals(kv);
+  await trimSubmissions(kv);
+  const log = await allSubmissions(kv);
 
   const counts = {};
   for (const p of people) {
@@ -108,7 +108,7 @@ export async function onRequestGet({ request, env }) {
       cap: hardCap(l.expected),
       url: `https://diwali.artindia.be/team/?k=${l.token}`,
     })),
-    refused,
+    log,
     people: people
       .map(p => ({
         ...p,

@@ -75,6 +75,11 @@
   .step.warn .step-v { color: var(--warm); }
   .step-tail { padding-top: .25rem; word-break: break-all; }
   .when { margin: .25rem 0 0; font-variant-numeric: tabular-nums; }
+  .heldnote {
+    margin: .5rem 0 0; padding: .45rem .6rem; border-radius: .4rem;
+    border: 1px solid var(--warm); color: var(--warm); font-size: .85rem;
+    word-break: break-word;
+  }
   .refusal {
     margin: .5rem 0 0; padding: .45rem .6rem; border-radius: .4rem;
     border: 1px solid var(--bad); color: var(--bad); font-size: .85rem;
@@ -133,6 +138,16 @@
     border-bottom: 1px solid var(--line); font-size: .85rem; }
   .refrow .t { color: var(--muted); font-variant-numeric: tabular-nums; flex: 0 0 7.5rem; }
   .refrow .r { color: var(--bad); font-weight: 600; }
+  .refrow .o { font-weight: 700; flex: 0 0 8.5rem; }
+  .refrow.is-stored .o { color: var(--ok); }
+  .refrow.is-flagged .o { color: var(--warm); }
+  .refrow.is-repeat .o { color: var(--muted); }
+  .refrow.is-refused .o { color: var(--bad); }
+  /* The tail reads as the outcome too: a flagged form is not a refusal and
+     must not be the same red as one. */
+  .refrow.is-flagged .r { color: var(--warm); }
+  .refrow.is-repeat .r { color: var(--muted); font-weight: 400; }
+  .refrow .typed { flex: 1 1 100%; color: var(--warm); word-break: break-all; }
   .acts { display: flex; gap: .4rem; flex-wrap: wrap; margin: .6rem 0 0; }
   .acts button, .bar button, .counts button, form button {
     font: inherit; padding: .45rem .8rem; border-radius: .4rem; cursor: pointer;
@@ -219,13 +234,13 @@
       <button type="button" role="tab" data-tab="queue" aria-selected="true">Queue</button>
       <button type="button" role="tab" data-tab="people" aria-selected="false">People</button>
       <button type="button" role="tab" data-tab="links" aria-selected="false">Links</button>
-      <button type="button" role="tab" data-tab="refused" aria-selected="false">Refused</button>
+      <button type="button" role="tab" data-tab="log" aria-selected="false">Log</button>
     </div>
     <p class="muted" id="msg"></p>
     <section id="queue"></section>
     <section id="people" hidden></section>
     <section id="links" hidden></section>
-    <section id="refused" hidden></section>
+    <section id="log" hidden></section>
   </div>
 </main>
 
@@ -320,15 +335,29 @@
 
   /* ------------------------------------------------------------- rendering */
 
+  var FLAGNAME = { hidden_field_filled: 'hidden field filled in' };
+
   function chips(p) {
     var out = (p.flags || []).map(function (f) {
-      return '<span class="chip' + (f === 'already_buyer' ? '' : '') + '">' + esc(f) + '</span>';
+      return '<span class="chip' + (f === 'already_buyer' ? '' : '') + '">'
+        + esc(FLAGNAME[f] || f) + '</span>';
     });
     if (p.plusOneOf) {
       var a = personOf(p.plusOneOf);
       out.push('<span class="chip">+1 of ' + esc(a ? a.firstName + ' ' + a.lastName : p.plusOneOf) + '</span>');
     }
     return out.length ? '<div class="chips">' + out.join('') + '</div>' : '';
+  }
+
+  /* The trap field, filled in. Almost always a password manager rather than a
+     robot, so the approver reads what was typed and decides. Nothing has been
+     sent to this person yet: approving them sends the lot. */
+  function flagNotice(p) {
+    if ((p.flags || []).indexOf('hidden_field_filled') < 0) return '';
+    return '<div class="heldnote">The hidden field was filled in'
+      + (p.hiddenField ? ' with \u201c' + esc(p.hiddenField) + '\u201d' : '')
+      + '. Autofill does this. Nothing has been emailed to them and they are'
+      + ' not in Brevo; approving sends everything.</div>';
   }
 
   var STEPS = ['ticket', 'discount', 'brevo', 'email', 'whatsapp'];
@@ -446,7 +475,7 @@
         + t.registered + ' registered, ' + t.expected + ' expected</span></h2>';
       list.forEach(function (p) {
         var l = linkOf(p.linkToken);
-        html += '<div class="card" data-id="' + esc(p.id) + '">' + head(p) + chips(p)
+        html += '<div class="card" data-id="' + esc(p.id) + '">' + head(p) + chips(p) + flagNotice(p)
           + (l ? '<div class="muted">Link: ' + esc(l.label || l.token) + ' · '
               + l.registered + ' on this link, ' + l.expected + ' expected</div>' : '')
           + stepline(p)
@@ -512,6 +541,9 @@
       }
     }
     if (p.staleCode) return 'the old code is still live';
+    if (p.status === 'pending' && (p.flags || []).indexOf('hidden_field_filled') >= 0) {
+      return 'hidden field filled in, nothing sent yet';
+    }
     if (p.status === 'approving' && p.lockedAt
       && Date.now() - Date.parse(p.lockedAt) > 120000) {
       return 'approving for more than two minutes';
@@ -604,7 +636,7 @@
 
   /* The card as it has always been, now rendered inside its row. */
   function personCard(p) {
-    return '<div data-id="' + esc(p.id) + '">' + head(p) + chips(p)
+    return '<div data-id="' + esc(p.id) + '">' + head(p) + chips(p) + flagNotice(p)
       + '<div class="muted">' + esc(p.status)
       + (p.note ? ' \u00b7 ' + esc(p.note) : '') + '</div>'
       + stepline(p)
@@ -695,14 +727,17 @@
     $('links').innerHTML = form + rows + teamRows;
   }
 
-  /* Forms that were turned away. The visitor got one neutral line whatever
-     the reason; this is where the reason lives, so somebody can see that a
-     link has been sent to the wrong group before eleven people have bounced
-     off it. A first name and a last initial, never a mailing list. */
+  /* Every form that was submitted, whatever became of it. The visitor got one
+     neutral line whatever the reason; this is where the reason lives, so
+     somebody can see that a link has been sent to the wrong group before
+     eleven people have bounced off it, and so that "I filled your form in
+     last week" always has an answer. A name and a link, never a mailing
+     list: no contact details and no date of birth. */
   var REASONS = {
     rejected_match: 'already rejected',
     cap: 'link is full',
     ip_cap: 'too many from one address',
+    flag_cap: 'too many hidden-field hits from one address',
     closed: 'registration closed',
     link_closed: 'link closed',
     unknown_link: 'unknown link',
@@ -714,25 +749,69 @@
     phone: 'phone number',
     name: 'name',
     role: 'role',
-    child: "child's name"
+    child: "child's name",
+    hidden_field_filled: 'hidden field was filled in'
   };
 
-  function renderRefused() {
-    var list = D.refused || [];
-    if (!list.length) {
-      $('refused').innerHTML = '<p class="muted">Nothing has been turned away.</p>';
-      return;
-    }
-    $('refused').innerHTML = '<p class="muted">' + list.length
-      + ' in the last 14 days, newest first.</p><div class="card">'
-      + list.map(function (r) {
-        var who = [r.firstName, r.lastInitial ? r.lastInitial + '.' : ''].join(' ').trim();
-        var where = [teamName(r.team), r.label].filter(Boolean).join(' \u00b7 ');
-        return '<div class="refrow"><span class="t">' + esc(when(r.at)) + '</span>'
-          + '<span>' + esc(who || 'someone') + '</span>'
-          + '<span class="muted">' + esc(where) + '</span>'
-          + '<span class="r">' + esc(REASONS[r.reason] || r.reason) + '</span></div>';
-      }).join('') + '</div>';
+  var OUTCOMES = [
+    ['', 'All'],
+    ['stored', 'Stored'],
+    ['flagged', 'Flagged'],
+    ['repeat', 'Repeat'],
+    ['refused', 'Refused']
+  ];
+  var LOGFILTER = '';
+
+  function outcomeLabel(o) {
+    for (var i = 0; i < OUTCOMES.length; i++) if (OUTCOMES[i][0] === o) return OUTCOMES[i][1];
+    return o || 'unknown';
+  }
+
+  function logLine(r) {
+    var who = [r.firstName, r.lastName].filter(Boolean).join(' ').trim();
+    var where = [teamName(r.team), r.label].filter(Boolean).join(' \u00b7 ');
+    var o = r.outcome || 'refused';
+    var tail = '';
+    if (o === 'repeat') tail = r.matched ? 'same as ' + r.matched : 'already registered';
+    else if (o === 'refused') tail = REASONS[r.reason] || r.reason || '';
+    else if (o === 'flagged') tail = REASONS.hidden_field_filled;
+
+    return '<div class="refrow is-' + esc(o) + '"><span class="t">' + esc(when(r.at)) + '</span>'
+      + '<span class="o">' + esc(outcomeLabel(o)) + '</span>'
+      + '<span>' + esc(who || 'someone') + '</span>'
+      + '<span class="muted">' + esc(where) + '</span>'
+      + (tail ? '<span class="r">' + esc(tail) + '</span>' : '')
+      + (o === 'flagged' && r.hidden
+        ? '<span class="typed">typed in it: \u201c' + esc(r.hidden) + '\u201d</span>' : '')
+      + '</div>';
+  }
+
+  function renderLog() {
+    var all = D.log || [];
+    var counts = {};
+    all.forEach(function (r) {
+      var o = r.outcome || 'refused';
+      counts[o] = (counts[o] || 0) + 1;
+    });
+
+    var filter = '<div class="counts">' + OUTCOMES.map(function (o) {
+      var n = o[0] ? (counts[o[0]] || 0) : all.length;
+      return '<button type="button" data-logfilter="' + o[0] + '" aria-pressed="'
+        + String(LOGFILTER === o[0]) + '">' + o[1] + ' ' + n + '</button>';
+    }).join('') + '</div>';
+
+    var list = LOGFILTER
+      ? all.filter(function (r) { return (r.outcome || 'refused') === LOGFILTER; })
+      : all;
+
+    $('log').innerHTML = filter
+      + '<p class="muted">' + all.length + ' submitted form'
+      + (all.length === 1 ? '' : 's') + ' in the last 60 days, newest first.'
+      + (LOGFILTER ? ' Showing ' + list.length + ' ' + outcomeLabel(LOGFILTER).toLowerCase() + '.' : '')
+      + '</p>'
+      + (list.length
+        ? '<div class="card">' + list.map(logLine).join('') + '</div>'
+        : '<p class="muted">Nothing to show.</p>');
   }
 
   function selectTab(tab) {
@@ -751,11 +830,11 @@
     $('reg').className = 'pill ' + (D.settings.regEnabled ? 'on' : 'off');
     $('reg').hidden = false;
 
-    ['queue', 'people', 'links', 'refused'].forEach(function (t) { $(t).hidden = t !== TAB; });
+    ['queue', 'people', 'links', 'log'].forEach(function (t) { $(t).hidden = t !== TAB; });
     if (TAB === 'queue') renderQueue();
     if (TAB === 'people') renderPeople();
     if (TAB === 'links') renderLinks();
-    if (TAB === 'refused') renderRefused();
+    if (TAB === 'log') renderLog();
   }
 
   /* ----------------------------------------------------------------- csv */
@@ -1037,6 +1116,14 @@
       if (OPEN[row]) delete OPEN[row]; else OPEN[row] = true;
       render();
       window.scrollTo(0, scroll);
+      return;
+    }
+
+    /* An outcome count in the log, used as a filter. */
+    var lf = btn.getAttribute('data-logfilter');
+    if (lf !== null) {
+      LOGFILTER = lf;
+      renderLog();
       return;
     }
 

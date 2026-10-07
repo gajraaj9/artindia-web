@@ -863,7 +863,7 @@ test('the other two admin pages link to it, and it links back', () => {
 test('there is no Sales tab left behind on the team page', () => {
   const html = readFileSync(join(ROOT, 'diwali-admin/team.html'), 'utf8');
   const tabs = [...html.matchAll(/data-tab="([a-z]+)"/g)].map(m => m[1]);
-  assert.deepEqual([...new Set(tabs)].sort(), ['links', 'people', 'queue', 'refused']);
+  assert.deepEqual([...new Set(tabs)].sort(), ['links', 'log', 'people', 'queue']);
 });
 
 /* ------------------------------------------------ the figures the page shows */

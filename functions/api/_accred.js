@@ -34,7 +34,9 @@ export const rejectedEmailKey = a => `rejected:email:${String(a).toLowerCase()}`
 export const ipKey = (ip, day) => `ipcap:${day}:${ip}`;
 export const salesKey = id => `codesales:${id}`;
 export const resendKey = (id, step) => `resent:${id}:${step}`;
+export const logKey = (ts, n) => `sub:${ts}:${n}`;
 export const refusalKey = (ts, n) => `refused:${ts}:${n}`;
+export const flagCapKey = (ip, day) => `flagcap:${day}:${ip}`;
 
 /* A day of submits from one address. The cap exists to stop a script, not to
    stop a team lead entering twelve people in a row. */
@@ -46,11 +48,21 @@ export const SALES_CACHE_SECONDS = 600;
    somebody who meant it can try again almost at once. */
 export const RESEND_LOCK_SECONDS = 20;
 
-/* The refusals list. Long enough to cover a weekend of a link going round the
-   wrong group, short enough that it is never a second database of people who
-   did not get in. */
+/* The submission log. Sixty days covers the whole run-up to the festival, so
+   a question in October about a form filled in in August still has an answer.
+   The cap keeps the list readable; the TTL keeps it from becoming a record. */
+export const LOG_CAP = 600;
+export const LOG_TTL_SECONDS = 60 * 24 * 3600;
+
+/* Legacy: the refusal-only list this log grew out of. Entries written before
+   the change are still read, and still expire on their own. */
 export const REFUSAL_CAP = 200;
 export const REFUSAL_TTL_SECONDS = 14 * 24 * 3600;
+
+/* A hidden-field submission is stored now rather than dropped, which means a
+   script could fill the queue with them. Five a day from one address: a real
+   person tripping over autofill is one, not six. */
+export const FLAG_CAP_PER_DAY = 5;
 
 /* ----------------------------------------------------------------- random */
 
@@ -1754,52 +1766,84 @@ export async function revoke(env, kv, { id, approver, note = '' }) {
   return { ok: true, person };
 }
 
-/* -------------------------------------------------------------- refusals */
+/* ------------------------------------------------------- submission log */
+
+/* What each outcome means, and the whole set of them. One POST to the form
+   writes exactly one of these, always. */
+export const LOG_OUTCOMES = ['stored', 'flagged', 'repeat', 'refused'];
 
 /**
- * A form that was turned away, written down where an approver can see it.
+ * One line per submitted form, whatever became of it.
  *
- * The person is told nothing but the same neutral line. This is the other
- * half of that: somebody has to be able to see that eleven people hit a
- * closed link this morning, or that a name keeps bouncing off a rejection,
- * without reading a log stream.
+ * This exists because of what it replaced. The log used to be refusals only,
+ * and a submission that was silently discarded appeared nowhere at all: the
+ * person saw the thank-you screen and left no trace, and nobody could answer
+ * "I filled your form in last week" with anything. Now every POST writes a
+ * line, so that question always has an answer.
  *
- * Deliberately not a record of a person: a first name and a last initial, so
- * the list is useful for working out what is going wrong and useless as a
- * mailing list. It expires on its own after fourteen days.
+ * Enough to recognise a person and not enough to contact them: name, link,
+ * team, outcome. No date of birth, no email, no phone number. It expires on
+ * its own after sixty days.
  */
-export async function logRefusal(kv, { reason, team = '', label = '', firstName = '', lastName = '' }) {
+export async function logSubmission(kv, {
+  outcome, reason = '', team = '', label = '',
+  firstName = '', lastName = '', personId = '', matched = '', hidden = '',
+}) {
   if (!kv) return;
   const at = new Date().toISOString();
   try {
-    await kv.put(refusalKey(at, token(4)), JSON.stringify({
+    /* Eight characters, not four. Two forms submitted in the same
+       millisecond must not land on the same key: one of them would be
+       overwritten, which is the whole thing this log exists to prevent. */
+    await kv.put(logKey(at, token(8)), JSON.stringify({
       at,
+      outcome: LOG_OUTCOMES.includes(outcome) ? outcome : 'refused',
       reason,
       team,
       label,
-      firstName: String(firstName || '').trim().slice(0, 40),
-      lastInitial: String(lastName || '').trim().slice(0, 1).toUpperCase(),
-    }), { expirationTtl: REFUSAL_TTL_SECONDS });
+      firstName: String(firstName || '').trim().slice(0, 60),
+      lastName: String(lastName || '').trim().slice(0, 60),
+      personId,
+      matched,
+      hidden,
+    }), { expirationTtl: LOG_TTL_SECONDS });
   } catch (e) {
-    console.error('accred: refusal log failed', String(e).slice(0, 120));
+    console.error('accred: submission log failed', String(e).slice(0, 120));
   }
 }
 
+/* The visitor's own message never changes, whatever the reason. This is the
+   other half of that: somebody has to be able to see that eleven people hit a
+   closed link this morning without reading a log stream. */
+export const logRefusal = (kv, o) => logSubmission(kv, { ...o, outcome: 'refused' });
+
+/* An entry from the refusal-only list, read in the shape the log uses. Those
+   kept a last initial rather than a last name, so that is what shows. */
+const fromRefusal = r => ({
+  ...r,
+  outcome: 'refused',
+  lastName: r.lastName || (r.lastInitial ? `${r.lastInitial}.` : ''),
+  personId: '', matched: '', hidden: '',
+});
+
 /** Newest first, and trimmed to the cap on the way out. */
-export async function allRefusals(kv, cap = REFUSAL_CAP) {
-  const keys = await listAll(kv, 'refused:', cap * 4);
+export async function allSubmissions(kv, cap = LOG_CAP) {
   const out = [];
-  for (const k of keys.sort().reverse().slice(0, cap)) {
+  for (const k of (await listAll(kv, 'sub:', cap * 4)).sort().reverse().slice(0, cap)) {
     const raw = await kv.get(k);
     if (raw) out.push({ key: k, ...JSON.parse(raw) });
   }
-  return out;
+  for (const k of (await listAll(kv, 'refused:', REFUSAL_CAP * 4)).sort().reverse()) {
+    const raw = await kv.get(k);
+    if (raw) out.push({ key: k, ...fromRefusal(JSON.parse(raw)) });
+  }
+  return out.sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, cap);
 }
 
 /* Past the cap, the oldest go. The TTL would get them eventually; this keeps
    the list from being a thousand rows long in the meantime. */
-export async function trimRefusals(kv, cap = REFUSAL_CAP) {
-  const keys = (await listAll(kv, 'refused:', cap * 4)).sort();
+export async function trimSubmissions(kv, cap = LOG_CAP) {
+  const keys = (await listAll(kv, 'sub:', cap * 4)).sort();
   const over = keys.length - cap;
   for (let i = 0; i < over; i++) await kv.delete(keys[i]);
   return Math.max(0, over);
@@ -1901,7 +1945,8 @@ export async function flagsFor(kv, env, draft, team, link = null) {
  * Returns `{ ok: true, person }`, `{ ok: true, repeat: true }` when this is the
  * same person submitting twice, or `{ ok: false, message: <copy key> }`.
  *
- * Writes nothing at all on any refusal, so a leaked link costs KV nothing.
+ * No person is stored on a refusal, so a leaked link costs KV one log line.
+ * Every outcome writes that line: nothing a visitor submits disappears.
  */
 export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
   const lang = langOf(body.lang);
@@ -1911,16 +1956,26 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
      changes: one neutral line, whatever the reason. */
   let about = { team: '', label: '', firstName: body.firstName, lastName: body.lastName };
   const no = async (message, reason) => {
-    await logRefusal(kv, { ...about, reason: reason || message });
+    await logSubmission(kv, { ...about, outcome: 'refused', reason: reason || message });
     return { ok: false, message, why: reason || message };
   };
 
   if (!regEnabled(env)) return no('inactive', 'registration_off');
 
-  /* The honeypot. A filled one is a bot, and a bot is told everything went
-     fine: an error is feedback, and feedback is how the next attempt gets
-     past. */
-  if (String(body.hp || '').trim()) return { ok: true, quiet: true };
+  /* The trap field.
+   *
+   * It used to be enough to answer a filled one with success and store
+   * nothing: an error is feedback, and feedback is how the next attempt gets
+   * past. Then a password manager filled it in, because the field was
+   * labelled Company, and real team members vanished into it. They saw the
+   * thank-you screen and left no trace anywhere.
+   *
+   * So a filled field no longer decides anything. The person is stored like
+   * anybody else, flagged, with the first of what was typed in it, and the
+   * approver reads both. Nothing is sent to them until somebody has looked.
+   * Every pass on this festival is issued by hand, so a robot that gets this
+   * far has reached a queue, not a ticket. */
+  const hidden = String(body.hp || '').trim().slice(0, 40);
 
   const link = plus1
     ? { team: 'plus1', label: plus1.label || '', open: true, expected: 1, token: body.k }
@@ -1955,11 +2010,21 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
   for (const id of await idsFor(kv, phoneKey(phone))) {
     const p = await getPerson(kv, id);
     if (!p || p.linkToken !== String(body.k) || !sameName(p, draftName)) continue;
+    /* A pass that was taken back is not a second row waiting to be noticed.
+       Somebody whose accreditation was revoked and who fills the form in
+       again is asking to be considered again, so they are stored fresh and
+       the approver decides a second time. */
+    if (p.status === 'revoked') continue;
     /* On the child team the parent is the same person every time, by design:
        one mother entering three dancers types her own name three times. It is
        the child that makes it a different registration, so only a matching
        child makes it a repeat. */
     if (team.childTeam && !(p.child && body.child && sameName(p.child, body.child))) continue;
+    await logSubmission(kv, {
+      ...about, outcome: 'repeat', personId: p.id,
+      matched: `${p.firstName} ${p.lastName}`.trim(),
+      reason: p.status,
+    });
     return { ok: true, repeat: true, person: p };
   }
 
@@ -1975,6 +2040,15 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
     const used = Number(await kv.get(ipKey(ip, day))) || 0;
     if (used >= IP_CAP_PER_DAY) return no('inactive', 'ip_cap');
     await kv.put(ipKey(ip, day), String(used + 1), { expirationTtl: 2 * 24 * 3600 });
+
+    /* Flagged ones have their own, much lower ceiling. Past it the submission
+       is refused rather than stored, and the refusal is logged like any
+       other, so a script cannot fill the queue by tripping the trap. */
+    if (hidden) {
+      const flagged = Number(await kv.get(flagCapKey(ip, day))) || 0;
+      if (flagged >= FLAG_CAP_PER_DAY) return no('inactive', 'flag_cap');
+      await kv.put(flagCapKey(ip, day), String(flagged + 1), { expirationTtl: 2 * 24 * 3600 });
+    }
   }
 
   const person = {
@@ -2002,6 +2076,7 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
     decidedAt: null,
     note: '',
     flags: [],
+    hiddenField: hidden || null,
     tt: null,
     promo: null,
     plus1Token: null,
@@ -2011,6 +2086,7 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
   };
 
   person.flags = await flagsFor(kv, env, person, team, link);
+  if (hidden) person.flags.unshift('hidden_field_filled');
 
   await putPerson(kv, person);
   await addIdTo(kv, phoneKey(phone), person.id);
@@ -2023,15 +2099,25 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
       JSON.stringify({ artistId: plus1.artistId, used: true, personId: person.id }));
   }
 
-  /* Both of these reach a real person, so on a dry run they only reach Ravi. */
-  if (!dryRun(env) || isTestAddress(env, email)) {
+  await logSubmission(kv, {
+    ...about, outcome: hidden ? 'flagged' : 'stored', personId: person.id,
+    hidden, reason: hidden ? 'hidden_field_filled' : '',
+  });
+
+  /* Both of these reach a real person, so on a dry run they only reach Ravi.
+     A flagged one reaches nobody and goes into no mailing list until an
+     approver has read it: if it is a robot, it was never a contact, and if it
+     is a team member, approval sends them everything a moment later. */
+  if (hidden) {
+    console.log('accred: held mail and brevo for flagged', person.id);
+  } else if (!dryRun(env) || isTestAddress(env, email)) {
     await sendMail(env, receivedMail(person, team));
     await pushToBrevo(env, person, team);
   } else {
     console.log('accred dry-run: skipped received mail and brevo for', person.id);
   }
 
-  return { ok: true, person };
+  return { ok: true, person, flagged: Boolean(hidden) };
 }
 
 /* ------------------------------------------------------------------- diya */

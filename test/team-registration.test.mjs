@@ -22,13 +22,14 @@ import {
   plus1Key, promoKey, phoneKey, rejectedPhoneKey, teamCfgKey, expectedFor,
   allowedOrigin, brevoAttributesFor, approvedMail, receivedMail, IP_CAP_PER_DAY,
   restore, htmlMail, ticketFacts, rejectedEmailKey, qrFileName, fetchQrAttachment,
-  SKIPPED, isDryId, ttMessage, scrubSecret, logRefusal, allRefusals, trimRefusals,
+  SKIPPED, isDryId, ttMessage, scrubSecret, logSubmission, allSubmissions,
+  trimSubmissions, LOG_CAP, LOG_OUTCOMES, FLAG_CAP_PER_DAY, flagCapKey, logRefusal,
   recentlySent, markSent, resendKey, RESEND_LOCK_SECONDS,
   putPerson, finishIfDone, stepsOutstanding, STEPS, getPerson,
   oneOf, describeBody, findIssuedTicket, issueTicket, createDiscount,
   codeMessages, letterMail, practicalMail, letterOf, shareLink, asText,
   digits, isTeamCode, cleanCode, changeCode, ordersOn, codeHistoryOf,
-  clearDryResults, blockedAsRejected, REFUSAL_CAP,
+  clearDryResults, blockedAsRejected, REFUSAL_CAP, refusalKey,
 } from '../functions/api/_accred.js';
 import { onRequestGet as adminGet, onRequestPost as adminPost } from '../functions/api/team-admin.js';
 import { onRequestGet as formGet } from '../functions/api/team-form.js';
@@ -394,15 +395,83 @@ test('validation refuses a bad email, a bad number, no consent, and a short role
   assert.equal(validate(FORM({ firstName: ' ' }), artist), 'name');
 });
 
-test('a filled honeypot looks like success and stores nothing', async () => {
+/* This used to drop the person on the floor. A password manager fills in any
+   field it reads as a company, and real team members disappeared into it
+   without a row, a line or an email. Now it is a flag on a stored person. */
+test('a filled hidden field stores a flagged pending person and sends nothing', async () => {
   const { kv } = await withLink('artist');
   const w = world();
   try {
-    const r = await register(ENV(), kv, FORM({ hp: 'Acme Ltd' }), { ip: '1.2.3.4' });
+    const r = await register(ENV({ ACCRED: kv }), kv, FORM({ hp: 'Acme Ltd' }), { ip: '1.2.3.4' });
     assert.ok(r.ok);
-    assert.ok(r.quiet);
-    assert.equal((await people(kv)).length, 0);
-    assert.equal(w.calls.length, 0, 'a bot cost us no API calls');
+    assert.ok(r.flagged, 'the caller is told it was flagged');
+
+    const all = await people(kv);
+    assert.equal(all.length, 1, 'the person is stored, not dropped');
+    assert.equal(all[0].status, 'pending');
+    assert.ok(all[0].flags.includes('hidden_field_filled'));
+    assert.equal(all[0].hiddenField, 'Acme Ltd', 'the approver sees what was typed');
+    const sent = w.calls.filter(c => c.method !== 'GET');
+    assert.deepEqual(sent, [], 'no received mail and no Brevo until somebody looks');
+
+    const line = (await allSubmissions(kv))[0];
+    assert.equal(line.outcome, 'flagged');
+    assert.equal(line.hidden, 'Acme Ltd');
+  } finally { w.restore(); }
+});
+
+test('what was typed into the hidden field is kept to forty characters', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    await register(ENV({ ACCRED: kv }), kv, FORM({ hp: 'x'.repeat(200) }), {});
+    assert.equal((await people(kv))[0].hiddenField.length, 40);
+  } finally { w.restore(); }
+});
+
+test('approving a flagged person sends everything', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM({ hp: 'Acme Ltd' }), {});
+    assert.deepEqual(w.calls.filter(c => c.method !== 'GET'), [], 'nothing went out yet');
+
+    const done = await approve(env, kv, { id: r.person.id, approver: 'ravi' });
+    assert.ok(done.ok);
+    assert.equal(done.person.status, 'approved');
+    for (const step of STEPS) {
+      assert.ok(done.person.steps[step], `${step} ran on approval`);
+    }
+  } finally { w.restore(); }
+});
+
+/* Five a day from one address. A person tripping over autofill is one; a
+   script is not, and past the ceiling it is a logged refusal, not a row. */
+test('flagged submissions are capped per address and the rest are refused', async () => {
+  const { kv } = await withLink('artist', { expected: 60 });
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    for (let i = 0; i < FLAG_CAP_PER_DAY; i++) {
+      const r = await register(env, kv, FORM({
+        hp: 'Acme', firstName: `Bot${i}`, phone: `047491990${i}`,
+      }), { ip: '9.9.9.9' });
+      assert.ok(r.flagged, `number ${i + 1} was stored`);
+    }
+    const over = await register(env, kv, FORM({
+      hp: 'Acme', firstName: 'BotX', phone: '0474919911',
+    }), { ip: '9.9.9.9' });
+    assert.equal(over.ok, false);
+    assert.equal(over.why, 'flag_cap');
+    assert.equal((await people(kv)).length, FLAG_CAP_PER_DAY);
+
+    /* The same address, no hidden field: still welcome. */
+    const clean = await register(env, kv, FORM({
+      firstName: 'Shreya', phone: '0474919922',
+    }), { ip: '9.9.9.9' });
+    assert.ok(clean.ok);
+    assert.ok(!clean.flagged);
   } finally { w.restore(); }
 });
 
@@ -2021,9 +2090,9 @@ test('clearing dry results leaves a real record alone', async () => {
   assert.equal(await kv.get(promoKey('B-2')), null);
 });
 
-/* -------------------------------------------------- 7. the refusals list */
+/* ------------------------------------------------ 7. the submission log */
 
-test('every refusal is written down, with a name nobody could mail', async () => {
+test('every refusal is written down, with no way to contact anybody', async () => {
   const { kv } = await withLink('collab', { expected: 1, label: 'Antwerp group' });
   const w = world();
   try {
@@ -2033,15 +2102,15 @@ test('every refusal is written down, with a name nobody could mail', async () =>
     await register(env, kv, FORM({ k: 'NOPE' }), {});
     await register(ENV({ ACCRED: kv, TEAM_CLOSE_AT: '2020-01-01T00:00:00Z' }), kv, FORM(), {});
 
-    const list = await allRefusals(kv);
+    const list = await allSubmissions(kv);
     assert.equal(list.length, 4);
+    assert.ok(list.every(r => r.outcome === 'refused'));
     assert.deepEqual(list.map(r => r.reason).sort(),
       ['closed', 'consent', 'email', 'unknown_link']);
 
     const one = list.find(r => r.reason === 'consent');
     assert.equal(one.firstName, 'Shreya');
-    assert.equal(one.lastInitial, 'M', 'an initial, not a surname');
-    assert.ok(!('lastName' in one), 'no surname is kept');
+    assert.equal(one.lastName, 'Menon');
     assert.ok(!JSON.stringify(list).includes('shreya@example.com'), 'no address is kept');
     assert.ok(!JSON.stringify(list).includes('32474919900'), 'no phone is kept');
     assert.equal(one.team, 'collab');
@@ -2050,25 +2119,136 @@ test('every refusal is written down, with a name nobody could mail', async () =>
   } finally { w.restore(); }
 });
 
-test('a honeypot is a bot and is not worth a line', async () => {
-  const { kv } = await withLink('artist');
+/* The point of the log. Somebody asking "I filled your form in last week"
+   gets an answer whatever happened to it, which is the one thing the old
+   refusals-only list could not do. */
+test('every outcome writes exactly one line', async () => {
+  const { kv } = await withLink('artist', { label: 'Group A' });
   const w = world();
   try {
-    await register(ENV({ ACCRED: kv }), kv, FORM({ hp: 'Acme' }), {});
-    assert.equal((await allRefusals(kv)).length, 0);
+    const env = ENV({ ACCRED: kv });
+
+    await register(env, kv, FORM(), {});                       /* stored */
+    await register(env, kv, FORM(), {});                       /* repeat */
+    await register(env, kv, FORM({ hp: 'Acme' , firstName: 'Priya',
+      phone: '0474919901' }), {});                             /* flagged */
+    await register(env, kv, FORM({ consent: false }), {});      /* refused */
+
+    const list = await allSubmissions(kv);
+    assert.equal(list.length, 4, 'one line per POST, whatever the outcome');
+    assert.deepEqual(list.map(r => r.outcome).sort(),
+      ['flagged', 'refused', 'repeat', 'stored']);
+    assert.ok(list.every(r => LOG_OUTCOMES.includes(r.outcome)));
+    assert.ok(list.every(r => r.team === 'artist' && r.label === 'Group A'));
+
+    const again = list.find(r => r.outcome === 'repeat');
+    assert.equal(again.matched, 'Shreya Menon', 'a repeat names the person it matched');
+    assert.ok(again.personId);
   } finally { w.restore(); }
 });
 
-test('the refusals list is capped and newest first', async () => {
+test('the log never holds a date of birth', async () => {
+  const { kv } = await withLink('child');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const child = { firstName: 'Aarav', lastName: 'Menon', dob: '2016-04-02' };
+    await register(env, kv, FORM({ child }), {});
+    await register(env, kv, FORM({ child, hp: 'Acme', phone: '0474919903' }), {});
+    await register(env, kv, FORM({ child, consent: false, phone: '0474919904' }), {});
+
+    const raw = JSON.stringify(await allSubmissions(kv));
+    assert.ok(!raw.includes('2016-04-02'), 'no date of birth');
+    assert.ok(!raw.includes('2016'), 'nothing that looks like one either');
+    assert.ok(!raw.includes('shreya@example.com'));
+    assert.ok(!raw.includes('32474919'));
+  } finally { w.restore(); }
+});
+
+/* A revoked pass is not a second row waiting to be noticed. Somebody whose
+   accreditation was taken back and who fills the form in again is asking to
+   be considered again, and the approver decides a second time. */
+test('a repeat of a revoked person is stored as a new registration', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const first = await register(env, kv, FORM(), {});
+    await approve(env, kv, { id: first.person.id, approver: 'ravi' });
+    await revoke(env, kv, { id: first.person.id, approver: 'ravi', note: 'not coming' });
+
+    const again = await register(env, kv, FORM(), {});
+    assert.ok(again.ok);
+    assert.ok(!again.repeat, 'not treated as a repeat');
+    assert.equal(again.person.status, 'pending');
+    assert.notEqual(again.person.id, first.person.id, 'a new record, not the old one');
+    assert.equal((await people(kv)).length, 2);
+
+    const line = (await allSubmissions(kv))[0];
+    assert.equal(line.outcome, 'stored');
+  } finally { w.restore(); }
+});
+
+test('a repeat of a pending person is still a repeat, and says who', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const first = await register(env, kv, FORM(), {});
+    const again = await register(env, kv, FORM(), {});
+    assert.ok(again.repeat);
+    assert.equal(again.person.id, first.person.id);
+    assert.equal((await people(kv)).length, 1);
+
+    const lines = await allSubmissions(kv);
+    assert.equal(lines.length, 2, 'both the first form and the repeat');
+    const line = lines.find(x => x.outcome === 'repeat');
+    assert.ok(line, 'the repeat is logged');
+    assert.equal(line.matched, 'Shreya Menon');
+    assert.equal(line.personId, first.person.id);
+  } finally { w.restore(); }
+});
+
+/* Two forms in the same millisecond are two lines. They used to share a key
+   often enough to matter, and one of them was overwritten, which is the one
+   thing this log exists to prevent. */
+test('nothing in the log overwrites anything else', async () => {
   const kv = memoryKv();
-  for (let i = 0; i < REFUSAL_CAP + 12; i++) {
-    await logRefusal(kv, { reason: 'cap', firstName: `P${i}`, lastName: 'X' });
+  for (let i = 0; i < 300; i++) {
+    await logSubmission(kv, { outcome: 'stored', firstName: `P${i}`, lastName: 'X' });
   }
-  const trimmed = await trimRefusals(kv);
+  const list = await allSubmissions(kv);
+  assert.equal(list.length, 300, 'every line is still there');
+  assert.equal(new Set(list.map(r => r.firstName)).size, 300);
+});
+
+test('the log is capped and newest first', async () => {
+  const kv = memoryKv();
+  for (let i = 0; i < LOG_CAP + 12; i++) {
+    await logSubmission(kv, { outcome: 'stored', firstName: `P${i}`, lastName: 'X' });
+  }
+  const trimmed = await trimSubmissions(kv);
   assert.equal(trimmed, 12, 'the oldest twelve went');
-  const list = await allRefusals(kv);
-  assert.equal(list.length, REFUSAL_CAP);
+  const list = await allSubmissions(kv);
+  assert.equal(list.length, LOG_CAP);
   assert.ok(list[0].at >= list[list.length - 1].at, 'newest first');
+});
+
+/* The old list expires on its own; until it does, it still shows. */
+test('entries from the refusals-only list still read', async () => {
+  const kv = memoryKv();
+  await kv.put(refusalKey('2026-10-01T09:00:00.000Z', 'aaaa'), JSON.stringify({
+    at: '2026-10-01T09:00:00.000Z', reason: 'cap', team: 'artist', label: 'Group A',
+    firstName: 'Shreya', lastInitial: 'M',
+  }));
+  await logSubmission(kv, { outcome: 'stored', firstName: 'Priya', lastName: 'Nair' });
+
+  const list = await allSubmissions(kv);
+  assert.equal(list.length, 2);
+  assert.equal(list[0].outcome, 'stored', 'newest first, across both');
+  const old = list.find(r => r.firstName === 'Shreya');
+  assert.equal(old.outcome, 'refused');
+  assert.equal(old.lastName, 'M.', 'an initial is all those kept');
 });
 
 /* ------------------------------------------------------- 8. add a person */
@@ -2860,6 +3040,40 @@ test('the admin route changes a code and records who did it', async () => {
   } finally { w.restore(); }
 });
 
+/* The field that used to eat people. A password manager fills in anything it
+   reads as a contact or address field, so this one must look like none of
+   them, to a browser or to a person. */
+test('the hidden trap field gives autofill nothing to recognise', () => {
+  const tpl = readFileSync(join(ROOT, 'templates/team-form.html'), 'utf8');
+  const field = tpl.slice(tpl.indexOf('<p class="tf-hp"'), tpl.indexOf('</p>', tpl.indexOf('<p class="tf-hp"')));
+
+  assert.ok(!/<label/.test(field), 'no label at all');
+  assert.ok(/aria-hidden="true"/.test(field), 'hidden from assistive technology');
+  assert.ok(/tabindex="-1"/.test(field), 'out of the tab order');
+  assert.ok(/autocomplete="new-password"/.test(field), 'autocomplete="off" was not enough');
+  assert.match(field, /name="tf_x7"/);
+
+  /* What a browser matches on: the name, the id, and any text next to it.
+     None of them may read as a contact or an address. */
+  const named = (field.match(/(?:name|id|placeholder)="([^"]*)"/g) || [])
+    .map(a => a.split('="')[1].replace('"', ''));
+  const text = field.replace(/<[^>]*>/g, '').trim();
+  assert.equal(text, '', 'no words beside it either');
+  for (const word of ['company', 'website', 'email', 'phone', 'address', 'name',
+    'organization', 'organisation', 'url', 'tel', 'city', 'street']) {
+    for (const v of named.concat([text])) {
+      assert.ok(!v.toLowerCase().includes(word),
+        `"${v}" must not read as ${word}`);
+    }
+  }
+
+  for (const rel of FORMS) {
+    const html = page(rel);
+    assert.ok(html.includes('name="tf_x7"'), `${rel} carries the field`);
+    assert.ok(!/class="tf-hp"[^>]*>\s*<label/.test(html), `${rel} has no label on it`);
+  }
+});
+
 test('the admin page offers Change code only where there is one to change', () => {
   const html = readFileSync(join(ROOT, 'diwali-admin/team.html'), 'utf8');
   assert.match(html, /p\.status === 'approved' && p\.promo && p\.promo\.code && !isDry\(p\.promo\.discountId\)/,
@@ -2870,6 +3084,49 @@ test('the admin page offers Change code only where there is one to change', () =
   assert.match(html, /could not be deleted and is still live/,
     'a stale code has to be loud');
   assert.match(html, /previousCodes/, 'the export keeps the old codes');
+});
+
+test('the Log tab shows every outcome, filterable, with what was typed', () => {
+  const html = readFileSync(join(ROOT, 'diwali-admin/team.html'), 'utf8');
+
+  assert.ok(html.includes('data-tab="log" aria-selected="false">Log<'),
+    'the tab is called Log, not Refused');
+  assert.ok(!/>Refused<\/button>/.test(html), 'the old tab name is gone');
+  assert.ok(html.includes('D.log'), 'it reads the submission log');
+  assert.match(html, /\['stored', 'Stored'\]/);
+  assert.match(html, /\['flagged', 'Flagged'\]/);
+  assert.match(html, /\['repeat', 'Repeat'\]/);
+  assert.match(html, /\['refused', 'Refused'\]/);
+  assert.match(html, /data-logfilter=/, 'each outcome is a filter');
+  assert.match(html, /LOGFILTER = lf/, 'and pressing one filters the list');
+  assert.match(html, /in the last 60 days, newest first/);
+  assert.match(html, /typed in it/, 'a flagged line shows what went in the field');
+  assert.match(html, /same as/, 'a repeat names the person it matched');
+
+  assert.match(html, /hidden field was filled in/, 'the card says so in words');
+  assert.match(html, /Nothing has been emailed to them/,
+    'and that nothing has gone out yet');
+  assert.match(html, /hidden field filled in, nothing sent yet/,
+    'a flagged pending person gets the attention dot');
+});
+
+test('the admin read answers with the log, not a refusals list', async () => {
+  const { kv, t } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    await register(env, kv, FORM({ hp: 'Acme' }), {});
+    await register(env, kv, FORM({ consent: false, phone: '0474919908' }), {});
+
+    const r = await adminGet({ request: req('GET', null, { 'x-admin-token': ADMIN.ravi }), env });
+    const d = await r.json();
+    assert.ok(Array.isArray(d.log), 'the payload carries the log');
+    assert.ok(!('refused' in d), 'and not the old key');
+    assert.deepEqual(d.log.map(x => x.outcome).sort(), ['flagged', 'refused']);
+    assert.ok(d.log.every(x => x.team === 'artist'));
+    assert.ok(!JSON.stringify(d.log).includes('shreya@example.com'));
+    assert.ok(t);
+  } finally { w.restore(); }
 });
 
 /* ------------------------------------------------- 1. the personal link page */
