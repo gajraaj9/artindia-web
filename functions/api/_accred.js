@@ -436,7 +436,49 @@ export async function getPerson(kv, id) {
   return raw ? JSON.parse(raw) : null;
 }
 
-export const putPerson = (kv, p) => kv.put(personKey(p.id), JSON.stringify(p));
+/* How long to wait between attempts at the same key. KV allows about one
+   write per second per key, so the first wait clears the usual case. */
+const WRITE_WAITS = [1100, 2200, 4000];
+const nap = ms => new Promise(r => setTimeout(r, ms));
+
+/**
+ * Write a person, and know that it landed.
+ *
+ * Every write raises `rev`, so a page that is holding an older copy can tell
+ * which of two versions is the later one rather than guessing from the order
+ * the answers arrived in.
+ *
+ * KV allows roughly one write per second per key. Two writes in the same
+ * millisecond is how four people were approved at 09:04 and two of them
+ * stayed at "approving" with every step done: the second write was refused
+ * and nobody noticed, because nothing was looking. This throws when the write
+ * does not land, so a caller can say so instead of reporting success.
+ */
+export async function putPerson(kv, p) {
+  p.rev = (Number(p.rev) || 0) + 1;
+  p.savedAt = new Date().toISOString();
+  const body = JSON.stringify(p);
+
+  let last = null;
+  for (let attempt = 0; attempt <= WRITE_WAITS.length; attempt++) {
+    try {
+      await kv.put(personKey(p.id), body);
+      if (attempt) console.warn('accred: person write landed on attempt', attempt + 1, p.id);
+      return p;
+    } catch (e) {
+      last = e;
+      console.error('accred: person write failed', p.id, 'attempt', attempt + 1,
+        String(e.message || e).slice(0, 160));
+      if (attempt < WRITE_WAITS.length) await nap(WRITE_WAITS[attempt]);
+    }
+  }
+  /* Put the revision back, so a caller that carries on with this object in
+     memory does not think it is newer than what is actually stored. */
+  p.rev = Math.max(0, (Number(p.rev) || 1) - 1);
+  const err = new Error(`could not save ${p.id}: ${String(last && (last.message || last)).slice(0, 160)}`);
+  err.code = 'write_failed';
+  throw err;
+}
 
 /** Ids already seen for a phone or an email, for the duplicate flags. */
 export async function idsFor(kv, key) {
@@ -1119,6 +1161,59 @@ export function blockerText(code, team = null) {
 }
 
 /**
+ * Which steps still have something to do for this person.
+ *
+ * A step counts as finished when it says done, or when a dry run said it was
+ * skipped, or when the team was never going to have one: the technical crew
+ * has no discount code, so an empty discount step is not an unfinished one.
+ */
+export function stepsOutstanding(person, team) {
+  const steps = person.steps || {};
+  const out = [];
+  for (const name of STEPS) {
+    if (name === 'discount' && !(team && team.promoCode)) continue;
+    const v = steps[name];
+    if (typeof v === 'string' && (v === SKIPPED || v.indexOf('done') === 0)) continue;
+    out.push(name);
+  }
+  return out;
+}
+
+/**
+ * Finish a record that is already finished.
+ *
+ * Four people were approved at 09:04 and two of them stayed at "approving"
+ * with every step done, because the last write was refused and nothing was
+ * looking. The work had happened; only the word for it was missing. This puts
+ * the word there and runs nothing again.
+ *
+ * Returns the healed person, or null when there was nothing to heal.
+ */
+export async function finishIfDone(env, kv, person, approver = '') {
+  if (!person || person.status !== 'approving') return null;
+  const team = teamOf(person.team);
+  if (!team) return null;
+  if (stepsOutstanding(person, team).length) return null;
+  if (!(person.tt && person.tt.issuedTicketId)) return null;
+
+  person.status = 'approved';
+  person.lockedAt = null;
+  /* The approver who started it, if the record remembers one. Otherwise
+     whoever is here now, because somebody has to be answerable for it. */
+  person.decidedBy = person.decidedBy || approver || 'unknown';
+  person.decidedAt = person.decidedAt || nowIso();
+  person.healedAt = nowIso();
+  try {
+    await putPerson(kv, person);
+  } catch (e) {
+    console.error('accred: could not finish', person.id, String(e.message || e).slice(0, 160));
+    return null;
+  }
+  console.log('accred: finished a record that was already done', person.id);
+  return person;
+}
+
+/**
  * Issue the pass, then everything that hangs off it.
  *
  * The order is the brief's order and it matters: rule 3 says a person is never
@@ -1129,7 +1224,27 @@ export function blockerText(code, team = null) {
  *
  * `only` retries a subset of steps on an already-approved record.
  */
-export async function approve(env, kv, { id, approver, only = null, log = null, force = false }) {
+export async function approve(env, kv, opts) {
+  try {
+    return await runApproval(env, kv, opts);
+  } catch (e) {
+    if (e && e.code === 'write_failed') {
+      /* Whatever was done has been done; the record does not say so. Calling
+         this a success is how somebody comes to believe a pass went out when
+         the only honest answer is "try again". */
+      console.error('accred: approval could not be saved', String(e.message || e).slice(0, 200));
+      const person = await getPerson(kv, opts && opts.id).catch(() => null);
+      return {
+        ok: false, error: 'write_failed', person,
+        detail: 'The work was done but the record could not be saved. '
+          + 'Press Approve again: nothing will be sent twice.',
+      };
+    }
+    throw e;
+  }
+}
+
+async function runApproval(env, kv, { id, approver, only = null, log = null, force = false }) {
   const person = await getPerson(kv, id);
   if (!person) return { ok: false, error: 'unknown_person' };
 
@@ -1141,10 +1256,20 @@ export async function approve(env, kv, { id, approver, only = null, log = null, 
        is told what it already says. A lock left behind by a request that died
        between the stamp and the ticket is reclaimed after two minutes. */
     if (person.status === 'approving') {
+      /* Everything already done, and only the last write missing: finish it
+         rather than running anything again. */
+      const healed = await finishIfDone(env, kv, person, approver);
+      if (healed) return { ok: true, person: healed, healed: true };
+
+      /* A lock older than two minutes belongs to a request that died. It is
+         reclaimed whether or not a ticket exists: the per-step guard below is
+         what stops anything being done twice, and refusing to reclaim a
+         locked record that has a ticket left it stuck for ever. */
       const age = Date.now() - Date.parse(person.lockedAt || 0);
-      if (!(age > LOCK_STALE_MS && !(person.tt && person.tt.issuedTicketId))) {
+      if (!(age > LOCK_STALE_MS)) {
         return { ok: true, person, skipped: 'in_progress' };
       }
+      console.warn('accred: reclaiming a stale lock on', person.id, 'after', Math.round(age / 1000), 's');
     } else if (person.status !== 'pending') {
       return { ok: true, person, skipped: `status_${person.status}` };
     }
@@ -1272,7 +1397,8 @@ export async function approve(env, kv, { id, approver, only = null, log = null, 
   if (team.plusOne && !person.plus1Token && !person.plusOneOf) {
     person.plus1Token = token(20);
     await kv.put(plus1Key(person.plus1Token), JSON.stringify({ artistId: person.id, used: false }));
-    await putPerson(kv, person);
+    /* No write of its own: the next step writes, and two writes to one key
+       in the same millisecond is how a record ends up stuck. */
   }
 
   /* 6A. The photo wall. A token now so the other brief has something to find;
@@ -1280,7 +1406,7 @@ export async function approve(env, kv, { id, approver, only = null, log = null, 
          is not ours to ask for. */
   if (team.wall && person.team !== 'child' && !person.wallToken) {
     person.wallToken = token(24);
-    await putPerson(kv, person);
+    /* Carried by the next write, for the same reason. */
   }
 
   /* 5. Brevo. The accreditation list and nothing else. */
@@ -1320,10 +1446,12 @@ export async function approve(env, kv, { id, approver, only = null, log = null, 
       : failed(r.reason));
     if (r.messageId) person.waMessageId = r.messageId;
     if (r.template) person.waTemplate = r.template;
-    await putPerson(kv, person);
+    /* Not written here. The next line is the only thing left to do, and a
+       write immediately followed by another write to the same key is the
+       whole of the bug this fold exists for. */
   }
 
-  /* 8. Approved, and by whom. */
+  /* 8. Approved, and by whom. One write, carrying everything above it. */
   person.status = 'approved';
   person.lockedAt = null;
   if (approver) { person.decidedBy = approver; person.decidedAt = nowIso(); }

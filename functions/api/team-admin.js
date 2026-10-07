@@ -19,6 +19,7 @@ import {
   approvalBlocker, getPerson, putPerson, addIdTo, phoneKey, emailKey, newPersonId,
   ageOnFestival, validDob, langOf, STEPS, hardCap, allRefusals, trimRefusals,
   SKIPPED, isDryId, changeCode, recentlySent, markSent, RESEND_LOCK_SECONDS,
+  finishIfDone, stepsOutstanding,
 } from './_accred.js';
 
 /* The caller, or null. 503 when the secret is unset: an admin route with no
@@ -45,8 +46,19 @@ export async function onRequestGet({ request, env }) {
   if (g.res) return g.res;
 
   const kv = env.ACCRED;
-  const people = await allPeople(kv);
+  let people = await allPeople(kv);
   const links = await allLinks(kv);
+
+  /* A record whose work is done and whose last write was refused finishes
+     here, on the way past. Nothing is sent again: the steps are already
+     done, and this only writes the word for it. */
+  let healed = 0;
+  for (let i = 0; i < people.length; i++) {
+    if (people[i].status !== 'approving') continue;
+    const done = await finishIfDone(env, kv, people[i], g.approver);
+    if (done) { people[i] = done; healed += 1; }
+  }
+  if (healed) console.log('accred: finished', healed, 'record(s) on an admin read');
   await trimRefusals(kv);
   const refused = await allRefusals(kv);
 
@@ -81,6 +93,7 @@ export async function onRequestGet({ request, env }) {
   return json(200, {
     ok: true,
     approver: g.approver,
+    healed,
     settings: {
       regEnabled: regEnabled(env),
       dryRun: dryRun(env),

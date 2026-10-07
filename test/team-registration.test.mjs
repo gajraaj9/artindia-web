@@ -24,6 +24,7 @@ import {
   restore, htmlMail, ticketFacts, rejectedEmailKey, qrFileName, fetchQrAttachment,
   SKIPPED, isDryId, ttMessage, scrubSecret, logRefusal, allRefusals, trimRefusals,
   recentlySent, markSent, resendKey, RESEND_LOCK_SECONDS,
+  putPerson, finishIfDone, stepsOutstanding, STEPS, getPerson,
   oneOf, describeBody, findIssuedTicket, issueTicket, createDiscount,
   codeMessages, letterMail, practicalMail, letterOf, shareLink, asText,
   digits, isTeamCode, cleanCode, changeCode, ordersOn, codeHistoryOf,
@@ -3367,8 +3368,11 @@ test('the result stays in the card, under the buttons, where it was asked for', 
   const html = adminPage();
   assert.match(html, /function resultLine\(id\)/);
   assert.match(html, /RESULTS\[body\.id\] = r;/, 'the result is kept per person');
-  /* Both card kinds carry it, after the buttons rather than before. */
-  assert.equal((html.match(/'<\/div>' \+ resultLine\(p\.id\) \+ '<\/div>'/g) || []).length, 2);
+  /* Both card kinds carry it, and after the buttons rather than before. */
+  assert.equal((html.match(/resultLine\(p\.id\)/g) || []).length, 2);
+  for (const before of ["queueActions(p, t) + resultLine(p.id)", "'</div>' + resultLine(p.id)"]) {
+    assert.ok(html.includes(before), 'the result must come after the buttons: ' + before);
+  }
 
   /* In the server's words when it failed, and in ours when it worked. */
   assert.match(html, /Email sent to ' \+ \(p\.email \|\| 'them'\) \+ ' at ' \+ at/);
@@ -3415,4 +3419,352 @@ test('a quick repeat asks before it sends again', () => {
      harmless and the server answers that one itself. */
   const resend = html.slice(html.indexOf("if (a === 'resend')"));
   assert.ok(resend.indexOf('window.confirm') < resend.indexOf("act({ action: 'resend'"));
+});
+
+/* ------------------------------------------- one write, and knowing it landed */
+
+/* Four people were approved at 09:04 and two of them stayed at "approving"
+   with every step done. KV allows about one write per second per key; the
+   WhatsApp step wrote, and the status write went out in the same millisecond
+   and was refused. Nothing was looking, so nobody knew. */
+
+/* One running order for everything that leaves the Worker, so "was there a
+   call between these two writes" is a question with an answer. */
+const TRACE = [];
+
+/** A KV that records every write, and can refuse ones that come too fast. */
+function countingKv(seed = {}, { minGapMs = 0 } = {}) {
+  const store = new Map(Object.entries(seed));
+  const lastWrite = new Map();
+  return {
+    store,
+    async get(k, t) {
+      const v = store.get(k);
+      return v === undefined ? null : (t === 'json' ? JSON.parse(v) : v);
+    },
+    async put(k, v) {
+      if (k.startsWith('person:')) {
+        TRACE.push('write:' + k);
+        const prev = lastWrite.get(k);
+        if (minGapMs && prev !== undefined && Date.now() - prev < minGapMs) {
+          throw new Error('KV PUT rate limited for this key');
+        }
+        lastWrite.set(k, Date.now());
+      }
+      store.set(k, v);
+    },
+    async delete(k) { store.delete(k); },
+    async list({ prefix = '' } = {}) {
+      return {
+        keys: [...store.keys()].filter(k => k.startsWith(prefix)).map(name => ({ name })),
+        list_complete: true,
+      };
+    },
+  };
+}
+
+/** The same world, with every outbound call written into the trace. */
+function tracingWorld(opts) {
+  const w = world(opts);
+  const inner = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    TRACE.push('call:' + String(input).split('?')[0]);
+    return inner(input, init);
+  };
+  const restore = w.restore;
+  return { ...w, restore() { restore(); } };
+}
+
+test('an approval never writes the same person twice without a call between', async () => {
+  const { kv, t } = await withLink('artist');
+  const counting = countingKv();
+  /* Carry over the link the fixture made. */
+  for (const [k, v] of kv.store) counting.store.set(k, v);
+
+  const w = tracingWorld();
+  try {
+    const env = ENV({ ACCRED: counting });
+    const r = await register(env, counting, FORM(), {});
+    TRACE.length = 0;
+
+    const done = await approve(env, counting, { id: r.person.id, approver: 'ravi' });
+    assert.ok(done.ok);
+    assert.equal(done.person.status, 'approved');
+
+    /* The thing that matters is not how many writes there are, it is whether
+       any two of them are next to each other with nothing in between. */
+    const key = 'write:' + personKey(r.person.id);
+    for (let i = 1; i < TRACE.length; i++) {
+      if (TRACE[i] !== key) continue;
+      assert.notEqual(TRACE[i - 1], key,
+        'two writes to the same person key with nothing between them:\n  '
+        + TRACE.slice(Math.max(0, i - 2), i + 1).join('\n  '));
+    }
+    assert.ok(TRACE.filter(x => x === key).length >= 3, 'the trace saw the writes');
+
+    assert.equal(done.person.steps.whatsapp.indexOf('done'), 0);
+    assert.ok(done.person.plus1Token, 'the token still got saved, on the next write');
+    assert.ok(done.person.wallToken);
+    const stored = await counting.get(personKey(r.person.id), 'json');
+    assert.ok(stored.plus1Token, 'and it really is in the stored copy');
+    assert.ok(stored.wallToken);
+  } finally { w.restore(); TRACE.length = 0; }
+});
+
+test('a key that refuses a fast second write no longer strands the record', async () => {
+  const { kv } = await withLink('artist');
+  /* A KV that behaves the way the real one does: one write per second. */
+  const counting = countingKv({}, { minGapMs: 1000 });
+  for (const [k, v] of kv.store) counting.store.set(k, v);
+
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: counting });
+    const r = await register(env, counting, FORM(), {});
+    const done = await approve(env, counting, { id: r.person.id, approver: 'ravi' });
+
+    assert.ok(done.ok, 'this used to leave the record at "approving" for ever');
+    assert.equal(done.person.status, 'approved');
+    const stored = await counting.get(personKey(r.person.id), 'json');
+    assert.equal(stored.status, 'approved', 'and the stored copy says so too');
+  } finally { w.restore(); }
+});
+
+test('a final write that will not land is reported, not called a success', async () => {
+  const { kv } = await withLink('crew');
+  const w = world();
+  let id;
+  try {
+    const env = ENV({ ACCRED: kv });
+    id = (await register(env, kv, FORM({ role: 'Stage' }), {})).person.id;
+  } finally { w.restore(); }
+
+  /* A key that refuses every write, however often it is asked. */
+  const broken = {
+    ...kv,
+    async put(k, v) {
+      if (k.startsWith('person:')) throw new Error('KV is down');
+      return kv.put(k, v);
+    },
+  };
+  const w2 = world();
+  try {
+    const env = ENV({ ACCRED: broken });
+    const r = await approve(env, broken, { id, approver: 'ravi' });
+    assert.equal(r.ok, false, 'the page must never say Approved for a write that did not land');
+    assert.equal(r.error, 'write_failed');
+    assert.match(r.detail, /could not be saved/);
+    assert.match(r.detail, /nothing will be sent twice/);
+  } finally { w2.restore(); }
+});
+
+test('every write raises the revision, and a failed one does not', async () => {
+  const kv = countingKv();
+  const p = { id: 'p_1', steps: {} };
+  await putPerson(kv, p);
+  assert.equal(p.rev, 1);
+  assert.ok(p.savedAt);
+  await putPerson(kv, p);
+  assert.equal(p.rev, 2);
+
+  const dead = { ...kv, async put() { throw new Error('nope'); } };
+  await assert.rejects(() => putPerson(dead, p), /could not save p_1/);
+  assert.equal(p.rev, 2, 'a write that did not land must not look like one that did');
+});
+
+/* ------------------------------------------------------------- self-heal */
+
+test('a record that is done but not said to be done finishes itself', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM(), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'keerthi' });
+
+    /* Exactly the shape of the two stuck records: every step done, a ticket
+       issued, and the status never updated. */
+    const stuck = { ...done.person, status: 'approving', lockedAt: new Date().toISOString() };
+    delete stuck.decidedAt;
+    delete stuck.decidedBy;
+    await kv.put(personKey(stuck.id), JSON.stringify(stuck));
+    w.calls.length = 0;
+
+    const healed = await finishIfDone(env, kv, await getPerson(kv, stuck.id), 'ravi');
+    assert.ok(healed, 'it should have been finished');
+    assert.equal(healed.status, 'approved');
+    assert.equal(healed.decidedBy, 'ravi', 'whoever finished it, since nobody was recorded');
+    assert.ok(healed.decidedAt);
+    assert.ok(healed.healedAt);
+    assert.equal(healed.lockedAt, null);
+
+    /* And nothing was sent again. */
+    assert.equal(w.calls.length, 0, 'healing must run no step a second time');
+  } finally { w.restore(); }
+});
+
+test('the approver who started it keeps the credit', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM(), {});
+    const done = await approve(env, kv, { id: r.person.id, approver: 'keerthi' });
+    const stuck = { ...done.person, status: 'approving' };
+    await kv.put(personKey(stuck.id), JSON.stringify(stuck));
+
+    const healed = await finishIfDone(env, kv, await getPerson(kv, stuck.id), 'ravi');
+    assert.equal(healed.decidedBy, 'keerthi', 'the one who started it, not the one who passed by');
+  } finally { w.restore(); }
+});
+
+test('a half-done record is not finished, and runs only what is missing', async () => {
+  const { kv } = await withLink('artist');
+  let id;
+  const bad = world({ fail: 'wa' });
+  try {
+    const env = ENV({ ACCRED: kv });
+    id = (await register(env, kv, FORM(), {})).person.id;
+    const done = await approve(env, kv, { id, approver: 'ravi' });
+    /* The WhatsApp failed, so there is work left. Put it back under a stale
+       lock, the way a request that died would leave it. */
+    const stuck = {
+      ...done.person, status: 'approving',
+      lockedAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    };
+    await kv.put(personKey(id), JSON.stringify(stuck));
+
+    assert.equal(await finishIfDone(env, kv, await getPerson(kv, id), 'ravi'), null,
+      'there is a step outstanding, so it is not finished');
+  } finally { bad.restore(); }
+
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const again = await approve(env, kv, { id, approver: 'ravi' });
+
+    assert.ok(again.ok);
+    assert.equal(again.person.status, 'approved');
+    assert.match(again.person.steps.whatsapp, /^done:/);
+    assert.equal(w.tt().length, 0, 'the ticket was not issued a second time');
+    assert.equal(w.wa().length, 1, 'only the step that was missing ran');
+  } finally { w.restore(); }
+});
+
+test('a stale lock is reclaimable even when a ticket already exists', async () => {
+  const { kv } = await withLink('artist');
+  let id;
+  const bad = world({ fail: 'wa' });
+  try {
+    const env = ENV({ ACCRED: kv });
+    id = (await register(env, kv, FORM(), {})).person.id;
+    const done = await approve(env, kv, { id, approver: 'ravi' });
+    assert.ok(done.person.tt.issuedTicketId, 'it has a ticket');
+    await kv.put(personKey(id), JSON.stringify({
+      ...done.person, status: 'approving',
+      lockedAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    }));
+  } finally { bad.restore(); }
+
+  const w = world();
+  try {
+    const r = await approve(ENV({ ACCRED: kv }), kv, { id, approver: 'keerthi' });
+    assert.ok(r.ok);
+    assert.notEqual(r.skipped, 'in_progress',
+      'a locked record with a ticket used to be stuck for ever');
+    assert.equal(r.person.status, 'approved');
+  } finally { w.restore(); }
+});
+
+test('a fresh lock is left alone, because somebody is mid-flight with it', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const r = await register(env, kv, FORM(), {});
+    await kv.put(personKey(r.person.id), JSON.stringify({
+      ...r.person, status: 'approving', lockedAt: new Date().toISOString(),
+    }));
+    const second = await approve(env, kv, { id: r.person.id, approver: 'keerthi' });
+    assert.equal(second.skipped, 'in_progress');
+    assert.equal(w.tt().length, 0, 'and nothing was issued by the second request');
+  } finally { w.restore(); }
+});
+
+test('which steps are outstanding, and which were never going to happen', () => {
+  const all = { ticket: 'done', discount: 'done', brevo: 'done', email: 'done', whatsapp: 'done:x' };
+  assert.deepEqual(stepsOutstanding({ steps: all }, teamOf('artist')), []);
+  assert.deepEqual(stepsOutstanding({ steps: { ...all, whatsapp: 'failed:wa_400' } },
+    teamOf('artist')), ['whatsapp']);
+  assert.deepEqual(stepsOutstanding({ steps: { ...all, email: null } },
+    teamOf('artist')), ['email']);
+
+  /* The technical crew has no code, so an empty discount step is not an
+     unfinished one. */
+  assert.deepEqual(stepsOutstanding({
+    steps: { ticket: 'done', discount: null, brevo: 'done', email: 'done', whatsapp: 'done' },
+  }, teamOf('crew')), []);
+
+  /* A dry run skipped them, which is finished for this purpose. */
+  assert.deepEqual(stepsOutstanding({
+    steps: { ticket: SKIPPED, discount: SKIPPED, brevo: SKIPPED, email: SKIPPED, whatsapp: SKIPPED },
+  }, teamOf('artist')), []);
+});
+
+test('the admin read finishes stuck records on its way past, and says how many', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    /* Two approved at the same minute, both left at "approving". */
+    for (const n of [0, 1]) {
+      const r = await register(env, kv, FORM({
+        firstName: `P${n}`, phone: `+3247491990${n}`, email: `p${n}@example.com`,
+      }), {});
+      const done = await approve(env, kv, { id: r.person.id, approver: 'keerthi' });
+      await kv.put(personKey(r.person.id),
+        JSON.stringify({ ...done.person, status: 'approving' }));
+    }
+    w.calls.length = 0;
+
+    const d = await (await adminGet({
+      request: req('GET', null, { 'x-admin-token': ADMIN.ravi }), env,
+    })).json();
+
+    assert.equal(d.healed, 2, 'both should have been finished');
+    assert.deepEqual(d.people.map(p => p.status), ['approved', 'approved']);
+    assert.equal(w.calls.length, 0, 'and nothing was sent again');
+
+    /* A second read has nothing left to do. */
+    const again = await (await adminGet({
+      request: req('GET', null, { 'x-admin-token': ADMIN.ravi }), env,
+    })).json();
+    assert.equal(again.healed, 0);
+  } finally { w.restore(); }
+});
+
+/* ------------------------------------------------------------ the queue */
+
+test('the page never replaces a person with an older copy of them', () => {
+  const html = adminPage();
+  assert.match(html, /var have = Number\(D\.people\[i\]\.rev\) \|\| 0;/);
+  assert.match(html, /if \(got && have && got < have\) return true;/);
+});
+
+test('a record being approved offers nothing to press until it is stale', () => {
+  const html = adminPage();
+  assert.match(html, /function queueActions\(p, t\)/);
+  assert.ok(html.includes("Approving' + (started ? ', started ' + esc(started)"),
+    'a record being approved says so, and says when it started');
+  /* Nothing to press for two minutes, then one thing. */
+  assert.match(html, /Date\.now\(\) - Date\.parse\(p\.lockedAt\)\) > 120000/);
+  assert.match(html, /'Finish approval'/);
+  /* And a pass that exists is taken back with Revoke, never rejected. */
+  assert.match(html, /var hasTicket = p\.tt && p\.tt\.issuedTicketId;/);
+  const q = html.slice(html.indexOf('function queueActions(p, t)'),
+    html.indexOf('function teamTotals()'));
+  assert.ok(q.includes('data-act="revoke"'), 'a pass that exists is taken back with Revoke');
+  assert.ok(q.includes('data-act="reject"'), 'and one that does not is rejected');
+  assert.ok(q.indexOf('hasTicket') < q.indexOf('data-act="revoke"'),
+    'which of the two is on the ticket, not on the mood');
 });

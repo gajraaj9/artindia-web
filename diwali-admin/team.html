@@ -391,18 +391,43 @@
           + (l ? '<div class="muted">Link: ' + esc(l.label || l.token) + ' · '
               + l.registered + ' on this link, ' + l.expected + ' expected</div>' : '')
           + stepline(p)
-          + '<div class="acts">'
-          /* The form switch is about registering, not about deciding: with
-             the form off, somebody already in the queue can still be let in. */
-          + '<button type="button" class="go" data-act="approve"'
-          + (t.blocked ? ' disabled' : '') + '>'
-          + esc(label(p.id, 'approve', '', 'Approve')) + '</button>'
-          + '<button type="button" class="no" data-act="reject">'
-          + esc(label(p.id, 'reject', '', 'Reject')) + '</button>'
-          + '</div>' + resultLine(p.id) + '</div>';
+          + queueActions(p, t) + resultLine(p.id) + '</div>';
       });
     });
     $('queue').innerHTML = html + teamTotals();
+  }
+
+  /* What can be done to somebody in the queue.
+   *
+   * A record that is being approved is not a record to approve again, and
+   * never one to reject: somebody is mid-flight with it, and after two
+   * minutes whoever is looking can finish what was started. A record that
+   * already has a ticket is never rejected either; taking a pass back is
+   * Revoke, which voids it. */
+  function queueActions(p, t) {
+    if (p.status === 'approving') {
+      var started = p.lockedAt ? when(p.lockedAt) : '';
+      var stale = p.lockedAt && (Date.now() - Date.parse(p.lockedAt)) > 120000;
+      return '<p class="muted when">Approving' + (started ? ', started ' + esc(started) : '')
+        + '</p>'
+        + (stale
+          ? '<div class="acts"><button type="button" class="go" data-act="approve">'
+            + esc(label(p.id, 'approve', '', 'Finish approval')) + '</button></div>'
+          : '');
+    }
+    var hasTicket = p.tt && p.tt.issuedTicketId;
+    return '<div class="acts">'
+      /* The form switch is about registering, not about deciding: with the
+         form off, somebody already in the queue can still be let in. */
+      + '<button type="button" class="go" data-act="approve"'
+      + (t && t.blocked ? ' disabled' : '') + '>'
+      + esc(label(p.id, 'approve', '', 'Approve')) + '</button>'
+      + (hasTicket
+        ? '<button type="button" class="no" data-act="revoke">'
+          + esc(label(p.id, 'revoke', '', 'Revoke')) + '</button>'
+        : '<button type="button" class="no" data-act="reject">'
+          + esc(label(p.id, 'reject', '', 'Reject')) + '</button>')
+      + '</div>';
   }
 
   function teamTotals() {
@@ -743,7 +768,16 @@
   function absorb(person) {
     if (!person || !person.id || !D) return false;
     for (var i = 0; i < D.people.length; i++) {
-      if (D.people[i].id === person.id) { D.people[i] = person; return true; }
+      if (D.people[i].id !== person.id) continue;
+      /* KV is eventually consistent, so a read started before a write can
+         answer with the version before it. Every write raises rev, so the
+         later of two copies is knowable rather than a guess about which
+         answer arrived first. */
+      var have = Number(D.people[i].rev) || 0;
+      var got = Number(person.rev) || 0;
+      if (got && have && got < have) return true;
+      D.people[i] = person;
+      return true;
     }
     D.people.push(person);
     D.people.sort(function (a, b) {
