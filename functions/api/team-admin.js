@@ -18,7 +18,7 @@ import {
   teamCfgKey, linkKey, teamOf, token, dryRun, regEnabled, closeAt, ticketTypeFor,
   approvalBlocker, getPerson, putPerson, addIdTo, phoneKey, emailKey, newPersonId,
   ageOnFestival, validDob, langOf, STEPS, hardCap, allRefusals, trimRefusals,
-  SKIPPED, isDryId, changeCode,
+  SKIPPED, isDryId, changeCode, recentlySent, markSent, RESEND_LOCK_SECONDS,
 } from './_accred.js';
 
 /* The caller, or null. 503 when the secret is unset: an admin route with no
@@ -160,6 +160,25 @@ export async function onRequestPost({ request, env }) {
       const p = await getPerson(kv, String(body.id));
       if (!p) return json(404, { ok: false, error: 'unknown_person' });
       if (p.status !== 'approved') return json(409, { ok: false, error: 'not_approved', person: p });
+
+      /* A double click, or two approvers on the same card at the same moment.
+         The page asks before a quick repeat; this is what makes the answer
+         true even when the page could not have known. */
+      const recent = await recentlySent(kv, p.id, step);
+      if (recent) {
+        const plural = n => (n === 1 ? '' : 's');
+        return json(409, {
+          ok: false,
+          error: 'sent_just_now',
+          detail: `That ${step === 'email' ? 'email' : 'WhatsApp'} was sent `
+            + `${recent.since} second${plural(recent.since)} ago. `
+            + `Wait ${recent.wait} second${plural(recent.wait)} and try again.`,
+          person: p,
+          retryAfter: recent.wait,
+        });
+      }
+      await markSent(kv, p.id, step);
+
       const r = await approve(env, kv,
         { id: p.id, approver, only: [step], force: true, log: logger(kv, p) });
       return json(r.ok ? 200 : 409, r);

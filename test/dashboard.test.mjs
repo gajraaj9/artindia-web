@@ -71,7 +71,13 @@ const TYPES = [
 
 const DAY = 86400;
 /* Noon in Brussels on 6 October 2026. */
-const NOON = Math.floor(new Date('2026-10-06T12:00:00+02:00').getTime() / 1000);
+/* Orders are created now, not on a date written into the file. The route
+   works out "today" from the real clock, so a fixture pinned to a calendar
+   day passes until that day is yesterday and then fails for a reason that
+   has nothing to do with the code. */
+const NOON = Math.floor(Date.now() / 1000);
+
+/* Where a test is about the calendar itself, the date is stated. */
 const NOW = new Date('2026-10-06T12:00:00+02:00');
 
 let orderN = 0;
@@ -228,6 +234,7 @@ test('a day is a Brussels day, on both sides of the clock change', () => {
 });
 
 test('the last days end today, in order, and sum correctly', () => {
+  /* A stated date, because this test is about the calendar. */
   const days = lastDays(7, NOW);
   assert.equal(days.length, 7);
   assert.equal(days[6], '2026-10-06');

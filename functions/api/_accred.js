@@ -33,12 +33,18 @@ export const rejectedPhoneKey = e164 => `rejected:phone:${e164}`;
 export const rejectedEmailKey = a => `rejected:email:${String(a).toLowerCase()}`;
 export const ipKey = (ip, day) => `ipcap:${day}:${ip}`;
 export const salesKey = id => `codesales:${id}`;
+export const resendKey = (id, step) => `resent:${id}:${step}`;
 export const refusalKey = (ts, n) => `refused:${ts}:${n}`;
 
 /* A day of submits from one address. The cap exists to stop a script, not to
    stop a team lead entering twelve people in a row. */
 export const IP_CAP_PER_DAY = 40;
 export const SALES_CACHE_SECONDS = 600;
+
+/* Two approvers on the same card, or one finger twice. Twenty seconds is long
+   enough that neither sends the same message twice, and short enough that
+   somebody who meant it can try again almost at once. */
+export const RESEND_LOCK_SECONDS = 20;
 
 /* The refusals list. Long enough to cover a weekend of a link going round the
    wrong group, short enough that it is never a second database of people who
@@ -1404,6 +1410,36 @@ export async function reject(env, kv, { id, approver, note = '' }) {
   }
 
   return { ok: true, person };
+}
+
+/**
+ * Was this exact message sent a moment ago?
+ *
+ * Returns the number of seconds since, or 0. The guard is on the server
+ * because the page cannot see another person's clicks, and a pass arriving
+ * twice reads as a mistake by the festival rather than by the button.
+ */
+export async function recentlySent(kv, id, step) {
+  if (!kv) return null;
+  const at = Number(await kv.get(resendKey(id, step))) || 0;
+  if (!at) return null;
+  const since = Math.round((Date.now() - at) / 1000);
+  /* A stamp from the future is a clock that has gone backwards, not a send,
+     and it must not lock anybody out until it catches up. */
+  if (since < 0 || since >= RESEND_LOCK_SECONDS) return null;
+  /* An object, not a number: zero seconds ago is the commonest case of all,
+     and a zero that means "just now" reads as "nothing happened". */
+  return { since, wait: Math.max(1, RESEND_LOCK_SECONDS - since) };
+}
+
+export async function markSent(kv, id, step) {
+  if (!kv) return;
+  try {
+    await kv.put(resendKey(id, step), String(Date.now()),
+      { expirationTtl: Math.max(60, RESEND_LOCK_SECONDS * 3) });
+  } catch (e) {
+    console.error('accred: resend stamp failed', String(e).slice(0, 120));
+  }
 }
 
 /**

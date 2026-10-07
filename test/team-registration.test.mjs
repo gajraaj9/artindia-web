@@ -23,6 +23,7 @@ import {
   allowedOrigin, brevoAttributesFor, approvedMail, receivedMail, IP_CAP_PER_DAY,
   restore, htmlMail, ticketFacts, rejectedEmailKey, qrFileName, fetchQrAttachment,
   SKIPPED, isDryId, ttMessage, scrubSecret, logRefusal, allRefusals, trimRefusals,
+  recentlySent, markSent, resendKey, RESEND_LOCK_SECONDS,
   oneOf, describeBody, findIssuedTicket, issueTicket, createDiscount,
   codeMessages, letterMail, practicalMail, letterOf, shareLink, asText,
   digits, isTeamCode, cleanCode, changeCode, ordersOn, codeHistoryOf,
@@ -3249,4 +3250,169 @@ test('a person with no code gets the plain template and no button', async () => 
     assert.equal(sent.template.components[0].parameters.length, 2);
     assert.equal(done.person.steps.whatsapp, 'done:diwali_team_pass_plain_en');
   } finally { w.restore(); }
+});
+
+/* ------------------------------------------- saying what just happened */
+
+/* The only confirmation used to be a note at the top of the page. Scrolled
+   down to one card among forty, nothing visibly happened, so the button got
+   pressed again and a second pass went out. */
+
+test('a resend inside twenty seconds is refused, and allowed after', async () => {
+  const { kv } = await withLink('crew');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const id = (await register(env, kv, FORM({ role: 'Stage' }), {})).person.id;
+    await approve(env, kv, { id, approver: 'ravi' });
+
+    const send = () => adminPost({
+      request: req('POST', { action: 'resend', id, step: 'email' },
+        { 'x-admin-token': ADMIN.ravi }), env,
+    });
+
+    const first = await send();
+    assert.equal(first.status, 200);
+    const sent = w.brevo().filter(c => c.url.includes('/smtp/email')).length;
+
+    /* The second press, a moment later. */
+    const second = await send();
+    assert.equal(second.status, 409);
+    const d = await second.json();
+    assert.equal(d.error, 'sent_just_now');
+    assert.match(d.detail, /was sent \d+ seconds? ago/);
+    assert.match(d.detail, /Wait \d+ seconds? and try again/);
+    assert.ok(d.person, 'the card still has something to draw');
+    assert.ok(d.retryAfter > 0 && d.retryAfter <= 20);
+    assert.equal(w.brevo().filter(c => c.url.includes('/smtp/email')).length, sent,
+      'and nothing went out twice');
+
+    /* Twenty seconds later, a deliberate second send works. */
+    await kv.put(resendKey(id, 'email'), String(Date.now() - 21000));
+    const later = await send();
+    assert.equal(later.status, 200);
+    assert.equal(w.brevo().filter(c => c.url.includes('/smtp/email')).length, sent + 1);
+  } finally { w.restore(); }
+});
+
+test('the lock is per person and per step, not a blanket', async () => {
+  const { kv } = await withLink('artist');
+  const w = world();
+  try {
+    const env = ENV({ ACCRED: kv });
+    const a = (await approve(env, kv, {
+      id: (await register(env, kv, FORM(), {})).person.id, approver: 'ravi',
+    })).person;
+    const b = (await approve(env, kv, {
+      id: (await register(env, kv, FORM({
+        firstName: 'Tom', phone: '+32470111222', email: 'tom@example.com',
+      }), {})).person.id, approver: 'ravi',
+    })).person;
+
+    const send = (id, step) => adminPost({
+      request: req('POST', { action: 'resend', id, step }, { 'x-admin-token': ADMIN.ravi }), env,
+    }).then(r => r.status);
+
+    assert.equal(await send(a.id, 'email'), 200);
+    assert.equal(await send(a.id, 'email'), 409, 'the same thing again is refused');
+    assert.equal(await send(a.id, 'whatsapp'), 200, 'a different step is not');
+    assert.equal(await send(b.id, 'email'), 200, 'nor another person');
+  } finally { w.restore(); }
+});
+
+test('the guard knows how long ago, and forgets after twenty seconds', async () => {
+  const kv = memoryKv();
+  assert.equal(await recentlySent(kv, 'p_1', 'email'), null, 'nothing sent, nothing to say');
+
+  await markSent(kv, 'p_1', 'email');
+  const just = await recentlySent(kv, 'p_1', 'email');
+  assert.ok(just, 'zero seconds ago is still just now, and must read as locked');
+  assert.equal(just.since, 0);
+  assert.equal(just.wait, RESEND_LOCK_SECONDS);
+
+  await kv.put(resendKey('p_1', 'email'), String(Date.now() - 21000));
+  assert.equal(await recentlySent(kv, 'p_1', 'email'), null, 'past the lock it is free again');
+
+  /* A clock that has gone backwards must not lock anybody out for ever. */
+  await kv.put(resendKey('p_1', 'email'), String(Date.now() + 600000));
+  assert.equal(await recentlySent(kv, 'p_1', 'email'), null);
+  assert.equal(await recentlySent(null, 'p_1', 'email'), null, 'and no KV is no lock');
+});
+
+/* --------------------------------------------------- the page's feedback */
+
+const adminPage = () => readFileSync(join(ROOT, 'diwali-admin/team.html'), 'utf8');
+
+test('a running action says so on its own button and locks the card', () => {
+  const html = adminPage();
+
+  /* Each action has a word for what it is doing. */
+  for (const [act, word] of [['approve', 'Approving'], ['retry', 'Retrying'],
+    ['code_change', 'Changing'], ['resend', 'Sending'], ['revoke', 'Revoking'],
+    ['reject', 'Rejecting'], ['restore', 'Restoring']]) {
+    assert.ok(html.includes(act + ': [') && html.includes("'" + word),
+      act + ' has no working label');
+  }
+
+  /* Every button on the card, not just the pressed one. */
+  assert.match(html, /function busy\(btn, on\)/);
+  assert.match(html, /card\.querySelectorAll\('\.acts button'\)/);
+  assert.match(html, /all\[i\]\.disabled = on;/);
+  /* And it is handed the button it came from, every time. */
+  assert.equal((html.match(/act\(\{[^;]*?\}, btn\)/gs) || []).length >= 8, true,
+    'some action still runs without a button to report on');
+});
+
+test('the result stays in the card, under the buttons, where it was asked for', () => {
+  const html = adminPage();
+  assert.match(html, /function resultLine\(id\)/);
+  assert.match(html, /RESULTS\[body\.id\] = r;/, 'the result is kept per person');
+  /* Both card kinds carry it, after the buttons rather than before. */
+  assert.equal((html.match(/'<\/div>' \+ resultLine\(p\.id\) \+ '<\/div>'/g) || []).length, 2);
+
+  /* In the server's words when it failed, and in ours when it worked. */
+  assert.match(html, /Email sent to ' \+ \(p\.email \|\| 'them'\) \+ ' at ' \+ at/);
+  assert.match(html, /WhatsApp sent at ' \+ at \+ t/);
+  assert.match(html, /p\.waTemplate/, 'and which template went');
+  assert.match(html, /if \(!d\.ok\) return \{ bad: true, text: refusalText\(d\)/);
+  assert.match(html, /\.result\.bad \{ border-color: var\(--bad\)/);
+});
+
+test('the pressed button keeps saying it sent, for a minute', () => {
+  const html = adminPage();
+  assert.match(html, /short: 'Sent ' \+ at/);
+  assert.match(html, /HELD\[id \+ '\|' \+ act \+ '\|' \+ step\] = \{ text: text, until: Date\.now\(\) \+ 60000 \}/);
+  assert.match(html, /function heldLabel\(id, act, step\)/);
+  /* And the label survives a redraw, which is the whole point of holding it. */
+  assert.match(html, /label\(p\.id, 'resend', 'email', 'Resend email'\)/);
+  assert.match(html, /label\(p\.id, 'resend', 'whatsapp', 'Resend WhatsApp'\)/);
+  assert.match(html, /setTimeout\(render, 60500\)/, 'it has to go back on its own');
+});
+
+test('a confirmation also appears at the bottom of the screen', () => {
+  const html = adminPage();
+  assert.match(html, /function toast\(text, bad\)/);
+  assert.match(html, /\.toast \{[^}]*position: fixed/, 'it must be visible wherever the page is');
+  assert.match(html, /bottom: 1rem/);
+  assert.match(html, /toast\(r\.text, r\.bad\)/);
+  assert.match(html, /bad \? 7000 : 4000/, 'a failure is worth reading for longer');
+});
+
+test('a redraw does not throw the page about under somebody s thumb', () => {
+  const html = adminPage();
+  const act = html.slice(html.indexOf('function act(body, btn)'));
+  assert.match(act.slice(0, 2000), /var scroll = window\.scrollY;/);
+  assert.equal((act.slice(0, 2600).match(/window\.scrollTo\(0, scroll\)/g) || []).length, 2,
+    'after the first draw and after the catch-up');
+});
+
+test('a quick repeat asks before it sends again', () => {
+  const html = adminPage();
+  assert.match(html, /Date\.now\(\) - last < 120000/, 'two minutes');
+  assert.match(html, /'Sent ' \+ how \+ ' ago\. Send again\?'/);
+  assert.match(html, /SENT_AT\[id \+ '\|' \+ step\] = Date\.now\(\);/);
+  /* The question is only asked for a resend; approving twice is already
+     harmless and the server answers that one itself. */
+  const resend = html.slice(html.indexOf("if (a === 'resend')"));
+  assert.ok(resend.indexOf('window.confirm') < resend.indexOf("act({ action: 'resend'"));
 });

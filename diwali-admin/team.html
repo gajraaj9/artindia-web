@@ -108,6 +108,33 @@
   code { font-size: .8rem; word-break: break-all; }
   .teamline { display: flex; justify-content: space-between; gap: .6rem; padding: .3rem 0; border-bottom: 1px solid var(--line); }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  /* What happened, where it happened. The note at the top of the page is no
+     use to somebody scrolled down to one card among forty. */
+  .result {
+    margin: .55rem 0 0; padding: .45rem .6rem; border-radius: .4rem;
+    border: 1px solid var(--line); font-size: .85rem; line-height: 1.4;
+    word-break: break-word;
+  }
+  .result.ok { border-color: var(--ok); color: var(--ok); }
+  .result.bad { border-color: var(--bad); color: var(--bad); font-weight: 600; }
+  .acts button.busy { opacity: .7; }
+  .acts button.done { border-color: var(--ok); color: var(--ok); font-weight: 700; }
+
+  /* And a line at the bottom of the screen, because the card may be off it
+     by the time the server answers. */
+  .toast {
+    position: fixed; left: 50%; bottom: 1rem; translate: -50% 0; z-index: 20;
+    max-width: calc(100vw - 1.8rem); padding: .6rem .9rem; border-radius: .5rem;
+    background: var(--card); border: 1px solid var(--ok); color: var(--ok);
+    font-size: .9rem; font-weight: 600; text-align: center;
+    box-shadow: 0 .4rem 1.4rem rgba(0, 0, 0, .35);
+  }
+  .toast.bad { border-color: var(--bad); color: var(--bad); }
+  @media (prefers-reduced-motion: no-preference) {
+    .toast { animation: rise .18s ease-out; }
+    @keyframes rise { from { opacity: 0; translate: -50% .5rem; } }
+  }
 </style>
 </head>
 <body>
@@ -368,9 +395,11 @@
           /* The form switch is about registering, not about deciding: with
              the form off, somebody already in the queue can still be let in. */
           + '<button type="button" class="go" data-act="approve"'
-          + (t.blocked ? ' disabled' : '') + '>Approve</button>'
-          + '<button type="button" class="no" data-act="reject">Reject</button>'
-          + '</div></div>';
+          + (t.blocked ? ' disabled' : '') + '>'
+          + esc(label(p.id, 'approve', '', 'Approve')) + '</button>'
+          + '<button type="button" class="no" data-act="reject">'
+          + esc(label(p.id, 'reject', '', 'Reject')) + '</button>'
+          + '</div>' + resultLine(p.id) + '</div>';
       });
     });
     $('queue').innerHTML = html + teamTotals();
@@ -423,16 +452,28 @@
         + (p.note ? ' · ' + esc(p.note) : '') + '</div>'
         + stepline(p)
         + '<div class="acts">'
-        + (p.status === 'pending' ? '<button type="button" class="go" data-act="approve">Approve</button>' : '')
-        + (p.status === 'approved' ? '<button type="button" data-act="retry">Retry failed steps</button>' : '')
+        + (p.status === 'pending' ? '<button type="button" class="go" data-act="approve">'
+          + esc(label(p.id, 'approve', '', 'Approve')) + '</button>' : '')
+        + (p.status === 'approved' ? '<button type="button" data-act="retry">'
+          + esc(label(p.id, 'retry', '', 'Retry failed steps')) + '</button>' : '')
         + (p.status === 'approved' && p.promo && p.promo.code && !isDry(p.promo.discountId)
-          ? '<button type="button" data-act="code_change">Change code</button>' : '')
-        + (p.status === 'approved' ? '<button type="button" data-act="resend" data-step="email">Resend email</button>' : '')
-        + (p.status === 'approved' && p.phone ? '<button type="button" data-act="resend" data-step="whatsapp">Resend WhatsApp</button>' : '')
-        + (p.status === 'approved' ? '<button type="button" class="no" data-act="revoke">Revoke</button>' : '')
-        + (p.status === 'pending' ? '<button type="button" class="no" data-act="reject">Reject</button>' : '')
-        + (p.status === 'rejected' ? '<button type="button" data-act="restore">Restore</button>' : '')
-        + '</div></div>';
+          ? '<button type="button" data-act="code_change">'
+            + esc(label(p.id, 'code_change', '', 'Change code')) + '</button>' : '')
+        + (p.status === 'approved'
+          ? '<button type="button" data-act="resend" data-step="email"'
+            + (heldLabel(p.id, 'resend', 'email') ? ' class="done"' : '') + '>'
+            + esc(label(p.id, 'resend', 'email', 'Resend email')) + '</button>' : '')
+        + (p.status === 'approved' && p.phone
+          ? '<button type="button" data-act="resend" data-step="whatsapp"'
+            + (heldLabel(p.id, 'resend', 'whatsapp') ? ' class="done"' : '') + '>'
+            + esc(label(p.id, 'resend', 'whatsapp', 'Resend WhatsApp')) + '</button>' : '')
+        + (p.status === 'approved' ? '<button type="button" class="no" data-act="revoke">'
+          + esc(label(p.id, 'revoke', '', 'Revoke')) + '</button>' : '')
+        + (p.status === 'pending' ? '<button type="button" class="no" data-act="reject">'
+          + esc(label(p.id, 'reject', '', 'Reject')) + '</button>' : '')
+        + (p.status === 'rejected' ? '<button type="button" data-act="restore">'
+          + esc(label(p.id, 'restore', '', 'Restore')) + '</button>' : '')
+        + '</div>' + resultLine(p.id) + '</div>';
     }).join('');
 
     $('people').innerHTML = bar
@@ -626,6 +667,75 @@
     }).catch(function () { note('Could not reach the server.'); });
   }
 
+  /* ------------------------------------------------------- saying so */
+
+  /* What each action is doing while it does it, and what to call it after.
+     A button that says nothing for two seconds is a button somebody presses
+     again, and a second pass goes out. */
+  var LABEL = {
+    approve: ['Approve', 'Approving\u2026'],
+    retry: ['Retry failed steps', 'Retrying\u2026'],
+    code_change: ['Change code', 'Changing\u2026'],
+    resend: ['Resend', 'Sending\u2026'],
+    revoke: ['Revoke', 'Revoking\u2026'],
+    reject: ['Reject', 'Rejecting\u2026'],
+    restore: ['Restore', 'Restoring\u2026']
+  };
+
+  /* What the card says afterwards, and goes on saying. Keyed by person so a
+     redraw puts it back where it was. */
+  var RESULTS = {};
+  /* When each resend last went, as this browser saw it. */
+  var SENT_AT = {};
+  var toastTimer = null;
+
+  function clock(d) {
+    var t = d || new Date();
+    return (t.getHours() < 10 ? '0' : '') + t.getHours() + ':'
+      + (t.getMinutes() < 10 ? '0' : '') + t.getMinutes();
+  }
+
+  function toast(text, bad) {
+    var el = document.getElementById('toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'toast';
+      document.body.appendChild(el);
+    }
+    el.className = 'toast' + (bad ? ' bad' : '');
+    el.textContent = text;
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.hidden = true; }, bad ? 7000 : 4000);
+  }
+
+  /* Said in full, in the server's words where it has any. */
+  function resultOf(body, d, person) {
+    var at = clock();
+    if (!d.ok) return { bad: true, text: refusalText(d), at: at };
+    if (d.skipped) return { bad: false, text: 'Nothing to do: ' + d.skipped, at: at };
+
+    var p = person || {};
+    if (body.action === 'resend' && body.step === 'email') {
+      return { bad: false, at: at, short: 'Sent ' + at,
+        text: 'Email sent to ' + (p.email || 'them') + ' at ' + at };
+    }
+    if (body.action === 'resend' && body.step === 'whatsapp') {
+      var t = (p.waTemplate ? ' (' + p.waTemplate + ')' : '');
+      return { bad: false, at: at, short: 'Sent ' + at,
+        text: 'WhatsApp sent at ' + at + t };
+    }
+    var said = {
+      approve: 'Approved at ' + at,
+      retry: 'Steps retried at ' + at,
+      code_change: 'Code changed to ' + ((p.promo && p.promo.code) || '') + ' at ' + at,
+      revoke: 'Pass revoked at ' + at,
+      reject: 'Rejected at ' + at,
+      restore: 'Put back in the queue at ' + at
+    };
+    return { bad: false, at: at, text: said[body.action] || ('Done at ' + at) };
+  }
+
   /* The person the server just wrote, spliced into the list we already hold.
      A failed approval leaves somebody sitting in the queue, and they have to
      appear now: a fresh GET can miss a write that has not propagated, and the
@@ -652,30 +762,101 @@
     return 'Refused: ' + d.httpStatus;
   }
 
-  function act(body) {
+  /* Every action button on the card the pressed one belongs to. While one is
+     running none of the others should be, and the pressed one says so. */
+  function cardOf(btn) { return btn && btn.closest('[data-id]'); }
+
+  /* The line that stays. Directly under the buttons, in the card, so the
+     answer is where the question was asked. */
+  function resultLine(id) {
+    var r = RESULTS[id];
+    if (!r) return '';
+    return '<div class="result ' + (r.bad ? 'bad' : 'ok') + '">' + esc(r.text) + '</div>';
+  }
+
+  /* A button that was pressed a moment ago keeps saying so. */
+  function label(id, act, step, normal) {
+    return heldLabel(id, act, step) || normal;
+  }
+
+
+  function busy(btn, on) {
+    var card = cardOf(btn);
+    var all = card ? card.querySelectorAll('.acts button') : (btn ? [btn] : []);
+    for (var i = 0; i < all.length; i++) all[i].disabled = on;
+    if (!btn) return;
+    if (on) {
+      var a = btn.getAttribute('data-act');
+      btn.dataset.was = btn.textContent;
+      btn.textContent = (LABEL[a] && LABEL[a][1]) || 'Working\u2026';
+      btn.classList.add('busy');
+    } else {
+      btn.classList.remove('busy');
+      if (btn.dataset.was) { btn.textContent = btn.dataset.was; delete btn.dataset.was; }
+    }
+  }
+
+  /* The pressed button keeps saying "Sent 07:32" for a minute, so somebody
+     coming back to the card a moment later can see it already went. */
+  function held(btn, text) {
+    if (!btn) return;
+    var id = cardOf(btn) && cardOf(btn).getAttribute('data-id');
+    var act = btn.getAttribute('data-act');
+    var step = btn.getAttribute('data-step') || '';
+    if (!id) return;
+    HELD[id + '|' + act + '|' + step] = { text: text, until: Date.now() + 60000 };
+    setTimeout(render, 60500);
+  }
+  var HELD = {};
+  function heldLabel(id, act, step) {
+    var h = HELD[id + '|' + act + '|' + (step || '')];
+    if (!h) return '';
+    if (Date.now() > h.until) { delete HELD[id + '|' + act + '|' + (step || '')]; return ''; }
+    return h.text;
+  }
+
+  function act(body, btn) {
     note('Working\u2026');
+    busy(btn, true);
+    /* A redraw must not throw the page about under somebody's thumb. */
+    var scroll = window.scrollY;
+
+    var done = function (d) {
+      busy(btn, false);
+      var person = d && d.person;
+      var r = resultOf(body, d || { ok: false }, person);
+      if (body.id) RESULTS[body.id] = r;
+      if (r.short) held(btn, r.short);
+      note(r.text, r.bad);
+      toast(r.text, r.bad);
+    };
+
     return api('POST', body).then(function (d) {
       /* Draw what came back first, whether it worked or not, then catch up
          with the server in the background. */
+      done(d);
       var drawn = absorb(d.person);
       if (drawn) render();
+      window.scrollTo(0, scroll);
 
-      if (!d.ok) {
-        note(refusalText(d), true);
-        /* A refusal still changes the record, so the rest of the page is
-           refreshed too, quietly. */
-        api('GET').then(function (fresh) {
-          if (fresh.ok) { D = fresh; absorb(d.person); render(); }
-        }).catch(function () {});
-        return d;
-      }
-
-      note(d.skipped ? 'Nothing to do: ' + d.skipped : 'Done.');
       return api('GET').then(function (fresh) {
-        if (fresh.ok) { D = fresh; render(); }
+        if (fresh.ok) {
+          D = fresh;
+          /* A refusal still changes the record, so the page catches up, but
+             what the server just handed back wins. */
+          if (!d.ok) absorb(d.person);
+          render();
+          window.scrollTo(0, scroll);
+        }
         return d;
-      });
-    }).catch(function () { note('Could not reach the server.', true); });
+      }).catch(function () { return d; });
+    }).catch(function () {
+      busy(btn, false);
+      var r = { bad: true, text: 'Could not reach the server.', at: clock() };
+      if (body.id) RESULTS[body.id] = r;
+      note(r.text, true);
+      toast(r.text, true);
+    });
   }
 
   document.addEventListener('click', function (ev) {
@@ -706,18 +887,18 @@
     var lcard = btn.closest('[data-token]');
     var tok = lcard && lcard.getAttribute('data-token');
 
-    if (a === 'approve') { act({ action: 'approve', id: id }); return; }
-    if (a === 'retry') { act({ action: 'retry', id: id }); return; }
+    if (a === 'approve') { act({ action: 'approve', id: id }, btn); return; }
+    if (a === 'retry') { act({ action: 'retry', id: id }, btn); return; }
     if (a === 'reject') {
       var note1 = window.prompt('Why? A short note, kept on the record.');
       if (note1 === null) return;
-      act({ action: 'reject', id: id, note: note1 });
+      act({ action: 'reject', id: id, note: note1 }, btn);
       return;
     }
     if (a === 'revoke') {
       var note2 = window.prompt('Revoke this pass. Why?');
       if (note2 === null) return;
-      act({ action: 'revoke', id: id, note: note2 });
+      act({ action: 'revoke', id: id, note: note2 }, btn);
       return;
     }
     if (a === 'code_change') {
@@ -728,18 +909,30 @@
         + 'Nothing is sent: use Resend email or Resend WhatsApp afterwards.',
         (p && p.promo && p.promo.code) || '');
       if (next === null) return;
-      act({ action: 'code_change', id: id, code: next });
+      act({ action: 'code_change', id: id, code: next }, btn);
       return;
     }
     if (a === 'resend') {
-      act({ action: 'resend', id: id, step: btn.getAttribute('data-step') });
+      var step = btn.getAttribute('data-step');
+      /* Sending the same thing twice in a minute is usually a finger, not a
+         decision. The server refuses inside twenty seconds whatever happens;
+         this is so a deliberate second send is a deliberate second send. */
+      var last = SENT_AT[id + '|' + step];
+      if (last && Date.now() - last < 120000) {
+        var ago = Math.round((Date.now() - last) / 1000);
+        var how = ago < 60 ? ago + ' second' + (ago === 1 ? '' : 's')
+          : 'a minute';
+        if (!window.confirm('Sent ' + how + ' ago. Send again?')) return;
+      }
+      SENT_AT[id + '|' + step] = Date.now();
+      act({ action: 'resend', id: id, step: step }, btn);
       return;
     }
     if (a === 'restore') {
       /* Not a decision, an undo: it puts them back in the queue and lets them
          use the form again. Somebody still has to approve them. */
       if (!window.confirm('Put this person back in the queue and let them register again?')) return;
-      act({ action: 'restore', id: id });
+      act({ action: 'restore', id: id }, btn);
       return;
     }
     if (a === 'csv') { csv(); return; }
@@ -760,7 +953,7 @@
           dob: $('a-cdob').value.trim()
         };
       }
-      act(body).then(function (d) {
+      act(body, btn).then(function (d) {
         if (!d) return;
         /* A bad phone number never created anybody: leave the form up with the
            reason on it. Anything else did, so the form goes and the queue
@@ -776,7 +969,7 @@
         action: 'link_create', team: $('l-team').value,
         label: $('l-label').value.trim(), lead: $('l-lead').value.trim(),
         expected: Number($('l-expected').value) || 10
-      });
+      }, btn);
       return;
     }
     if (a === 'copy') {
@@ -788,14 +981,14 @@
     }
     if (a === 'toggle') {
       var li = linkOf(tok);
-      act({ action: 'link_update', token: tok, open: !(li && li.open) });
+      act({ action: 'link_update', token: tok, open: !(li && li.open) }, btn);
       return;
     }
     if (a === 'expected') {
       var l2 = linkOf(tok);
       var n = window.prompt('Expected on this link', String(l2 ? l2.expected : 10));
       if (n === null) return;
-      act({ action: 'link_update', token: tok, expected: Number(n) });
+      act({ action: 'link_update', token: tok, expected: Number(n) }, btn);
       return;
     }
     if (a === 'team_expected') {
@@ -803,7 +996,7 @@
       var t = teamOf(key);
       var m = window.prompt('Expected for ' + (t ? t.name.en : key), String(t ? t.expected : 10));
       if (m === null) return;
-      act({ action: 'expected_set', team: key, expected: Number(m) });
+      act({ action: 'expected_set', team: key, expected: Number(m) }, btn);
       return;
     }
   });
