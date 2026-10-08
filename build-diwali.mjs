@@ -15,7 +15,7 @@
  * than quietly serving English to a French reader.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -2063,17 +2063,31 @@ if (existsSync(join(HERE, 'diwali-admin'))) {
 
 /* The WhatsApp template header. Meta fetches this itself when a message goes
    out, so it has to be a real, public, unredirected URL — /img/wa-header.jpg,
-   1200x628. Drop the file at media/wa-header.jpg and it ships; until it exists
-   the v2 send fails its media fetch and falls back to the older template. */
+   1200x628.
+ *
+ * Fatal when it is missing, and a warning is not enough. It was a warning
+ * once: the file was never added, the URL 404ed, and 208 buyers got nothing
+ * at all because Meta reports a media failure through the status webhook long
+ * after the send has been answered with a 200. A build that goes out without
+ * this file is a build that silently stops talking to buyers. */
 {
   const p = join(HERE, 'media/wa-header.jpg');
-  if (existsSync(p)) {
-    mkdirSync(join(out, 'img'), { recursive: true });
-    cpSync(p, join(out, 'img/wa-header.jpg'));
-  } else {
-    console.warn('  ! media/wa-header.jpg missing — /img/wa-header.jpg will 404 '
-      + 'and the WhatsApp v2 template will fall back to diwali_welcome_en');
+  if (!existsSync(p)) {
+    console.error('\n  media/wa-header.jpg is missing.\n'
+      + '  Meta fetches /img/wa-header.jpg itself on every v2 welcome send, so a\n'
+      + '  missing file means every welcome fails its media fetch. Put a 1200x628\n'
+      + '  JPEG under 1 MB at media/wa-header.jpg and build again.\n');
+    process.exit(1);
   }
+  const bytes = statSync(p).size;
+  if (bytes > 1024 * 1024) {
+    console.error(`\n  media/wa-header.jpg is ${(bytes / 1048576).toFixed(2)} MB.`
+      + ' Meta will not fetch a header image over 1 MB.\n');
+    process.exit(1);
+  }
+  mkdirSync(join(out, 'img'), { recursive: true });
+  cpSync(p, join(out, 'img/wa-header.jpg'));
+  console.log(`  WhatsApp header: /img/wa-header.jpg (${Math.round(bytes / 1024)} KB)`);
 }
 if (existsSync(join(HERE, 'functions'))) {
   cpSync(join(HERE, 'functions'), join(out, 'functions'), { recursive: true });

@@ -20,6 +20,7 @@ import {
   AGE_KEYS, AGE_GROUPS, blankAges,
 } from './_dash.js';
 import { scrubSecret } from './_accred.js';
+import { welcomeHealth, neverArrived, DEAD_CODES } from './_welcome.js';
 
 /* The keys carry the shape version. A cache written by an older deploy is a
    different object with the same name, and reading one is what turned a
@@ -213,15 +214,24 @@ async function localFigures(env, cacheKv) {
   ]);
 
   const wa = { sent: 0, delivered: 0, read: 0, failed: 0 };
+  const welcomes = [];
   for (const k of welcomeKeys) {
     const v = await kv.get(k, 'json');
     if (!v) continue;
+    welcomes.push(v);
     wa.sent += 1;
     const st = String(v.status || 'sent');
     if (st === 'delivered') wa.delivered += 1;
     if (st === 'read') { wa.delivered += 1; wa.read += 1; }
     if (st === 'failed') wa.failed += 1;
   }
+
+  /* Welcomes that are failing, said out loud. The last one of these hid
+     behind a delivered percentage for weeks. */
+  const health = welcomeHealth(welcomes);
+  const missing = welcomes.filter(w => neverArrived(w)
+    && !w.retriedAt
+    && !(w.errors || []).some(e => DEAD_CODES.has(Number(e.code)))).length;
 
   /* Buyers who brought a friend, and the entries behind them. */
   const refKeys = await listAll(kv, 'refcount:', 4000);
@@ -234,6 +244,8 @@ async function localFigures(env, cacheKv) {
   const value = {
     wa: {
       ...wa,
+      health,
+      missing,
       deliveredPercent: wa.sent ? Math.round((wa.delivered / wa.sent) * 100) : 0,
       conversations: logKeys.length,
       waiting: unansweredKeys.length + escalationKeys.length,

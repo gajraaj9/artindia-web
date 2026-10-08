@@ -22,7 +22,7 @@
  */
 
 import {
-  json, truthy, normalisePhone, getContact, upsertContact, brevo,
+  json, truthy, normalisePhone, findContact, upsertContact, brevo,
   safeEqual, statusKey, STATUS_TTL_SECONDS, codeKey,
 } from './_shared.js';
 import {
@@ -35,6 +35,7 @@ import {
 import {
   teamMemberFor, passAnswer, codeMessages, salesAnswer, pendingAnswer,
 } from './_accred.js';
+import { retryFailedWelcome, DEAD_CODES } from './_welcome.js';
 
 const text = (status, body) =>
   new Response(body, {
@@ -107,7 +108,7 @@ const errorsOf = s =>
  * we were told, which is what you want when the question is "what did Meta
  * actually say and when".
  */
-async function recordStatus(kv, s) {
+async function recordStatus(env, kv, s) {
   const wamid = String(s.id || '');
   if (!wamid) return;
 
@@ -146,7 +147,7 @@ async function recordStatus(kv, s) {
     console.error('wa-webhook: status write failed', wamid, String(e));
   }
 
-  await updateWelcome(kv, next);
+  await updateWelcome(env, kv, next);
 }
 
 /**
@@ -156,7 +157,7 @@ async function recordStatus(kv, s) {
  * question gets other messages, and a read receipt for one of those must not
  * make the welcome look read.
  */
-async function updateWelcome(kv, status) {
+async function updateWelcome(env, kv, status) {
   const phone = fromMeta(status.recipient);
   if (!phone) return;
   try {
@@ -167,9 +168,30 @@ async function updateWelcome(kv, status) {
       status: status.status,
       last_status_ts: status.timestamp,
       errors: status.errors || [],
+      /* Stamped once and never cleared. A late failure report for a message
+         that was read must not make a welcome that arrived look like one
+         that never did, which is the list the backfill works from. */
+      ...(status.status === 'delivered' && !welcome.deliveredAt
+        ? { deliveredAt: status.timestamp } : {}),
+      ...(status.status === 'read'
+        ? {
+          readAt: welcome.readAt || status.timestamp,
+          deliveredAt: welcome.deliveredAt || status.timestamp,
+        } : {}),
     }), { expirationTtl: LOG_SECONDS });
   } catch (e) {
     console.error('wa-webhook: welcome status update failed', phone, String(e));
+  }
+
+  /* A welcome Meta could not deliver because of the template or its header
+     image gets the plain template instead, once, here. This is the only place
+     that failure ever shows up: the send itself was answered with a 200. */
+  if (status.status !== 'failed') return;
+  try {
+    const r = await retryFailedWelcome(env, kv, { phone, status });
+    if (r.sent) console.log('wa-webhook: second welcome sent to', phone, r.messageId);
+  } catch (e) {
+    console.error('wa-webhook: welcome retry threw', phone, String(e).slice(0, 200));
   }
 }
 
@@ -183,28 +205,11 @@ const fromMeta = n => normalisePhone('+' + String(n || '').replace(/\D/g, ''));
 /* Meta error codes that mean the number will never receive this message:
    131026 the recipient is not a WhatsApp user, 131047 the 24-hour window has
    closed and re-engagement was refused. Either way, stop trying. */
-const DEAD_CODES = new Set([131026, 131047]);
 
-/**
- * Turn WA_OPTIN off for whoever owns this number.
- *
- * Brevo can look a contact up by its WhatsApp identity directly; older keys
- * fall back to the SMS one. The update is then done by email, which is the
- * identifier Brevo is happiest with.
- */
-export async function findContact(env, phone) {
-  if (!phone || !env.BREVO_API_KEY) return null;
-  for (const type of ['whatsapp_id', 'phone_id']) {
-    try {
-      const contact = await getContact(env, phone, type);
-      if (contact) return contact;
-    } catch (e) {
-      console.error('wa-webhook: lookup by', type, 'failed', String(e));
-    }
-  }
-  return null;
-}
 
+/* Turn WA_OPTIN off for whoever owns this number. The lookup lives in
+   _shared.js; the update is done by email, which is the identifier Brevo is
+   happiest with. */
 async function optOut(env, phone, why) {
   if (!phone || !env.BREVO_API_KEY) return false;
 
@@ -664,7 +669,7 @@ async function process(env, body) {
         /* Stored whatever it says. A delivered is as much a part of the trail
            as a failure, and /api/wa-status is the only way to read it back
            without the log stream. */
-        if (env.REFERRALS) await recordStatus(env.REFERRALS, s);
+        if (env.REFERRALS) await recordStatus(env, env.REFERRALS, s);
         else console.warn('wa-webhook: REFERRALS KV not bound, status not stored');
 
         if (s.status !== 'failed') continue;

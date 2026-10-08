@@ -204,7 +204,9 @@ page. Three tabs:
   team reply. Each row links straight to the reply page.
 - **Welcome** — every buyer the welcome template went to, with sent /
   delivered / read / failed counts on top and Meta's own error text on the
-  failures.
+  failures. Above those: a red notice when more than a fifth of the last
+  twenty failed, the number of buyers who never received theirs, and the
+  button that sends it to them. See **The welcome message** below.
 - **Unanswered** — the same list as `/api/wa-unanswered`, so the FAQ can be
   grown from real questions.
 
@@ -242,7 +244,9 @@ All in the `REFERRALS` namespace.
 | `bot:count:<phone>:<YYYY-MM-DD>` | model replies used today | 48h |
 | `bot:count:<phone>:<day>:limited` | already told them the limit | 48h |
 | `bot:log:<phone>` | `{phone, name, buyer, lang, updatedAt, messages[]}` — last 40 lines both ways | 30d |
-| `bot:welcome:<phone>` | `{ts, name, template, waMessageId, status, last_status_ts}` | 30d |
+| `bot:welcome:<phone>` | `{ts, name, code, template, waMessageId, status, last_status_ts, attempts[], deliveredAt?, readAt?, retriedAt?}` | 30d |
+| `bot:wbackfill:job` | the backfill job: queue, cursor, counters | 14d |
+| `bot:welcome:alert:<day>` | the daily failure email has gone out | 3d |
 | `bot:unanswered:<ts>` | `{phone, lang, text, reason}` | 90d |
 | `bot:escalation:<ts>` | `{phone, name, lang, last_message, history}` | 90d |
 | `refcount:<CODE>` | paid adult tickets referred by that code | never |
@@ -365,3 +369,52 @@ tagged `channel: "web"`.
 A fourth tab, **Web**, in `/admin/wa`: sessions today and over 7 days, leads
 captured, buyers identified, unanswered web questions, and the transcripts. A
 **Web: ON / OFF** badge reads `WEB_BOT_ENABLED`.
+
+
+## The welcome message
+
+Every buyer who opts in gets one, from `/api/tt-order`, built in
+`functions/api/_welcome.js`.
+
+**Two templates.** `diwali_welcome_en_v2` carries a header image, the name and
+link in the body, and the referral code on a URL button.
+`diwali_welcome_en` is the original: no header, no button, the link spelled
+out. Both names are in env, so a new approval needs no deploy.
+
+**The header image is ours to serve.** A media header is not baked into an
+approved template; every send has to supply the image, and Meta fetches the
+URL itself. It is `/img/wa-header.jpg`, built from `media/wa-header.jpg`,
+1200x628 and under 1 MB. **The build fails when that file is missing.** It
+used to only warn, and the consequence is the reason for everything below.
+
+**What went wrong.** The file was never added. The URL 404ed. Meta accepted
+every send with a 200 and failed every message minutes later with 131053
+*Media upload error*, reported down the **status webhook** rather than in the
+answer to the send. The fallback was behind Meta's answer to the send, so it
+never ran. 208 buyers were welcomed to a festival and heard nothing, and
+nothing on any page said so.
+
+**Three things now stop that happening again:**
+
+1. **Before a v2 send**, the header URL is checked: a HEAD, redirects not
+   followed, 200 and an `image/*` type or it is not used. Cached ten minutes.
+   A failed check sends `diwali_welcome_en` straight away and says why. A
+   check that cannot be made at all counts as usable: this exists to catch a
+   404, not to stop the welcome going out.
+2. **When the status webhook reports a welcome failed** with a media or
+   template code, the plain template is sent to that buyer once, automatically,
+   and both attempts are kept on the record (`attempts[]`, `retriedAt`). Once
+   per record, whatever Meta says afterwards, and never to somebody whose
+   first message was delivered or read.
+3. **Buyers who never got one** are counted on the Welcome tab and on the
+   dashboard. `POST /api/wa-welcome {"action":"start"}` sends to them in
+   batches of ten, one request each, stoppable and resumable, honouring
+   `WA_DRY_RUN`. Nobody is sent to twice: the record carries `retriedAt` and
+   is re-read for every send. Numbers that answered STOP, and numbers Meta
+   says have no WhatsApp account, are left out.
+
+**And an alarm.** More than a fifth of the last twenty welcomes failing puts a
+red notice with Meta's own reason on the Welcome tab and the dashboard, and
+once a day, if anything failed in the last 24 hours, a short summary goes to
+`ESCALATION_EMAIL`. There is no scheduler here, so that email rides on the
+next request that comes in and the day is claimed in KV before it is sent.

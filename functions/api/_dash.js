@@ -216,7 +216,10 @@ export function orderMoney(order) {
 
 /* Bumped whenever the shape of a cached figures object changes. A cache
    written by an older deploy is ignored rather than read and crashed on. */
-export const SHAPE_VERSION = 4;
+/* 5: the WhatsApp block gained health and missing. The local figures are
+   cached under this version too, so an older cached object cannot be read by
+   a newer page — which is exactly how the dashboard went blank once before. */
+export const SHAPE_VERSION = 5;
 
 /** Does this cached object have everything shape() is about to read? */
 export function isCurrentShape(f) {

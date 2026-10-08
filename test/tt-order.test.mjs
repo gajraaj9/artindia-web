@@ -15,6 +15,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { onRequestPost } from '../functions/api/tt-order.js';
+import { clearImageCache } from '../functions/api/_welcome.js';
 
 /* ------------------------------------------------------------------ stubs */
 
@@ -476,11 +477,30 @@ test('a successful send hands back the Meta message id', async () => {
  * Meta answers the template lookup with `lookup`, then refuses the first send
  * with `refuseCode` (null accepts it) and accepts anything after.
  */
-function stubMeta({ lookup = { data: [] }, refuseCode = null } = {}) {
+function stubMeta({ lookup = { data: [] }, refuseCode = null, header = 'ok' } = {}) {
   const sends = [];
+  const headChecks = [];
+  /* The check is cached for ten minutes inside the module, so a test that
+     wants a different answer has to clear it first. */
+  clearImageCache();
   globalThis.fetch = async (url, init = {}) => {
     const u = new URL(url);
+    const method = String(init.method || 'GET').toUpperCase();
     const body = init.body ? JSON.parse(init.body) : null;
+
+    /* The header image, as Meta's fetcher and our own pre-send check see it. */
+    if (/wa-header\.jpg$|\/x\.jpg$/.test(u.pathname)) {
+      headChecks.push({ url: String(url), method, redirect: init.redirect });
+      if (header === 'missing') return new Response('not found', { status: 404 });
+      if (header === 'redirect') {
+        return new Response(null, { status: 301, headers: { location: 'https://elsewhere/x.jpg' } });
+      }
+      if (header === 'html') {
+        return new Response('<!doctype html>', { status: 200, headers: { 'content-type': 'text/html' } });
+      }
+      if (header === 'throws') throw new Error('network down');
+      return new Response(null, { status: 200, headers: { 'content-type': 'image/jpeg' } });
+    }
 
     if (u.hostname === 'graph.facebook.com') {
       if (u.pathname.includes('/message_templates')) {
@@ -499,7 +519,7 @@ function stubMeta({ lookup = { data: [] }, refuseCode = null } = {}) {
     if (u.pathname === '/v3/contacts') return new Response(null, { status: 204 });
     return new Response(JSON.stringify({ code: 'document_not_found' }), { status: 404 });
   };
-  return { sends };
+  return { sends, headChecks };
 }
 
 test('a template error drops back to the older template rather than sending nothing', async () => {

@@ -288,6 +288,26 @@ export async function getContact(env, identifier, identifierType) {
   throw new Error(`brevo lookup ${r.status} ${await r.text()}`);
 }
 
+/**
+ * The contact behind a phone number, whichever channel Brevo filed it under.
+ *
+ * Brevo can look a contact up by its WhatsApp identity directly; older keys
+ * fall back to the SMS one. Null when neither knows the number, and never
+ * throws: every caller is already handling something else.
+ */
+export async function findContact(env, phone) {
+  if (!phone || !env.BREVO_API_KEY) return null;
+  for (const type of ['whatsapp_id', 'phone_id']) {
+    try {
+      const contact = await getContact(env, phone, type);
+      if (contact) return contact;
+    } catch (e) {
+      console.error('brevo: lookup by', type, 'failed', String(e).slice(0, 160));
+    }
+  }
+  return null;
+}
+
 /* Brevo drops attributes it has never been told about instead of failing the
    call, so a missing attribute looks exactly like a successful write and the
    value is simply lost. These are created once per isolate on first use. */

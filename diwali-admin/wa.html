@@ -89,6 +89,26 @@
   .count-box b { display: block; font-size: 1.3rem; }
   .count-box span { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
   .empty { color: var(--muted); text-align: center; padding: 2rem 1rem; }
+
+  /* The welcome alarm and the backfill. Deliberately the loudest thing on the
+     page: the failure this was built for hid behind a counter for weeks. */
+  .alarm {
+    border: 1px solid var(--bad); border-radius: .6rem; padding: .7rem .8rem;
+    margin: 0 0 .8rem; color: var(--bad);
+  }
+  .alarm b { display: block; font-size: 1rem; margin-bottom: .25rem; }
+  .alarm .why { color: var(--muted); font-size: .85rem; }
+  .backfill { background: var(--card); border: 1px solid var(--line);
+    border-radius: .6rem; padding: .7rem .8rem; margin: 0 0 .8rem; }
+  .backfill .bar { height: .4rem; border-radius: .2rem; background: var(--line);
+    margin: .5rem 0 .35rem; overflow: hidden; }
+  .backfill .bar i { display: block; height: 100%; background: var(--accent); }
+  .backfill button { font: inherit; padding: .5rem .9rem; border-radius: .4rem;
+    cursor: pointer; border: 1px solid var(--line); background: var(--bg);
+    color: var(--ink); margin-right: .4rem; }
+  .backfill button.go { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .backfill button[disabled] { opacity: .5; cursor: default; }
+  .backfill .note { color: var(--muted); font-size: .82rem; margin: .4rem 0 0; }
   table { width: 100%; border-collapse: collapse; font-size: .86rem; }
   th, td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--line); }
   th { color: var(--muted); font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
@@ -260,9 +280,143 @@
     });
   }
 
-  function renderWelcome(root) {
+  /* ------------------------------------------------- the welcome backfill */
+
+  /* The job, as the page knows it between batches. It lives on the server;
+     this is only what the last answer said. */
+  var JOB = null;
+  var LOOPING = false;
+  /* True between a job finishing and the page reading the counts again. The
+     number of buyers still missing is a moment out of date in that window,
+     and offering the button again on a stale number is how somebody presses
+     it twice. */
+  var JUSTFINISHED = false;
+
+  function jobCall(action) {
+    return fetch('/api/wa-welcome', {
+      method: 'POST',
+      headers: { 'X-Admin-Token': readToken(), 'content-type': 'application/json' },
+      body: JSON.stringify({ action: action })
+    }).then(function (r) { return r.json(); });
+  }
+
+  /* One batch at a time, each its own request, because a Worker cannot send
+     two hundred messages inside one. Stopping is checked between batches, so
+     the most that goes out after a press is the batch already in flight. */
+  function pump(action) {
+    LOOPING = true;
+    paintWelcome();
+    jobCall(action).then(function (b) {
+      if (!b.ok) {
+        LOOPING = false;
+        JOB = b.job || JOB;
+        paintWelcome(b.error === 'already_running'
+          ? 'That job is already running. Press Resume.' : (b.error || 'It did not run.'));
+        return;
+      }
+      JOB = b.job;
+      if (JOB.running && JOB.done < JOB.total) { pump('run'); return; }
+      LOOPING = false;
+      JUSTFINISHED = JOB.done >= JOB.total;
+      paintWelcome();
+      load();
+    }).catch(function () {
+      LOOPING = false;
+      paintWelcome('Could not reach the server. Nothing was lost: press Resume.');
+    });
+  }
+
+  function stopJob() {
+    jobCall('stop').then(function (b) {
+      LOOPING = false;
+      JOB = b.job || JOB;
+      paintWelcome('Stopped.');
+    });
+  }
+
+  function backfillBox(missing, note) {
+    var box = el('div', 'backfill');
+    var job = JOB;
+    var busy = Boolean(job && job.running) || LOOPING;
+
+    if (job && job.total) {
+      var pct = job.total ? Math.round((job.done / job.total) * 100) : 0;
+      box.appendChild(el('div', null,
+        job.done + ' of ' + job.total + ' done · ' + job.sent + ' sent'
+        + (job.dry_run ? ' · ' + job.dry_run + ' dry run' : '')
+        + (job.skipped ? ' · ' + job.skipped + ' skipped' : '')
+        + (job.failed ? ' · ' + job.failed + ' failed' : '')));
+      var bar = el('div', 'bar');
+      var fill = el('i');
+      fill.style.width = pct + '%';
+      bar.appendChild(fill);
+      box.appendChild(bar);
+    }
+
+    if (busy) {
+      var stop = el('button', null, 'Stop');
+      stop.onclick = stopJob;
+      box.appendChild(stop);
+    } else if (job && job.total && job.done < job.total) {
+      var resume = el('button', 'go', 'Resume · ' + (job.total - job.done) + ' left');
+      resume.onclick = function () { pump('resume'); };
+      box.appendChild(resume);
+    } else if (missing > 0 && !JUSTFINISHED) {
+      var go = el('button', 'go', 'Send their welcome now');
+      go.onclick = function () {
+        var what = data.wa_dry_run
+          ? 'WA_DRY_RUN is on, so nothing will actually be sent. Run the job over '
+            + missing + ' buyer' + (missing === 1 ? '' : 's') + '?'
+          : 'Send the welcome message to ' + missing + ' buyer'
+            + (missing === 1 ? '' : 's') + ' who never received one?';
+        if (window.confirm(what)) pump('start');
+      };
+      box.appendChild(go);
+    }
+
+    if (data.wa_dry_run) box.appendChild(el('span', 'meta', 'WA_DRY_RUN is on'));
+    if (note) box.appendChild(el('p', 'note', note));
+    else if (job && job.finishedAt && job.total) {
+      box.appendChild(el('p', 'note', 'Finished ' + ago(job.finishedAt)
+        + (job.by ? ', started by ' + job.by : '') + '.'));
+    } else if (missing > 0) {
+      box.appendChild(el('p', 'note',
+        'They are sent the plain template, in small batches, one at a time. '
+        + 'Nobody is sent to twice.'));
+    }
+    return box;
+  }
+
+  /* Redraws only this tab, so a running job updates without pulling the whole
+     dashboard down on every batch. */
+  function paintWelcome(note) {
+    var root = $('tab-welcome');
+    if (root && !root.hidden) renderWelcome(root, note);
+  }
+
+  function renderWelcome(root, note) {
     root.innerHTML = '';
     var counts = data.welcome_counts || {};
+    var health = data.welcome_health || null;
+    var missing = Number(data.welcome_missing) || 0;
+
+    /* The alarm, above everything. */
+    if (health && health.alarm) {
+      var al = el('div', 'alarm');
+      al.appendChild(el('b', null, health.failed + ' of the last ' + health.window
+        + ' welcome messages failed (' + health.percent + '%)'));
+      al.appendChild(el('div', 'why', (health.reasons || []).map(function (r) {
+        return [r.code, r.title].filter(Boolean).join(' ') + ' (' + r.count + ')';
+      }).join(', ') || 'Meta gave no reason.'));
+      root.appendChild(al);
+    }
+
+    if (missing > 0 || (JOB && JOB.total)) {
+      root.appendChild(el('p', 'who', missing + ' buyer' + (missing === 1 ? '' : 's')
+        + ' never received their welcome'));
+      root.appendChild(backfillBox(missing, note));
+    }
+
     var wrap = el('div', 'counts');
     [['sent', 'Sent'], ['delivered', 'Delivered'], ['read', 'Read'], ['failed', 'Failed']]
       .forEach(function (pair) {
@@ -287,6 +441,7 @@
 
       var bits = [];
       if (w.template) bits.push(w.template);
+      if (w.retriedAt) bits.push('sent again ' + ago(w.retriedAt));
       if (w.last_status_ts && w.last_status_ts !== w.ts) bits.push('updated ' + ago(w.last_status_ts));
       if (bits.length) box.appendChild(el('div', 'meta', bits.join(' · ')));
 
@@ -515,9 +670,17 @@
           return;
         }
         data = r.body;
+        JUSTFINISHED = false;
         $('unlock').hidden = true;
         $('app').hidden = false;
         paint();
+        /* Whether a backfill is half done is one cheap read, and without it
+           somebody who closed the tab mid-job has no way back to Resume. */
+        if (!LOOPING) {
+          jobCall('status').then(function (b) {
+            if (b && b.ok) { JOB = b.job; paintWelcome(); }
+          }).catch(function () { /* the tab simply shows no job */ });
+        }
       })
       .catch(function () {
         $('bot-pill').className = 'pill off';

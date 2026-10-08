@@ -17,6 +17,9 @@
 
 import { json, truthy, waAdmin, waAdminConfigured } from './_shared.js';
 import { botKey, listAll, webKey } from './_bot.js';
+import {
+  welcomeHealth, maybeDailyWelcomeAlert, neverArrived, DEAD_CODES,
+} from './_welcome.js';
 
 /* A dashboard is a glance, not an archive. Past this many conversations the
    page is unreadable anyway and /api/wa-unanswered is the tool for digging. */
@@ -122,6 +125,27 @@ export async function onRequestGet({ request, env }) {
     counts[st] += 1;
   }
 
+  /* Buyers whose welcome never arrived, counted here because the page should
+     not have to work it out and because the number is the whole point: a
+     column of failures is a statistic, "41 buyers never got it" is a job. */
+  const couldRetry = welcomes.filter(w => neverArrived(w)
+    && !w.retriedAt
+    && !(w.errors || []).some(e => DEAD_CODES.has(Number(e.code))));
+  /* Minus anybody who answered STOP. One read each, and there are never many:
+     the whole point of the number is that it should be small. */
+  const missing = [];
+  for (const w of couldRetry) {
+    if (!(await kv.get(botKey.optout(w.phone)))) missing.push(w);
+  }
+  const health = welcomeHealth(welcomes);
+
+  /* Nothing here runs on a schedule, so the alert rides on whoever opens the
+     page. It writes the day before it sends, so this costs one email. */
+  if (health.failed) {
+    await maybeDailyWelcomeAlert(env, kv, welcomes)
+      .catch(e => console.error('wa-admin: alert threw', String(e).slice(0, 160)));
+  }
+
   /* The web tab. Counted here rather than in the page, so the phone on 4G is
      handed numbers instead of three hundred transcripts to add up. */
   const now = Date.now();
@@ -160,6 +184,9 @@ export async function onRequestGet({ request, env }) {
     conversations,
     welcomes: welcomes.sort(newestFirst('ts')),
     welcome_counts: counts,
+    welcome_health: health,
+    welcome_missing: missing.length,
+    wa_dry_run: truthy(env.WA_DRY_RUN),
     questions: questions.sort(newestFirst('at')),
   });
 }

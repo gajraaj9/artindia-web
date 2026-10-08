@@ -49,10 +49,10 @@
 
 import {
   json, pick, truthy, isEmail, normalisePhone, referralCode, CODE_RE,
-  getContact, ensureAttributes, upsertContact, codeKey, orderKey, refcountKey,
+  getContact, ensureAttributes, upsertContact, codeKey, refcountKey,
   tagClass, ordersKey,
 } from './_shared.js';
-import { botKey, logMessage, LOG_SECONDS } from './_bot.js';
+import { sendWelcome } from './_welcome.js';
 
 /* ------------------------------------------------------------------ crypto */
 
@@ -344,270 +344,9 @@ async function creditReferrer(env, kv, code, buyerEmail, adults) {
 
 /* ------------------------------------------------------------- whatsapp */
 
-const WA_API = 'https://graph.facebook.com/v21.0';
-
-/* The approved template, and the one to fall back to. Both in env so a new
-   approval does not need a deploy. */
-const templateName = env => env.WA_TEMPLATE || 'diwali_welcome_en_v2';
-const fallbackName = env => env.WA_TEMPLATE_FALLBACK || 'diwali_welcome_en';
-
-/**
- * The header image.
- *
- * A media header is NOT baked into the approved template — the sample supplied
- * at approval time is only for Meta's reviewers, and the header_handle on the
- * template definition is an upload handle from that review, not something a
- * send can use. Every send has to supply the image itself, as a public https
- * link or an uploaded media id. So this URL has to resolve, publicly, for v2
- * to work at all.
- */
-const headerImage = env =>
-  env.WA_HEADER_IMAGE_URL || 'https://diwali.artindia.be/img/wa-header.jpg';
-
-/* Meta's codes for "this template cannot be sent as asked". Template shape
-   problems, and the two media errors, because a header image Meta cannot fetch
-   fails the whole v2 send and the plain v1 template will still go out. */
-const TEMPLATE_ERROR_CODES = new Set([
-  132000, // parameter count mismatch
-  132001, // template does not exist in this language
-  132005, // translated text too long
-  132007, // format mismatch
-  132012, // parameter format mismatch
-  132015, 132016, // paused
-  132068, 132069,
-  131052, 131053, // media could not be downloaded / uploaded
-]);
-
-/**
- * What the approved template actually looks like, straight from the WABA.
- *
- * Worth one call per isolate because two things about a template are invisible
- * from here and both fail the send outright: the language code it was approved
- * under (en and en_US are different templates as far as sending is concerned),
- * and whether it carries a URL button at all. Everything is optional — if the
- * lookup cannot be made, the caller assumes the full shape and lets the
- * fallback catch it.
- */
-/* Keyed by account as well as name, and held for ten minutes rather than for
-   the life of the isolate: a template that gets edited and re-approved should
-   start being sent correctly within the quarter hour, not whenever Cloudflare
-   happens to recycle the worker. */
-const shapeCache = new Map();
-const SHAPE_TTL_MS = 10 * 60 * 1000;
-
-async function templateShape(env, name) {
-  if (!env.WA_WABA_ID || !env.WA_TOKEN) return null;
-  const key = `${env.WA_WABA_ID}:${name}`;
-  const hit = shapeCache.get(key);
-  if (hit && Date.now() - hit.at < SHAPE_TTL_MS) return hit.shape;
-
-  let shape = null;
-  try {
-    const res = await fetch(
-      `${WA_API}/${env.WA_WABA_ID}/message_templates?name=${encodeURIComponent(name)}`,
-      { headers: { authorization: `Bearer ${env.WA_TOKEN}` } });
-    const body = await res.text();
-    if (!res.ok) {
-      console.error('wa template lookup failed', name, res.status, body);
-    } else {
-      const found = (JSON.parse(body).data || []).find(t => t.name === name);
-      if (found) {
-        const components = found.components || [];
-        const header = components.find(c => String(c.type).toUpperCase() === 'HEADER');
-        const buttons = components.find(c => String(c.type).toUpperCase() === 'BUTTONS');
-        const urlIndex = (buttons && buttons.buttons || [])
-          .findIndex(b => String(b.type).toUpperCase() === 'URL' && /\{\{\d+\}\}/.test(b.url || ''));
-        shape = {
-          language: found.language || 'en',
-          status: found.status || '',
-          headerFormat: header ? String(header.format || '').toUpperCase() : '',
-          urlButtonIndex: urlIndex >= 0 ? urlIndex : null,
-        };
-        console.log('wa template', name, JSON.stringify(shape));
-      } else {
-        console.error('wa template not found on the WABA:', name);
-      }
-    }
-  } catch (e) {
-    console.error('wa template lookup threw', name, String(e));
-  }
-
-  shapeCache.set(key, { at: Date.now(), shape });
-  return shape;
-}
-
-/**
- * The v2 message: an image header, the name and link in the body, and the
- * referral code on its own in the dynamic part of the URL button — the button
- * already carries the rest of the link, so it takes the code alone, not the
- * whole URL.
- */
-function buildV2(name, shape, { phone, firstName, code, image }) {
-  const components = [];
-
-  /* Only when the template really has a media header. Sending a header
-     parameter to a template without one is a parameter-count error. */
-  if (!shape || shape.headerFormat === 'IMAGE') {
-    components.push({
-      type: 'header',
-      parameters: [{ type: 'image', image: { link: image } }],
-    });
-  }
-
-  components.push({
-    type: 'body',
-    parameters: [
-      { type: 'text', text: firstName || 'there' },
-      { type: 'text', text: `https://diwali.artindia.be/r/${code}` },
-    ],
-  });
-
-  const index = shape ? shape.urlButtonIndex : 0;
-  if (index !== null && index !== undefined) {
-    components.push({
-      type: 'button',
-      sub_type: 'url',
-      index: String(index),
-      parameters: [{ type: 'text', text: code }],
-    });
-  }
-
-  return {
-    messaging_product: 'whatsapp',
-    to: phone.replace(/^\+/, ''),
-    type: 'template',
-    template: {
-      name,
-      language: { code: (shape && shape.language) || 'en' },
-      components,
-    },
-  };
-}
-
-/* The original template: no header, no button, the link spelled out in the
-   body. Deliberately the simplest thing that can still go out. */
-const buildV1 = (name, { phone, firstName, code }) => ({
-  messaging_product: 'whatsapp',
-  to: phone.replace(/^\+/, ''),
-  type: 'template',
-  template: {
-    name,
-    language: { code: 'en' },
-    components: [{
-      type: 'body',
-      parameters: [
-        { type: 'text', text: firstName || 'there' },
-        { type: 'text', text: `https://diwali.artindia.be/r/${code}` },
-      ],
-    }],
-  },
-});
-
-/** One POST to Meta, with the body kept as text so it can be logged as sent. */
-async function postToMeta(env, payload) {
-  const res = await fetch(`${WA_API}/${env.WA_PHONE_ID}/messages`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${env.WA_TOKEN}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-  const body = await res.text();
-  let parsed = null;
-  try { parsed = JSON.parse(body); } catch { /* kept as text below */ }
-  return {
-    ok: res.ok,
-    status: res.status,
-    messageId: (parsed && parsed.messages && parsed.messages[0] && parsed.messages[0].id) || '',
-    error: (parsed && parsed.error) || body.slice(0, 1000),
-    code: Number(parsed && parsed.error && parsed.error.code) || null,
-  };
-}
-
-/**
- * The welcome message, with the buyer's first name, their referral link and
- * their code on the button.
- *
- * Best effort, always. A WhatsApp that does not go out is a missed nudge; a
- * webhook that 500s because Meta was slow is an order Ticket Tailor keeps
- * redelivering, so every failure here is logged and swallowed.
- *
- * When v2 comes back with something wrong about the template itself — the
- * wrong number of parameters, a language that does not exist, a header image
- * Meta could not fetch — the older template goes out instead rather than the
- * buyer getting nothing. That is logged loudly: a fallback that nobody notices
- * is a v2 that is quietly never used.
- */
-async function sendWelcome(env, kv, { orderId, phone, firstName, code }) {
-  const already = await kv.get(orderKey(orderId), 'json');
-  if (already) {
-    return {
-      sent: false, reason: 'already_sent', to: phone,
-      messageId: already.waMessageId, template: already.template,
-    };
-  }
-
-  const name = templateName(env);
-  const shape = await templateShape(env, name);
-  const payload = buildV2(name, shape, {
-    phone, firstName, code, image: headerImage(env),
-  });
-
-  if (truthy(env.WA_DRY_RUN)) {
-    /* Nothing is written to KV on a dry run, so the same order can be replayed
-       as often as it takes to get the mapping right. Only the v2 attempt is
-       previewed: whether Meta would have refused it is exactly the thing a dry
-       run cannot tell you. */
-    console.log('wa dry-run', orderId, JSON.stringify(payload));
-    return { sent: false, reason: 'dry_run', to: phone, template: name, preview: payload };
-  }
-
-  let used = name;
-  let fellBack = false;
-  let res = await postToMeta(env, payload);
-
-  if (!res.ok && TEMPLATE_ERROR_CODES.has(res.code)) {
-    const older = fallbackName(env);
-    console.error('wa template', name, 'refused with', res.code,
-      JSON.stringify(res.error), '— falling back to', older);
-    used = older;
-    fellBack = true;
-    res = await postToMeta(env, buildV1(older, { phone, firstName, code }));
-  }
-
-  if (!res.ok) {
-    console.error('wa send failed', orderId, used, res.status, JSON.stringify(res.error));
-    return {
-      sent: false, reason: 'send_failed', to: phone,
-      status: res.status, error: res.error, template: used, fellBack,
-    };
-  }
-
-  const sentAt = new Date().toISOString();
-  await kv.put(orderKey(orderId), JSON.stringify({
-    sentAt, waMessageId: res.messageId, template: used,
-  }));
-
-  /* The dashboard's welcome tab. Keyed by phone so a delivery report, which
-     only carries the number, can find it again; the message id is kept so a
-     report for some later message cannot overwrite this one's status. */
-  try {
-    await kv.put(botKey.welcome(phone), JSON.stringify({
-      phone, ts: sentAt, name: firstName, template: used,
-      waMessageId: res.messageId, orderId,
-      status: 'sent', last_status_ts: sentAt,
-    }), { expirationTtl: LOG_SECONDS });
-    await logMessage(kv, phone,
-      { dir: 'out', kind: 'template', text: `${used} (welcome)` },
-      { name: firstName, buyer: true });
-  } catch (e) {
-    console.error('tt-order: welcome log failed', String(e));
-  }
-
-  console.log('wa sent', orderId, used, res.messageId, fellBack ? '(fallback)' : '');
-  return { sent: true, to: phone, messageId: res.messageId, template: used, fellBack };
-}
+/* The welcome message itself lives in _welcome.js. It moved there when the
+   status webhook and the backfill both had to be able to send one: three
+   callers, one set of rules about templates, header images and fallbacks. */
 
 /**
  * Why this order is not getting a WhatsApp, or '' if it is.
@@ -897,6 +636,9 @@ export async function onRequestPost({ request, env }) {
   if (wa.error) whatsapp.error = wa.error;
   if (wa.template) whatsapp.template = wa.template;
   if (wa.fellBack) whatsapp.fell_back = true;
+  /* Why the message with the picture was not even attempted. The whole reason
+     this file no longer sends one blind. */
+  if (wa.imageUnusable) whatsapp.image_unusable = wa.imageUnusable;
   if (wa.preview) whatsapp.preview = wa.preview;
 
   console.log('tt-order ok', orderId, email, 'tickets', ticketCount,

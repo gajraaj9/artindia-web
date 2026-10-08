@@ -428,11 +428,36 @@
       + n(D.draw.referrers) + '</span></div></div>';
   }
 
+  /* The welcome alarm. A delivered percentage is something you read past; a
+     red box naming Meta's own reason is not. The last time welcomes were
+     failing they failed for weeks behind a number in a column. */
+  function waAlarm() {
+    var h = D.wa && D.wa.health;
+    if (!h || !h.alarm) return '';
+    var why = (h.reasons || []).map(function (r) {
+      return esc([r.code, r.title].filter(Boolean).join(' ')) + ' (' + r.count + ')';
+    }).join(', ');
+    why = why ? why + '.' : 'Meta gave no reason.';
+    return '<div class="card notice bad">'
+      + h.failed + ' of the last ' + h.window + ' welcome messages failed ('
+      + h.percent + '%). ' + why
+      + (D.wa.missing
+        ? ' ' + n(D.wa.missing) + ' buyer' + (D.wa.missing === 1 ? '' : 's')
+          + ' never received theirs.' : '')
+      + ' <a href="/admin/wa">Open WhatsApp</a>'
+      + '</div>';
+  }
+
   function wa() {
     if (!D.wa) return '';
-    return '<h2>WhatsApp and Diya</h2><div class="card">'
+    return '<h2>WhatsApp and Diya</h2>'
+      + waAlarm()
+      + '<div class="card">'
       + '<div class="row"><span>Welcome messages delivered</span><span class="m">'
       + n(D.wa.delivered) + ' of ' + n(D.wa.sent) + ' · ' + n(D.wa.deliveredPercent) + '%</span></div>'
+      + (D.wa.missing
+        ? '<div class="row"><span>Buyers who never received one</span><span class="m">'
+          + n(D.wa.missing) + '</span></div>' : '')
       + '<div class="row"><span>Conversations</span><span class="m">' + n(D.wa.conversations) + '</span></div>'
       + '<div class="row"><span>Questions waiting for a person</span><span class="m">'
       + n(D.wa.waiting) + '</span></div></div>';
