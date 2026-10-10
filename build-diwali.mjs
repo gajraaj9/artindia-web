@@ -1967,7 +1967,7 @@ if (existsSync(join(HERE, 'diwali-web'))) {
       const t = key => (COPY[key] && (COPY[key][lang] || COPY[key].en)) || '';
       const strings = Object.fromEntries(Object.entries(COPY)
         .map(([k, v]) => [k, v[lang] || v.en || '']));
-      for (const [kind, leaf] of [['team', ''], ['plus1', 'plus1/'], ['guest', '']]) {
+      for (const [kind, leaf] of [['team', ''], ['plus1', 'plus1/']]) {
         const guest = kind === 'guest';
         const html = raw
           .replace(/\{\{LANG\}\}/g, HREFLANG[lang])
@@ -2020,7 +2020,65 @@ if (existsSync(join(HERE, 'diwali-web'))) {
         n++;
       }
     }
-    console.log(`  Team form: ${n} pages, hidden (including /guest/)`);
+    console.log(`  Team form: ${n} pages, hidden`);
+
+    /* /guest/: the special guest form in the look of the printed invitation.
+       Its own template and sheet, light, without diwali.css; the fields, ids
+       and calls are the vip variant of the team form's. Same copy file. */
+    const gtpl = join(HERE, 'templates/guest-form.html');
+    if (existsSync(gtpl)) {
+      const graw = readFileSync(gtpl, 'utf8');
+      const gcss = readFileSync(join(HERE, 'templates/guest-form.css'), 'utf8');
+      let g = 0;
+      for (const lang of LANGS) {
+        const t = key => {
+          if (!COPY[key]) throw new Error(`guest form: no copy for ${key}`);
+          return COPY[key][lang] || COPY[key].en || '';
+        };
+        const strings = Object.fromEntries(Object.entries(COPY)
+          .map(([k, v]) => [k, v[lang] || v.en || '']));
+        /* "Function (optional)" with the bracket set lighter, as on the letter.
+           The words are the copy file's; only the type changes. */
+        const label = key => {
+          const m = t(key).match(/^(.*?)\s*(\([^)]*\))$/);
+          return m ? `${esc(m[1])} <span class="gl-opt">${esc(m[2])}</span>` : esc(t(key));
+        };
+        const html = graw
+          .replace('{{GUEST_CSS}}', () => gcss)
+          .replace(/\{\{LANG\}\}/g, HREFLANG[lang])
+          .replace(/\{\{LANG_JSON\}\}/g, JSON.stringify(lang))
+          .replace(/\{\{STRINGS_JSON\}\}/g, () => JSON.stringify(strings))
+          .replace(/\{\{TITLE\}\}/g, esc(t('vip_title')))
+          .replace(/\{\{C:([a-z0-9_]+)\}\}/g, (_, key) => esc(t(key)))
+          .replace(/\{\{L:([a-z0-9_]+)\}\}/g, (_, key) => label(key))
+          .replace(/\{\{VIP_SALS\}\}/g, SALS[lang].map(v => `<option value="${esc(v)}">`).join(''))
+          .replace(/\{\{RSVP\}\}/g, esc(t('vip_l_rsvp')).replace(/([\w.+-]+@artindia\.be)/,
+            '<a href="mailto:$1">$1</a>'))
+          .replace(/\{\{LANGS\}\}/g, guestSwitcher(lang));
+        if (html.includes('{{')) throw new Error(`guest form ${lang} has an unfilled token`);
+        const dir = join(out, base[lang].slice(1), 'guest');
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(join(dir, 'index.html'), html);
+        g++;
+      }
+
+      /* The letterhead logo and the five partner logos, at about twice the
+         size they are shown, as WebP. logo-full.png alone is 560 KB. */
+      const gdir = join(out, 'static/guest');
+      mkdirSync(gdir, { recursive: true });
+      for (const [src, name, height] of [
+        ['static/brand/logo-full.png', 'logo', 208],
+        ['media/partners/embassy-of-india.png', 'embassy-of-india', 64],
+        ['media/partners/city-of-brussels-indigo.png', 'city-of-brussels', 88],
+        ['media/partners/western-union.png', 'western-union', 56],
+        ['media/partners/sbi.png', 'sbi', 56],
+        ['media/partners/iccr-indigo.png', 'iccr', 64],
+      ]) {
+        await sharp(join(HERE, src)).resize({ height, withoutEnlargement: true })
+          .webp({ quality: 86 }).toFile(join(gdir, `${name}.webp`));
+      }
+      console.log(`  Guest form: ${g} pages, hidden, in the look of the invitation`);
+    }
   }
 }
 

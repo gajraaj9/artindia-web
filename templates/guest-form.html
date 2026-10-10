@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="{{LANG}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#F2EFE6">
+<title>{{TITLE}}</title>
+<link rel="icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Mukta:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* The special guest form in the look of the printed invitation letter.
+
+   Its own page, not a skin on the team form: the team form is dark and
+   carries diwali.css, and this one is paper. diwali.css is not loaded here
+   at all, so none of the night tokens (text colour, input ground, focus
+   ring) can reach it. templates/guest-form.css is reference/guest-form/
+   guest.css as it was handed over; the lines below it are only what this
+   markup needs on top. */
+:root{color-scheme:light}
+{{GUEST_CSS}}
+/* --------------------------------------------------- on top of the sheet */
+.gl-body{-webkit-text-size-adjust:100%}
+/* The switch is set small, as on the letter, and still a full thumb high. */
+.gl-langs a{display:inline-block;padding:15px 4px;margin:-15px 0}
+/* Autofill paints its own ground and text; keep the paper. */
+.gl input:-webkit-autofill,.gl input:-webkit-autofill:focus{
+  -webkit-box-shadow:0 0 0 100px var(--field) inset;-webkit-text-fill-color:var(--ink);caret-color:var(--ink)}
+.gl input{caret-color:var(--ink)}
+.gl-rule{margin:26px 0 14px;border-top:1px solid var(--rule)}
+.gl-guest{margin-top:16px}
+.gl-guest .gl-lab{margin-bottom:10px}
+.gl-fine{margin:12px 0 0;font-size:13.5px;line-height:1.45;color:var(--ink-2)}
+.gl-note a{white-space:nowrap}
+/* A dead link, a closed form: one sentence on the paper, nothing else. */
+.gl-boot{margin:26px 0 0;padding:14px 16px;border-left:3px solid var(--saffron);
+  background:var(--paper-2);color:var(--indigo);font-weight:600}
+/* The thank-you, in the voice of the letter. */
+.gl-done{margin:26px 0 0;text-align:center}
+.gl-tick{width:52px;height:52px;margin:0 auto 14px;border-radius:50%;border:1px solid var(--saffron);
+  display:flex;align-items:center;justify-content:center}
+.gl-tick svg{width:26px;height:26px;display:block}
+.gl-done h2{margin:0 0 8px;font-family:'Rozha One',Georgia,serif;font-weight:400;
+  font-size:clamp(26px,7vw,32px);line-height:1.12;color:var(--indigo)}
+.gl-done p{margin:0 auto;max-width:440px;color:var(--ink)}
+.gl-submit[disabled]{opacity:.6;cursor:default}
+.gl-hp{position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none}
+</style>
+</head>
+<body class="gl-body">
+<main class="gl" id="team-form">
+  <div class="gl-tri" aria-hidden="true"><i></i><i></i><i></i></div>
+  <header class="gl-head">
+    <div><div class="gl-wm-n">Art India<span>.</span></div><div class="gl-wm-r"></div>
+      <div class="gl-wm-t">SHARING INDIA WITH THE WORLD</div></div>
+    <img src="/static/guest/logo.webp" alt="Art India" width="85" height="104">
+  </header>
+  <div class="gl-eyebrow"><span>{{C:vip_l_eyebrow}}</span>
+    <nav class="gl-langs" aria-label="Language">{{LANGS}}</nav></div>
+
+  <p class="gl-boot" id="tf-boot" role="status" hidden></p>
+
+  <div id="tf-head">
+    <h1>{{TITLE}}</h1>
+    <div class="gl-event"><div class="k">{{C:vip_badge}}</div><div class="d">{{C:vip_l_date}}</div>
+      <div class="l">{{C:vip_l_time}}</div><div class="l">{{C:vip_l_place}}</div></div>
+    <p class="gl-intro">{{C:vip_l_intro}}</p>
+  </div>
+
+  <form id="tf-form" hidden novalidate>
+    <div class="gl-rule" aria-hidden="true"></div>
+    <div class="gl-field gl-sal"><label for="v-sal">{{L:vip_salutation}}</label>
+      <input type="text" id="v-sal" name="vSalutation" autocomplete="honorific-prefix" list="v-sals">
+      <datalist id="v-sals">{{VIP_SALS}}</datalist></div>
+    <div class="gl-pair">
+      <div class="gl-field"><label for="v-first">{{C:first}}</label>
+        <input type="text" id="v-first" name="vFirst" autocomplete="given-name"></div>
+      <div class="gl-field"><label for="v-last">{{C:last}}</label>
+        <input type="text" id="v-last" name="vLast" autocomplete="family-name"></div>
+    </div>
+    <div class="gl-field"><label for="v-org">{{L:vip_organisation}}</label>
+      <input type="text" id="v-org" name="vOrg" autocomplete="organization"></div>
+    <div class="gl-field"><label for="v-fn">{{L:vip_function}}</label>
+      <input type="text" id="v-fn" name="vFunction" autocomplete="organization-title"></div>
+    <div class="gl-field"><label for="v-email">{{C:email}}</label>
+      <input type="email" id="v-email" name="vEmail" autocomplete="email" inputmode="email"></div>
+    <div class="gl-field"><label for="v-phone">{{L:vip_mobile}}</label>
+      <input type="tel" id="v-phone" name="vPhone" autocomplete="tel" inputmode="tel"></div>
+
+    <fieldset style="border:0;margin:0;padding:0;min-width:0">
+      <legend class="gl-legend" style="width:100%">{{C:vip_attend}}</legend>
+      <div class="gl-choices">
+        <label class="gl-choice"><input type="radio" name="vAttend" value="alone"><span>{{C:vip_alone}}</span></label>
+        <label class="gl-choice"><input type="radio" name="vAttend" value="guest"><span>{{C:vip_with_guest}}</span></label>
+      </div>
+    </fieldset>
+    <div class="gl-guest" id="tf-vip-guest" hidden>
+      <span class="gl-lab">{{C:vip_guest_legend}}</span>
+      <div class="gl-pair">
+        <div class="gl-field"><label for="g-first">{{C:first}}</label>
+          <input type="text" id="g-first" name="gFirst" autocomplete="off"></div>
+        <div class="gl-field"><label for="g-last">{{C:last}}</label>
+          <input type="text" id="g-last" name="gLast" autocomplete="off"></div>
+      </div>
+    </div>
+
+    <!-- The same trap as the team form: no label, a name no browser fills. -->
+    <p class="gl-hp" aria-hidden="true">
+      <input type="text" name="tf_x7" id="tf_x7" tabindex="-1"
+             autocomplete="new-password" spellcheck="false" value=""></p>
+
+    <button type="submit" class="gl-submit" id="tf-submit">{{C:submit}}</button>
+    <p class="gl-error" id="tf-msg" role="alert" hidden></p>
+    <p class="gl-fine" id="tf-fine">{{C:vip_fine}}</p>
+  </form>
+
+  <div class="gl-done" id="tf-done" hidden>
+    <div class="gl-tick" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#B4531C" stroke-width="2.4"
+        stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5"/></svg>
+    </div>
+    <h2 id="tf-done-title">{{C:vip_done_title}}</h2>
+    <p id="tf-done-lede">{{C:vip_done_lede}}</p>
+  </div>
+
+  <p class="gl-note"><b>R.S.V.P.</b>{{RSVP}}</p>
+
+  <footer>
+    <div class="gl-partners">
+      <div class="gl-g"><div class="lab">{{C:vip_l_patronage}}</div><div class="ls">
+        <img src="/static/guest/embassy-of-india.webp" alt="Embassy of India" class="h28">
+        <img src="/static/guest/city-of-brussels.webp" alt="City of Brussels" class="h40"></div></div>
+      <div class="gl-g"><div class="lab">{{C:vip_l_main}}</div><div class="ls">
+        <img src="/static/guest/western-union.webp" alt="Western Union" class="h25"></div></div>
+      <div class="gl-g"><div class="lab">{{C:vip_l_partner}}</div><div class="ls">
+        <img src="/static/guest/sbi.webp" alt="State Bank of India" class="h25"></div></div>
+      <div class="gl-g"><div class="lab">{{C:vip_l_support}}</div><div class="ls">
+        <img src="/static/guest/iccr.webp" alt="ICCR" class="h28"></div></div>
+    </div>
+    <div class="gl-legal"><span>ART INDIA ASBL</span> · <span>Avenue du Centaure 73, 1200 Woluwe-Saint-Lambert</span> · <span>BE 1007.072.905</span> · <span>artindia.be</span></div>
+  </footer>
+</main>
+<script>
+/* The special guest form. The same calls, fields and checks as the vip
+   variant of templates/team-form.html: GET /api/team-form?guest=1, then
+   POST /api/team-register with viaGuest. Only the page around it differs. */
+(function () {
+  var LANG = {{LANG_JSON}};
+  var S = {{STRINGS_JSON}};
+  var boot = document.getElementById('tf-boot');
+  var head = document.getElementById('tf-head');
+  var form = document.getElementById('tf-form');
+  var msg = document.getElementById('tf-msg');
+  var done = document.getElementById('tf-done');
+  var submit = document.getElementById('tf-submit');
+
+  /* A closed or switched-off form says one thing, on the paper, and shows
+     nothing else to fill in. */
+  function stop(text) {
+    boot.textContent = text;
+    boot.hidden = false;
+    head.hidden = true;
+    form.hidden = true;
+  }
+
+  function show(text) {
+    msg.textContent = text;
+    msg.hidden = !text;
+  }
+
+  fetch('/api/team-form?guest=1&lang=' + LANG)
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d && d.strings) S = d.strings;
+      if (!d || !d.ok || !d.vip) {
+        stop((d && d.strings && d.strings[d.message]) || S.vip_inactive);
+        return;
+      }
+      form.hidden = false;
+    })
+    .catch(function () { stop(S.error || S.vip_inactive); });
+
+  form.addEventListener('change', function (ev) {
+    if (ev.target.name !== 'vAttend') return;
+    document.getElementById('tf-vip-guest').hidden = ev.target.value !== 'guest';
+  });
+
+  /* What the server would refuse anyway, said before the round trip, with the
+     cursor put where the answer is missing. */
+  function vipMissing(f) {
+    var need = ['vFirst', 'vLast', 'vOrg', 'vEmail'];
+    if (f.get('vAttend') === 'guest') need.push('gFirst', 'gLast');
+    for (var i = 0; i < need.length; i++) {
+      if (!String(f.get(need[i]) || '').trim()) return form.elements[need[i]];
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(f.get('vEmail')).trim())) return form.elements.vEmail;
+    if (!f.get('vAttend')) return form.elements.vAttend[0];
+    return null;
+  }
+
+  function vipPayload(f) {
+    var p = {
+      lang: LANG,
+      salutation: f.get('vSalutation') || '',
+      firstName: f.get('vFirst') || '',
+      lastName: f.get('vLast') || '',
+      organisation: f.get('vOrg') || '',
+      jobTitle: f.get('vFunction') || '',
+      email: f.get('vEmail') || '',
+      phone: f.get('vPhone') || '',
+      attending: f.get('vAttend') || '',
+      hp: f.get('tf_x7') || '',
+      viaGuest: true
+    };
+    if (p.attending === 'guest') p.guest = { firstName: f.get('gFirst') || '', lastName: f.get('gLast') || '' };
+    return p;
+  }
+
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var f = new FormData(form);
+    var gap = vipMissing(f);
+    if (gap) { show(S.vip_check); gap.focus(); return; }
+
+    submit.disabled = true;
+    show('');
+    fetch('/api/team-register', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(vipPayload(f))
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        submit.disabled = false;
+        if (d && d.ok) {
+          form.hidden = true;
+          head.hidden = true;
+          done.hidden = false;
+          window.scrollTo(0, 0);
+          return;
+        }
+        show((d && (d.text || S[d.message])) || S.error || S.vip_inactive);
+      })
+      .catch(function () { submit.disabled = false; show(S.error || S.vip_inactive); });
+  });
+})();
+</script>
+</body>
+</html>

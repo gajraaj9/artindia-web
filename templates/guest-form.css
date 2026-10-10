@@ -1,0 +1,70 @@
+/* Guest form in the look of the invitation letter. Scoped to .gl so nothing leaks to the rest of the site. */
+.gl-body{margin:0;background:#E4DFD1;color:#14110D;font-family:Mukta,system-ui,sans-serif;font-size:17px;line-height:1.5}
+.gl{--paper:#F2EFE6;--paper-2:#E4DFD1;--field:#FBF9F3;--ink:#14110D;--ink-2:#4B453C;--ink-3:#7E7668;--rule:#CFC8B8;
+  --indigo:#171B3D;--saffron:#B4531C;--marigold:#E8A33B;
+  position:relative;max-width:640px;margin:0 auto;background:var(--paper);padding:26px 22px 22px;overflow:hidden}
+.gl *{box-sizing:border-box}
+.gl [hidden]{display:none!important}
+@media (min-width:700px){.gl-body{padding:36px 0 48px}.gl{padding:44px 56px 30px;box-shadow:0 1px 2px rgba(20,17,13,.08),0 12px 40px rgba(20,17,13,.10)}}
+/* tricolour strip, as on the letter */
+.gl-tri{position:absolute;left:0;right:0;top:0;height:8px;display:flex}
+.gl-tri i{flex:1;opacity:.55}.gl-tri i:nth-child(1){background:#E8792B}.gl-tri i:nth-child(2){background:#fff}.gl-tri i:nth-child(3){background:#1E7A46}
+/* letterhead */
+.gl-head{display:flex;justify-content:space-between;align-items:center;gap:16px}
+.gl-wm-n{font-family:'Rozha One',Georgia,serif;font-size:clamp(30px,8.4vw,36px);line-height:1;letter-spacing:-.3px;color:var(--ink)}
+.gl-wm-n span{color:var(--saffron)}
+.gl-wm-r{width:min(200px,100%);border-top:1px solid var(--saffron);margin:10px 0 6px}
+.gl-wm-t{font-weight:600;font-size:clamp(8.5px,2.4vw,10px);letter-spacing:1.9px;color:var(--saffron);white-space:nowrap}
+.gl-head img{height:clamp(72px,22vw,104px);width:auto;flex:0 0 auto}
+.gl-eyebrow{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:18px;border-top:1px solid var(--rule);padding-top:11px;
+  font-weight:600;font-size:10.5px;letter-spacing:1.7px;text-transform:uppercase;color:var(--ink-3)}
+.gl-langs{flex:0 0 auto;letter-spacing:1px;white-space:nowrap}
+.gl-langs a{color:var(--ink-3);text-decoration:none;padding:6px 3px}
+.gl-langs a[aria-current=page]{color:var(--saffron);font-weight:700}
+/* title and event block */
+.gl h1{margin:26px 0 0;font-family:'Rozha One',Georgia,serif;font-weight:400;font-size:clamp(27px,7.4vw,34px);line-height:1.12;color:var(--indigo);text-wrap:balance}
+.gl-event{margin:20px auto 22px;text-align:center;padding:13px 0 12px;border-top:1px solid var(--marigold);border-bottom:1px solid var(--marigold);max-width:440px}
+.gl-event .k{font-weight:600;font-size:10.5px;letter-spacing:2px;text-transform:uppercase;color:var(--saffron);margin-bottom:3px}
+.gl-event .d{font-family:'Rozha One',Georgia,serif;font-size:clamp(20px,5.6vw,23px);line-height:1.2;color:var(--indigo)}
+.gl-event .l{font-weight:600;font-size:15px;color:var(--indigo);line-height:1.45}
+.gl-intro{margin:0 0 24px;color:var(--ink)}
+/* fields */
+.gl-legend{margin:26px 0 14px;padding-top:12px;border-top:1px solid var(--rule);font-weight:600;font-size:10.5px;letter-spacing:2px;text-transform:uppercase;color:var(--saffron)}
+.gl-field{margin:0 0 16px}
+.gl-field>label,.gl-lab{display:block;margin:0 0 5px;font-weight:600;font-size:14.5px;color:var(--indigo)}
+.gl-opt{font-weight:400;color:var(--ink-3)}
+.gl input[type=text],.gl input[type=email],.gl input[type=tel],.gl select{width:100%;min-width:0;padding:12px 13px;font:400 17px/1.3 Mukta,system-ui,sans-serif;color:var(--ink);
+  background:var(--field);border:1px solid var(--rule);border-radius:2px;-webkit-appearance:none;appearance:none}
+.gl input::placeholder{color:#A39B8C}
+.gl input:focus-visible,.gl select:focus-visible,.gl button:focus-visible,.gl a:focus-visible,.gl-choice input:focus-visible+span{outline:2px solid var(--indigo);outline-offset:2px}
+.gl-pair{display:grid;gap:0 12px}
+@media (min-width:380px){.gl-pair{grid-template-columns:1fr 1fr}}
+.gl-sal{max-width:180px}
+/* alone or with one guest */
+.gl-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.gl-choice{position:relative;display:block}
+.gl-choice input{position:absolute;opacity:0;inset:0;margin:0}
+.gl-choice span{display:block;text-align:center;padding:13px 8px;border:1px solid var(--rule);border-radius:2px;background:var(--field);font-weight:600;font-size:16px;color:var(--indigo);cursor:pointer}
+.gl-choice input:checked+span{background:var(--indigo);border-color:var(--indigo);color:var(--paper)}
+/* confirm */
+.gl-submit{display:block;width:100%;margin:26px 0 0;padding:15px 18px;border:0;border-radius:2px;background:var(--indigo);color:var(--paper);
+  font:600 17px/1.2 Mukta,system-ui,sans-serif;letter-spacing:.4px;cursor:pointer}
+.gl-submit:hover{background:#232A54}
+.gl-error{margin:12px 0 0;color:#9B2C1F;font-weight:600;font-size:15px}
+.gl-note{margin:20px 0 0;background:var(--paper-2);padding:12px 16px;text-align:center;font-size:14.5px;line-height:1.45;color:var(--indigo)}
+.gl-note b{display:block;font-weight:600;font-size:10.5px;letter-spacing:2px;color:var(--saffron);margin-bottom:3px}
+.gl-note a{color:inherit}
+/* partners and legal line, as at the foot of the letter */
+.gl-partners{margin-top:34px;border-top:1px solid var(--rule);padding-top:14px;display:grid;grid-template-columns:repeat(3,auto);justify-content:space-between;gap:16px 14px}
+.gl-partners .gl-g:first-child{grid-column:1/-1}
+@media (min-width:560px){.gl-partners{display:flex;align-items:flex-end;justify-content:space-between;gap:20px}}
+.gl-g{display:flex;flex-direction:column;gap:7px}
+.gl-g .lab{font-weight:600;font-size:8.5px;white-space:nowrap;letter-spacing:1.2px;text-transform:uppercase;color:var(--ink-3)}
+.gl-g .ls{display:flex;align-items:center;gap:1.4em;height:4em}
+.gl-g img{width:auto}
+.gl-g .h25{height:2.5em}.gl-g .h28{height:2.8em}.gl-g .h40{height:4em}
+.gl-partners{font-size:10px}
+@media (max-width:359px){.gl-partners{font-size:7.8px}}
+.gl-legal span{white-space:nowrap}
+@media (max-width:420px){.gl-eyebrow{font-size:9.5px;letter-spacing:1.1px}}
+.gl-legal{margin-top:14px;text-align:center;font-size:10px;letter-spacing:.3px;line-height:1.5;color:var(--ink-3)}

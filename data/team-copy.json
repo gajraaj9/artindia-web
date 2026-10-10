@@ -514,6 +514,56 @@
       "en": "Should you have any questions, please write to diwali@artindia.be.",
       "fr": "Pour toute question, vous pouvez nous écrire à diwali@artindia.be.",
       "nl": "Met vragen kunt u terecht bij diwali@artindia.be."
+    },
+    "vip_l_eyebrow": {
+      "en": "Brussels Diwali Festival 2026 · Tenth edition",
+      "fr": "Brussels Diwali Festival 2026 · Dixième édition",
+      "nl": "Brussels Diwali Festival 2026 · Tiende editie"
+    },
+    "vip_l_date": {
+      "en": "Saturday 24 October 2026",
+      "fr": "Samedi 24 octobre 2026",
+      "nl": "Zaterdag 24 oktober 2026"
+    },
+    "vip_l_time": {
+      "en": "18:00 to 21:30",
+      "fr": "De 18h00 à 21h30",
+      "nl": "Van 18.00 tot 21.30 uur"
+    },
+    "vip_l_place": {
+      "en": "Atomium Esplanade, Brussels",
+      "fr": "Esplanade de l'Atomium, Bruxelles",
+      "nl": "Esplanade van het Atomium, Brussel"
+    },
+    "vip_l_intro": {
+      "en": "Please register with the name on your invitation. Your personal pass will follow by email once your registration is confirmed.",
+      "fr": "Nous vous prions de vous inscrire au nom figurant sur votre invitation. Votre pass personnel vous sera envoyé par e-mail dès la confirmation de votre inscription.",
+      "nl": "Gelieve u te registreren met de naam op uw uitnodiging. Uw persoonlijke pas ontvangt u per e-mail zodra uw registratie bevestigd is."
+    },
+    "vip_l_rsvp": {
+      "en": "Kindly register by Friday 16 October. For any question, please write to guests@artindia.be.",
+      "fr": "Nous vous prions de bien vouloir vous inscrire avant le vendredi 16 octobre. Pour toute question, écrivez-nous à guests@artindia.be.",
+      "nl": "Gelieve u vóór vrijdag 16 oktober te registreren. Voor vragen kunt u ons bereiken via guests@artindia.be."
+    },
+    "vip_l_patronage": {
+      "en": "Under the patronage of",
+      "fr": "Sous le patronage de",
+      "nl": "Onder de hoge bescherming van"
+    },
+    "vip_l_main": {
+      "en": "Main partner",
+      "fr": "Partenaire principal",
+      "nl": "Hoofdpartner"
+    },
+    "vip_l_partner": {
+      "en": "Partner",
+      "fr": "Partenaire",
+      "nl": "Partner"
+    },
+    "vip_l_support": {
+      "en": "Supported by",
+      "fr": "Avec le soutien de",
+      "nl": "Met de steun van"
     }
   }
 }

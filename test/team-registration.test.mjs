@@ -4291,14 +4291,14 @@ test('/guest/ resolves in three languages, hidden, with no token in it', async (
     assert.match(html, /<meta name="robots" content="noindex, nofollow">/, `${rel} is indexable`);
     assert.ok(html.includes(`<title>${COPY.vip_title[lang].replace(/'/g, '&#39;')}</title>`)
       || html.includes(`<title>${COPY.vip_title[lang]}</title>`), `${rel} has the wrong title`);
-    assert.ok(html.includes('var KIND = "guest"'), `${rel} is not the guest form`);
+    assert.ok(html.includes("fetch('/api/team-form?guest=1&lang='"), `${rel} is not the guest form`);
     assert.ok(!html.includes('{{'), `${rel} has an unfilled token`);
     assert.ok(!html.includes('diya'), `${rel} loads the chat widget`);
     const main = html.slice(html.indexOf('<main'), html.indexOf('</main>'));
     for (const prefix of ['', '/fr', '/nl']) {
       assert.ok(main.includes(`href="${prefix}/guest/"`), `${rel} does not switch to ${prefix || 'en'}`);
     }
-    assert.ok(main.indexOf('class="tf-langs"') < main.indexOf('<h1>'), `${rel} buries the switch`);
+    assert.ok(main.indexOf('class="gl-langs"') < main.indexOf('<h1>'), `${rel} buries the switch`);
   }
   const sitemap = readFileSync(join(DIST, 'sitemap.xml'), 'utf8');
   assert.ok(!sitemap.includes('/guest/'), '/guest/ is in the sitemap');
@@ -4638,8 +4638,74 @@ test('a special guest is nobody to Diya, pending or approved', async () => {
 /* The guest form removes the consent box, and the payload used to read it
    unguarded: the first browser submit threw before it left the page. */
 test('the form never reads a consent box that the guest form has removed', () => {
-  const html = readFileSync(join(DIST, 'guest/index.html'), 'utf8');
+  /* The vip variant of the team form, which /team/?k=<vip token> still shows. */
+  const html = readFileSync(join(DIST, 'team/index.html'), 'utf8');
   assert.ok(!/consent: form\.consent\.checked/.test(html));
   assert.match(html, /consent: !!\(form\.consent && form\.consent\.checked\)/);
   assert.match(html, /getElementById\('tf-consent'\)\.remove\(\)/);
+});
+
+/* ------------------------------------- 5B. /guest/ in the look of the letter */
+
+const GUEST_PAGES = [['en', 'guest/index.html'], ['fr', 'fr/guest/index.html'], ['nl', 'nl/guest/index.html']];
+
+test('/guest/ is light, carries the letter, and loads none of the dark sheet', () => {
+  for (const [lang, rel] of GUEST_PAGES) {
+    const html = readFileSync(join(DIST, rel), 'utf8');
+    assert.match(html, /<meta name="color-scheme" content="light">/);
+    assert.match(html, /<meta name="theme-color" content="#F2EFE6">/);
+    assert.ok(!/<link[^>]+diwali\.css/.test(html), `${rel} loads the dark sheet`);
+    assert.ok(!/var\(--(marigold|ink-3|line|display|text)\b/.test(html.split('.gl{')[0]),
+      `${rel} uses a site token before the .gl scope`);
+    assert.match(html, /class="gl-tri"/);
+    assert.match(html, /<body class="gl-body">/);
+    assert.ok(html.includes('Rozha+One') && html.includes('Mukta'), 'the two fonts');
+    for (const key of ['vip_l_eyebrow', 'vip_badge', 'vip_l_date', 'vip_l_time', 'vip_l_place',
+      'vip_l_intro', 'vip_l_patronage', 'vip_l_main', 'vip_l_partner', 'vip_l_support']) {
+      const want = COPY[key][lang].replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      assert.ok(html.includes(want) || html.includes(want.replace(/'/g, '&#39;')), `${rel} misses ${key}`);
+    }
+    assert.ok(html.includes('guests@artindia.be</a>'), 'the R.S.V.P. address is a link');
+    assert.ok(html.includes('ART INDIA ASBL</span> · <span>Avenue du Centaure 73, 1200 Woluwe-Saint-Lambert</span>'
+      + ' · <span>BE 1007.072.905</span> · <span>artindia.be</span>'));
+    const logos = [...html.matchAll(/<img src="\/static\/guest\/([a-z-]+)\.webp"/g)].map(m => m[1]);
+    assert.deepEqual(logos, ['logo', 'embassy-of-india', 'city-of-brussels', 'western-union', 'sbi', 'iccr'],
+      'the letterhead and exactly the five partners');
+    const visible = html.replace(/<script[^]*?<\/script>/g, '').replace(/<style[^]*?<\/style>/g, '');
+    assert.ok(!/[—–]/.test(visible), `${rel} has an em dash`);
+  }
+  for (const f of ['logo', 'embassy-of-india', 'city-of-brussels', 'western-union', 'sbi', 'iccr']) {
+    const bytes = readFileSync(join(DIST, `static/guest/${f}.webp`)).length;
+    assert.ok(bytes < 40 * 1024, `${f}.webp is ${bytes} bytes`);
+  }
+});
+
+test('/guest/ keeps the fields, names, checks and calls of the vip form', () => {
+  const html = readFileSync(join(DIST, 'guest/index.html'), 'utf8');
+  for (const [id, name] of [['v-sal', 'vSalutation'], ['v-first', 'vFirst'], ['v-last', 'vLast'],
+    ['v-org', 'vOrg'], ['v-fn', 'vFunction'], ['v-email', 'vEmail'], ['v-phone', 'vPhone'],
+    ['g-first', 'gFirst'], ['g-last', 'gLast'], ['tf_x7', 'tf_x7']]) {
+    assert.ok(html.includes(`id="${id}" name="${name}"`) || html.includes(`name="${name}" id="${id}"`),
+      `${id} / ${name}`);
+  }
+  assert.equal((html.match(/name="vAttend"/g) || []).length, 2);
+  assert.ok(html.includes("fetch('/api/team-register'"));
+  assert.ok(html.includes('viaGuest: true'));
+  assert.ok(!/form\.consent|name="consent"/.test(html), 'no consent box on the guest form');
+  /* The checks are word for word the team form's vip checks. */
+  const team = readFileSync(join(DIST, 'team/index.html'), 'utf8');
+  const fn = (src, name) => src.slice(src.indexOf(`function ${name}(`), src.indexOf('\n  }\n', src.indexOf(`function ${name}(`)));
+  assert.equal(fn(html, 'vipMissing'), fn(team, 'vipMissing'));
+  /* Inputs stay at 17px, the switch is a thumb high. */
+  assert.match(html, /font:400 17px\/1\.3 Mukta/);
+  assert.match(html, /\.gl-langs a\{display:inline-block;padding:15px 4px/);
+});
+
+test('every other team form is untouched by the letter look', () => {
+  for (const rel of ['team/index.html', 'fr/team/index.html', 'team/plus1/index.html']) {
+    const html = readFileSync(join(DIST, rel), 'utf8');
+    assert.ok(html.includes('/diwali.css'), `${rel} lost its sheet`);
+    assert.ok(!html.includes('class="gl'), `${rel} picked up the letter`);
+    assert.ok(!html.includes('static/guest/'), `${rel} carries the partner logos`);
+  }
 });

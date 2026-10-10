@@ -374,6 +374,23 @@ FR and NL are in the formal register (vous, u). They were written for this brief
 | vip_mail_look_forward | We look forward to welcoming you. | Nous nous réjouissons de vous accueillir. | Wij kijken ernaar uit u te verwelkomen. |
 | vip_mail_questions | Should you have any questions, please write to diwali@artindia.be. | Pour toute question, vous pouvez nous écrire à diwali@artindia.be. | Met vragen kunt u terecht bij diwali@artindia.be. |
 
+### 5B look: the invitation letter
+
+`/guest/` has its own template, `templates/guest-form.html`, in the look of the printed invitation: cream paper, the Art India letterhead, indigo and saffron, the patron and partner logos at the foot (Embassy of India and City of Brussels; Western Union; State Bank of India; ICCR, and no others). The sheet is `reference/guest-form/guest.css`, scoped under `.gl`; the page is light (`color-scheme: light`, theme colour `#F2EFE6`) and does not load `diwali.css`. Fields, ids, names, validation and API calls are those of the vip variant of the team form. `vip_l_intro` is the last two sentences of `vip_intro`, because the event block now carries the date, time and place. The legal line is the same in every language: ART INDIA ASBL · Avenue du Centaure 73, 1200 Woluwe-Saint-Lambert · BE 1007.072.905 · artindia.be.
+
+| Key | EN | FR | NL |
+|---|---|---|---|
+| vip_l_eyebrow | Brussels Diwali Festival 2026 · Tenth edition | Brussels Diwali Festival 2026 · Dixième édition | Brussels Diwali Festival 2026 · Tiende editie |
+| vip_l_date | Saturday 24 October 2026 | Samedi 24 octobre 2026 | Zaterdag 24 oktober 2026 |
+| vip_l_time | 18:00 to 21:30 | De 18h00 à 21h30 | Van 18.00 tot 21.30 uur |
+| vip_l_place | Atomium Esplanade, Brussels | Esplanade de l'Atomium, Bruxelles | Esplanade van het Atomium, Brussel |
+| vip_l_intro | Please register with the name on your invitation. Your personal pass will follow by email once your registration is confirmed. | Nous vous prions de vous inscrire au nom figurant sur votre invitation. Votre pass personnel vous sera envoyé par e-mail dès la confirmation de votre inscription. | Gelieve u te registreren met de naam op uw uitnodiging. Uw persoonlijke pas ontvangt u per e-mail zodra uw registratie bevestigd is. |
+| vip_l_rsvp | Kindly register by Friday 16 October. For any question, please write to guests@artindia.be. | Nous vous prions de bien vouloir vous inscrire avant le vendredi 16 octobre. Pour toute question, écrivez-nous à guests@artindia.be. | Gelieve u vóór vrijdag 16 oktober te registreren. Voor vragen kunt u ons bereiken via guests@artindia.be. |
+| vip_l_patronage | Under the patronage of | Sous le patronage de | Onder de hoge bescherming van |
+| vip_l_main | Main partner | Partenaire principal | Hoofdpartner |
+| vip_l_partner | Partner | Partenaire | Partner |
+| vip_l_support | Supported by | Avec le soutien de | Met de steun van |
+
 ## 6. Diya for team members
 
 In the WhatsApp bot, before the buyer or prospect decision, look the sender up in `ACCRED` by phone. An approved person is "team".
