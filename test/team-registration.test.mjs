@@ -4709,3 +4709,39 @@ test('every other team form is untouched by the letter look', () => {
     assert.ok(!html.includes('static/guest/'), `${rel} carries the partner logos`);
   }
 });
+
+test('the guest pages and the three guest emails point to guests@, everyone else to diwali@', async () => {
+  for (const [lang, rel] of GUEST_PAGES) {
+    const html = readFileSync(join(DIST, rel), 'utf8');
+    const visible = html.replace(/<script[^]*?<\/script>/g, '');
+    assert.ok(!visible.includes('diwali@artindia.be'), `${rel} shows the team address`);
+    assert.ok(html.includes(`id="tf-submit">${COPY.vip_l_submit[lang]}</button>`), `${rel} button`);
+    assert.ok(html.includes(`<div class="gl-legend">${COPY.vip_l_details[lang]}</div>`), `${rel} heading`);
+  }
+  for (const key of ['vip_inactive', 'vip_closed', 'vip_mail_questions']) {
+    for (const l of ['en', 'fr', 'nl']) assert.ok(COPY[key][l].includes('guests@artindia.be'), `${key}.${l}`);
+  }
+  assert.ok(COPY.questions.en.includes('diwali@artindia.be'), 'the team emails keep diwali@');
+
+  const { kv } = await withLink('vip');
+  const env = VIPENV(kv);
+  const w = world();
+  try {
+    await register(env, kv, VIPFORM({ attending: 'guest', guest: { firstName: 'Meera', lastName: 'Kumar' } }), {});
+    const host = (await people(kv)).find(p => !p.vip.guestOf);
+    await adminPost({ request: req('POST', { action: 'approve', id: host.id }, { 'x-admin-token': ADMIN.ravi }), env });
+    const mails = w.brevo().filter(c => c.url.includes('/smtp/email')).map(c => JSON.parse(c.body));
+    assert.equal(mails.length, 3, 'received, pass, guest pass');
+    for (const m of mails) {
+      assert.deepEqual(m.replyTo, { email: 'guests@artindia.be' });
+      assert.equal(m.sender.email, 'diwali@artindia.be', 'the sender stays as configured');
+      assert.ok(!m.textContent.includes('diwali@artindia.be'));
+    }
+    const artist = await withLink('artist');
+    w.calls.length = 0;
+    await register(ENV({ ACCRED: artist.kv }), artist.kv, FORM(), {});
+    const team = w.brevo().filter(c => c.url.includes('/smtp/email')).map(c => JSON.parse(c.body));
+    assert.equal(team.length, 1);
+    assert.equal(team[0].replyTo, undefined, 'a team email has no guest reply-to');
+  } finally { w.restore(); }
+});

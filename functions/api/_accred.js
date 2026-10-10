@@ -676,7 +676,7 @@ export const asText = lines => lines
   .filter(l => l !== null && l !== undefined)
   .map(l => (l && typeof l === 'object' && l.h ? l.h : l));
 
-export async function sendMail(env, { to, subject, lines, qr = null, signature = true }) {
+export async function sendMail(env, { to, subject, lines, qr = null, signature = true, replyTo = '' }) {
   const clean = lines.filter(l => l !== null && l !== undefined);
   /* The barcode is printed under the QR in the HTML, so it would read as a
      stray line if it were also in `lines`. The text half has no QR to print it
@@ -705,6 +705,7 @@ export async function sendMail(env, { to, subject, lines, qr = null, signature =
           name: 'Brussels Diwali Festival',
         },
         to: [{ email: to }],
+        ...(replyTo ? { replyTo: { email: replyTo } } : {}),
         subject,
         textContent: body,
         ...(attached ? { attachment: attached } : {}),
@@ -949,6 +950,10 @@ export function vipGreeting(lang, { salutation = '', firstName = '', lastName = 
   return fill('vip_mail_greeting', lang, { NAME: name.trim() });
 }
 
+/* Where a special guest writes back to. The sender stays BREVO_SENDER_EMAIL;
+   answers go to the guests' own address, which Ravi reads. */
+export const GUEST_CONTACT = 'guests@artindia.be';
+
 /** Who a special guest email is written to: the registrant, always. */
 const vipAddressee = person => (isCompanion(person) && person.vip.host) || {
   salutation: (person.vip && person.vip.salutation) || '',
@@ -962,6 +967,7 @@ export function vipReceivedMail(person) {
   return {
     to: person.email,
     subject: say('vip_mail_received_subject', lang),
+    replyTo: GUEST_CONTACT,
     lines: [
       vipGreeting(lang, vipAddressee(person)),
       '',
@@ -1001,6 +1007,7 @@ export function vipApprovedMail(env, person, team) {
     subject: companion
       ? fill('vip_mail_guest_subject', lang, { GUEST: guest })
       : say('vip_mail_approved_subject', lang),
+    replyTo: GUEST_CONTACT,
     lines,
     qr: qrFor(person),
   };

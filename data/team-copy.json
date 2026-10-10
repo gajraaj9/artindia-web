@@ -436,14 +436,14 @@
       "nl": "Gelieve de velden hierboven te controleren en opnieuw te proberen."
     },
     "vip_inactive": {
-      "en": "This registration page is not open. Please contact us at diwali@artindia.be.",
-      "fr": "Cette page d'inscription n'est pas ouverte. Veuillez nous contacter à l'adresse diwali@artindia.be.",
-      "nl": "Deze registratiepagina is niet open. Gelieve contact met ons op te nemen via diwali@artindia.be."
+      "en": "This registration page is not open. Please contact us at guests@artindia.be.",
+      "fr": "Cette page d'inscription n'est pas ouverte. Veuillez nous contacter à l'adresse guests@artindia.be.",
+      "nl": "Deze registratiepagina is niet open. Gelieve contact met ons op te nemen via guests@artindia.be."
     },
     "vip_closed": {
-      "en": "Registration is now closed. Please contact us at diwali@artindia.be.",
-      "fr": "Les inscriptions sont clôturées. Veuillez nous contacter à l'adresse diwali@artindia.be.",
-      "nl": "De registratie is afgesloten. Gelieve contact met ons op te nemen via diwali@artindia.be."
+      "en": "Registration is now closed. Please contact us at guests@artindia.be.",
+      "fr": "Les inscriptions sont clôturées. Veuillez nous contacter à l'adresse guests@artindia.be.",
+      "nl": "De registratie is afgesloten. Gelieve contact met ons op te nemen via guests@artindia.be."
     },
     "vip_done_title": {
       "en": "Thank you",
@@ -511,9 +511,9 @@
       "nl": "Wij kijken ernaar uit u te verwelkomen."
     },
     "vip_mail_questions": {
-      "en": "Should you have any questions, please write to diwali@artindia.be.",
-      "fr": "Pour toute question, vous pouvez nous écrire à diwali@artindia.be.",
-      "nl": "Met vragen kunt u terecht bij diwali@artindia.be."
+      "en": "Should you have any questions, please write to guests@artindia.be.",
+      "fr": "Pour toute question, vous pouvez nous écrire à guests@artindia.be.",
+      "nl": "Met vragen kunt u terecht bij guests@artindia.be."
     },
     "vip_l_eyebrow": {
       "en": "Brussels Diwali Festival 2026 · Tenth edition",
@@ -564,6 +564,16 @@
       "en": "Supported by",
       "fr": "Avec le soutien de",
       "nl": "Met de steun van"
+    },
+    "vip_l_details": {
+      "en": "Your details",
+      "fr": "Vos coordonnées",
+      "nl": "Uw gegevens"
+    },
+    "vip_l_submit": {
+      "en": "Confirm my presence",
+      "fr": "Confirmer ma présence",
+      "nl": "Mijn aanwezigheid bevestigen"
     }
   }
 }

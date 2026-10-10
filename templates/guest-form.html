@@ -30,7 +30,6 @@
 .gl input:-webkit-autofill,.gl input:-webkit-autofill:focus{
   -webkit-box-shadow:0 0 0 100px var(--field) inset;-webkit-text-fill-color:var(--ink);caret-color:var(--ink)}
 .gl input{caret-color:var(--ink)}
-.gl-rule{margin:26px 0 14px;border-top:1px solid var(--rule)}
 .gl-guest{margin-top:16px}
 .gl-guest .gl-lab{margin-bottom:10px}
 .gl-fine{margin:12px 0 0;font-size:13.5px;line-height:1.45;color:var(--ink-2)}
@@ -71,7 +70,7 @@
   </div>
 
   <form id="tf-form" hidden novalidate>
-    <div class="gl-rule" aria-hidden="true"></div>
+    <div class="gl-legend">{{C:vip_l_details}}</div>
     <div class="gl-field gl-sal"><label for="v-sal">{{L:vip_salutation}}</label>
       <input type="text" id="v-sal" name="vSalutation" autocomplete="honorific-prefix" list="v-sals">
       <datalist id="v-sals">{{VIP_SALS}}</datalist></div>
@@ -112,7 +111,7 @@
       <input type="text" name="tf_x7" id="tf_x7" tabindex="-1"
              autocomplete="new-password" spellcheck="false" value=""></p>
 
-    <button type="submit" class="gl-submit" id="tf-submit">{{C:submit}}</button>
+    <button type="submit" class="gl-submit" id="tf-submit">{{C:vip_l_submit}}</button>
     <p class="gl-error" id="tf-msg" role="alert" hidden></p>
     <p class="gl-fine" id="tf-fine">{{C:vip_fine}}</p>
   </form>

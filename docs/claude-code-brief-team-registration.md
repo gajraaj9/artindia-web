@@ -357,8 +357,8 @@ FR and NL are in the formal register (vous, u). They were written for this brief
 | vip_guest_legend | Your guest | Votre invité(e) | Uw gast |
 | vip_fine | Each registration is confirmed personally by the festival team. Art India ASBL uses these details only to manage your registration and your pass. | Chaque inscription est confirmée personnellement par l'équipe du festival. Art India ASBL utilise ces données uniquement pour gérer votre inscription et votre pass. | Elke registratie wordt persoonlijk bevestigd door het festivalteam. Art India vzw gebruikt deze gegevens uitsluitend voor het beheer van uw registratie en uw pas. |
 | vip_check | Please check the fields above and try again. | Veuillez vérifier les champs ci-dessus et réessayer. | Gelieve de velden hierboven te controleren en opnieuw te proberen. |
-| vip_inactive | This registration page is not open. Please contact us at diwali@artindia.be. | Cette page d'inscription n'est pas ouverte. Veuillez nous contacter à l'adresse diwali@artindia.be. | Deze registratiepagina is niet open. Gelieve contact met ons op te nemen via diwali@artindia.be. |
-| vip_closed | Registration is now closed. Please contact us at diwali@artindia.be. | Les inscriptions sont clôturées. Veuillez nous contacter à l'adresse diwali@artindia.be. | De registratie is afgesloten. Gelieve contact met ons op te nemen via diwali@artindia.be. |
+| vip_inactive | This registration page is not open. Please contact us at guests@artindia.be. | Cette page d'inscription n'est pas ouverte. Veuillez nous contacter à l'adresse guests@artindia.be. | Deze registratiepagina is niet open. Gelieve contact met ons op te nemen via guests@artindia.be. |
+| vip_closed | Registration is now closed. Please contact us at guests@artindia.be. | Les inscriptions sont clôturées. Veuillez nous contacter à l'adresse guests@artindia.be. | De registratie is afgesloten. Gelieve contact met ons op te nemen via guests@artindia.be. |
 | vip_done_title | Thank you | Merci | Dank u |
 | vip_done_lede | We have received your registration and will confirm it shortly. | Nous avons bien reçu votre inscription et vous la confirmerons sous peu. | Wij hebben uw registratie goed ontvangen en bevestigen ze u binnenkort. |
 | vip_mail_greeting | Dear {NAME}, | Bonjour {NAME}, | Geachte {NAME}, |
@@ -372,11 +372,11 @@ FR and NL are in the formal register (vous, u). They were written for this brief
 | vip_mail_guest_subject | The pass for your guest, {GUEST} | Le pass de votre invité(e), {GUEST} | De pas van uw gast, {GUEST} |
 | vip_mail_guest_pass | Please find below, and attached to this email, the personal pass for your guest, {GUEST}, for the Exclusive Diwali Evening on Saturday 24 October 2026, from 18:00 to 21:30. Each pass is personal: we kindly ask you to forward it to your guest, or to show it together with your own at the entrance. | Vous trouverez ci-dessous, et en pièce jointe, le pass personnel de votre invité(e), {GUEST}, pour la Soirée exclusive de Diwali du samedi 24 octobre 2026, de 18h00 à 21h30. Chaque pass est nominatif : nous vous prions de le transmettre à votre invité(e) ou de le présenter avec le vôtre à l'entrée. | Hieronder, en in bijlage, vindt u de persoonlijke pas van uw gast, {GUEST}, voor de Exclusieve Diwali-avond op zaterdag 24 oktober 2026, van 18.00 tot 21.30 uur. Elke pas is persoonlijk: gelieve hem door te sturen naar uw gast of hem samen met de uwe aan de ingang te tonen. |
 | vip_mail_look_forward | We look forward to welcoming you. | Nous nous réjouissons de vous accueillir. | Wij kijken ernaar uit u te verwelkomen. |
-| vip_mail_questions | Should you have any questions, please write to diwali@artindia.be. | Pour toute question, vous pouvez nous écrire à diwali@artindia.be. | Met vragen kunt u terecht bij diwali@artindia.be. |
+| vip_mail_questions | Should you have any questions, please write to guests@artindia.be. | Pour toute question, vous pouvez nous écrire à guests@artindia.be. | Met vragen kunt u terecht bij guests@artindia.be. |
 
 ### 5B look: the invitation letter
 
-`/guest/` has its own template, `templates/guest-form.html`, in the look of the printed invitation: cream paper, the Art India letterhead, indigo and saffron, the patron and partner logos at the foot (Embassy of India and City of Brussels; Western Union; State Bank of India; ICCR, and no others). The sheet is `reference/guest-form/guest.css`, scoped under `.gl`; the page is light (`color-scheme: light`, theme colour `#F2EFE6`) and does not load `diwali.css`. Fields, ids, names, validation and API calls are those of the vip variant of the team form. `vip_l_intro` is the last two sentences of `vip_intro`, because the event block now carries the date, time and place. The legal line is the same in every language: ART INDIA ASBL · Avenue du Centaure 73, 1200 Woluwe-Saint-Lambert · BE 1007.072.905 · artindia.be.
+`/guest/` has its own template, `templates/guest-form.html`, in the look of the printed invitation: cream paper, the Art India letterhead, indigo and saffron, the patron and partner logos at the foot (Embassy of India and City of Brussels; Western Union; State Bank of India; ICCR, and no others). The sheet is `reference/guest-form/guest.css`, scoped under `.gl`; the page is light (`color-scheme: light`, theme colour `#F2EFE6`) and does not load `diwali.css`. Fields, ids, names, validation and API calls are those of the vip variant of the team form. `vip_l_intro` is the last two sentences of `vip_intro`, because the event block now carries the date, time and place. On the guest pages and in the three guest emails the contact address and the reply-to are guests@artindia.be (other teams keep diwali@artindia.be); the sender is unchanged. The R.S.V.P. note asks for a reply by 16 October and the form stays open until `VIP_CLOSE_AT` (20 October) for latecomers. The legal line is the same in every language: ART INDIA ASBL · Avenue du Centaure 73, 1200 Woluwe-Saint-Lambert · BE 1007.072.905 · artindia.be.
 
 | Key | EN | FR | NL |
 |---|---|---|---|
@@ -390,6 +390,8 @@ FR and NL are in the formal register (vous, u). They were written for this brief
 | vip_l_main | Main partner | Partenaire principal | Hoofdpartner |
 | vip_l_partner | Partner | Partenaire | Partner |
 | vip_l_support | Supported by | Avec le soutien de | Met de steun van |
+| vip_l_details | Your details | Vos coordonnées | Uw gegevens |
+| vip_l_submit | Confirm my presence | Confirmer ma présence | Mijn aanwezigheid bevestigen |
 
 ## 6. Diya for team members
 

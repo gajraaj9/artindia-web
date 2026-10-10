@@ -675,14 +675,14 @@ export const COPY = {
     "nl": "Gelieve de velden hierboven te controleren en opnieuw te proberen."
   },
   "vip_inactive": {
-    "en": "This registration page is not open. Please contact us at diwali@artindia.be.",
-    "fr": "Cette page d'inscription n'est pas ouverte. Veuillez nous contacter à l'adresse diwali@artindia.be.",
-    "nl": "Deze registratiepagina is niet open. Gelieve contact met ons op te nemen via diwali@artindia.be."
+    "en": "This registration page is not open. Please contact us at guests@artindia.be.",
+    "fr": "Cette page d'inscription n'est pas ouverte. Veuillez nous contacter à l'adresse guests@artindia.be.",
+    "nl": "Deze registratiepagina is niet open. Gelieve contact met ons op te nemen via guests@artindia.be."
   },
   "vip_closed": {
-    "en": "Registration is now closed. Please contact us at diwali@artindia.be.",
-    "fr": "Les inscriptions sont clôturées. Veuillez nous contacter à l'adresse diwali@artindia.be.",
-    "nl": "De registratie is afgesloten. Gelieve contact met ons op te nemen via diwali@artindia.be."
+    "en": "Registration is now closed. Please contact us at guests@artindia.be.",
+    "fr": "Les inscriptions sont clôturées. Veuillez nous contacter à l'adresse guests@artindia.be.",
+    "nl": "De registratie is afgesloten. Gelieve contact met ons op te nemen via guests@artindia.be."
   },
   "vip_done_title": {
     "en": "Thank you",
@@ -750,8 +750,68 @@ export const COPY = {
     "nl": "Wij kijken ernaar uit u te verwelkomen."
   },
   "vip_mail_questions": {
-    "en": "Should you have any questions, please write to diwali@artindia.be.",
-    "fr": "Pour toute question, vous pouvez nous écrire à diwali@artindia.be.",
-    "nl": "Met vragen kunt u terecht bij diwali@artindia.be."
+    "en": "Should you have any questions, please write to guests@artindia.be.",
+    "fr": "Pour toute question, vous pouvez nous écrire à guests@artindia.be.",
+    "nl": "Met vragen kunt u terecht bij guests@artindia.be."
+  },
+  "vip_l_eyebrow": {
+    "en": "Brussels Diwali Festival 2026 · Tenth edition",
+    "fr": "Brussels Diwali Festival 2026 · Dixième édition",
+    "nl": "Brussels Diwali Festival 2026 · Tiende editie"
+  },
+  "vip_l_date": {
+    "en": "Saturday 24 October 2026",
+    "fr": "Samedi 24 octobre 2026",
+    "nl": "Zaterdag 24 oktober 2026"
+  },
+  "vip_l_time": {
+    "en": "18:00 to 21:30",
+    "fr": "De 18h00 à 21h30",
+    "nl": "Van 18.00 tot 21.30 uur"
+  },
+  "vip_l_place": {
+    "en": "Atomium Esplanade, Brussels",
+    "fr": "Esplanade de l'Atomium, Bruxelles",
+    "nl": "Esplanade van het Atomium, Brussel"
+  },
+  "vip_l_intro": {
+    "en": "Please register with the name on your invitation. Your personal pass will follow by email once your registration is confirmed.",
+    "fr": "Nous vous prions de vous inscrire au nom figurant sur votre invitation. Votre pass personnel vous sera envoyé par e-mail dès la confirmation de votre inscription.",
+    "nl": "Gelieve u te registreren met de naam op uw uitnodiging. Uw persoonlijke pas ontvangt u per e-mail zodra uw registratie bevestigd is."
+  },
+  "vip_l_rsvp": {
+    "en": "Kindly register by Friday 16 October. For any question, please write to guests@artindia.be.",
+    "fr": "Nous vous prions de bien vouloir vous inscrire avant le vendredi 16 octobre. Pour toute question, écrivez-nous à guests@artindia.be.",
+    "nl": "Gelieve u vóór vrijdag 16 oktober te registreren. Voor vragen kunt u ons bereiken via guests@artindia.be."
+  },
+  "vip_l_patronage": {
+    "en": "Under the patronage of",
+    "fr": "Sous le patronage de",
+    "nl": "Onder de hoge bescherming van"
+  },
+  "vip_l_main": {
+    "en": "Main partner",
+    "fr": "Partenaire principal",
+    "nl": "Hoofdpartner"
+  },
+  "vip_l_partner": {
+    "en": "Partner",
+    "fr": "Partenaire",
+    "nl": "Partner"
+  },
+  "vip_l_support": {
+    "en": "Supported by",
+    "fr": "Avec le soutien de",
+    "nl": "Met de steun van"
+  },
+  "vip_l_details": {
+    "en": "Your details",
+    "fr": "Vos coordonnées",
+    "nl": "Uw gegevens"
+  },
+  "vip_l_submit": {
+    "en": "Confirm my presence",
+    "fr": "Confirmer ma présence",
+    "nl": "Mijn aanwezigheid bevestigen"
   }
 };
