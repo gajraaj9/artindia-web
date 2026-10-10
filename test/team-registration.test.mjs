@@ -6,7 +6,8 @@
  * rules that matter: no ticket before an approver, never two tickets, and a
  * child's date of birth in exactly two places and nowhere else.
  *
- * Section 5A (VIP invitations and RSVP) is not built yet and has no tests.
+ * Section 5A (VIP invitations and RSVP) is replaced for 2026 by 5B, the
+ * special guest form at /guest/, whose tests are at the end of this file.
  */
 
 import test from 'node:test';
@@ -30,6 +31,7 @@ import {
   codeMessages, letterMail, practicalMail, letterOf, shareLink, asText,
   digits, isTeamCode, cleanCode, changeCode, ordersOn, codeHistoryOf,
   clearDryResults, blockedAsRejected, REFUSAL_CAP, refusalKey,
+  vipCloseAt as vipCloseAtFor,
 } from '../functions/api/_accred.js';
 import { onRequestGet as adminGet, onRequestPost as adminPost } from '../functions/api/team-admin.js';
 import { onRequestGet as formGet } from '../functions/api/team-form.js';
@@ -252,6 +254,22 @@ const FORM = (over = {}) => ({
   phone: '0474 91 99 00',
   role: 'Kathak solo',
   consent: true,
+  lang: 'en',
+  hp: '',
+  ...over,
+});
+
+/** The special guest form, alone. */
+const VIPFORM = (over = {}) => ({
+  k: 'LINKTOKEN0000000ABCD',
+  salutation: 'Mr',
+  firstName: 'Anil',
+  lastName: 'Kumar',
+  organisation: 'Embassy Partners SA',
+  jobTitle: 'Director',
+  email: 'anil@example.com',
+  phone: '',
+  attending: 'alone',
   lang: 'en',
   hp: '',
   ...over,
@@ -494,11 +512,14 @@ test('a closed link, a closed registration and a switched-off module all refuse'
   } finally { w.restore(); }
 });
 
-test('the VIP team has no form: it refuses even with a link pointed at it', async () => {
+test('the VIP form stays shut until VIP_REG_ENABLED, whatever the team form says', async () => {
   const { kv } = await withLink('vip');
   const w = world();
   try {
-    assert.equal((await register(ENV(), kv, FORM(), {})).message, 'inactive');
+    const r = await register(ENV(), kv, VIPFORM(), {});
+    assert.equal(r.message, 'vip_inactive');
+    assert.equal(r.why, 'registration_off');
+    assert.equal((await people(kv)).length, 0);
   } finally { w.restore(); }
 });
 
@@ -1140,7 +1161,9 @@ test('the admin payload carries the teams, the links and everyone', async () => 
     assert.equal(d.links[0].url, `https://diwali.artindia.be/team/?k=${t}`);
     assert.equal(d.links[0].registered, 1);
     assert.equal(d.people.length, 1);
-    assert.equal(d.teams.find(x => x.key === 'vip').blocked, 'invite_only');
+    /* The VIP team has a form now, so the only thing that can block it is
+       the same as for anybody: no ticket type set. */
+    assert.equal(d.teams.find(x => x.key === 'vip').blocked, 'no_ticket_type_for_vip');
     assert.equal(d.teams.find(x => x.key === 'guest').blocked, 'no_ticket_type_for_guest');
     assert.equal(d.teams.find(x => x.key === 'artist').blocked, '');
   } finally { w.restore(); }
@@ -1169,7 +1192,7 @@ test('links are created, closed, reopened, and expected is editable without a de
   const vip = await adminPost({
     request: req('POST', { action: 'link_create', team: 'vip' }, head), env,
   });
-  assert.equal(vip.status, 400, 'the VIP team has no links');
+  assert.equal(vip.status, 200, 'the VIP team has links now, for the special guest form');
 
   const plus1 = await adminPost({
     request: req('POST', { action: 'link_create', team: 'plus1' }, head), env,
@@ -2394,8 +2417,8 @@ test('first and last name share a row only once there is room', () => {
   assert.match(html, /\.tf-pair\{display:grid/);
   assert.match(html, /@media \(min-width:360px\)\{\.tf-pair\{grid-template-columns:1fr 1fr\}\}/,
     'the pair must stack below 360px');
-  assert.equal((html.match(/class="tf-pair"/g) || []).length, 2,
-    'the child and the person block each get one');
+  assert.equal((html.match(/class="tf-pair"/g) || []).length, 4,
+    'the child, the person, the special guest and their guest each get one');
 });
 
 test('there is a hint under the email and under the number', () => {
@@ -4197,4 +4220,426 @@ test('the Queue keeps whole cards, and People builds the same card inside a row'
   assert.match(html, /queueActions\(p, t\) \+ resultLine\(p\.id\)/);
   assert.ok(!/class="phead"[^]*?function renderQueue/.test(html),
     'the queue must not have become a list of rows');
+});
+
+/* ------------------------------------------- 5B. the special guest form */
+
+/* The vip link with the special guest form switched on, live, and the token
+   /guest/ resolves to. */
+const VIPENV = (kv, over = {}) => ENV({
+  ACCRED: kv,
+  VIP_REG_ENABLED: 'true',
+  VIP_LINK_TOKEN: 'LINKTOKEN0000000ABCD',
+  VIP_CLOSE_AT: '2099-10-20T23:59:00+02:00',
+  TT_TYPE_VIP: 'tt_vip',
+  ...over,
+});
+
+const guestForm = (q, env) => formGet({
+  request: new Request(`https://diwali.artindia.be/api/team-form?${q}`), env,
+});
+
+const guestPost = (body, env) => registerPost({
+  request: new Request('https://diwali.artindia.be/api/team-register', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'cf-connecting-ip': '9.9.9.9' },
+    body: JSON.stringify(body),
+  }),
+  env,
+});
+
+test('the vip link works only when VIP_REG_ENABLED is on', async () => {
+  const { kv, t } = await withLink('vip');
+  const w = world();
+  try {
+    for (const off of [undefined, 'false', '']) {
+      const env = VIPENV(kv, { VIP_REG_ENABLED: off });
+      const byLink = await (await guestForm(`k=${t}`, env)).json();
+      const byGuest = await (await guestForm('guest=1', env)).json();
+      assert.equal(byLink.ok, false);
+      assert.equal(byLink.message, 'vip_inactive');
+      assert.equal(byGuest.ok, false);
+      assert.equal(byGuest.message, 'vip_inactive');
+      const r = await (await guestPost({ ...VIPFORM(), k: undefined, viaGuest: true }, env)).json();
+      assert.equal(r.ok, false);
+      assert.equal(r.text, COPY.vip_inactive.en);
+    }
+    assert.equal((await people(kv)).length, 0, 'nothing was stored while it was off');
+
+    /* On, and independent of the team form's own switch. */
+    const env = VIPENV(kv, { TEAM_REG_ENABLED: 'false' });
+    const d = await (await guestForm(`k=${t}`, env)).json();
+    assert.ok(d.ok);
+    assert.equal(d.vip, true);
+    assert.equal(d.label, '', 'the internal label is never shown to a guest');
+    assert.equal(d.promoCode, false);
+    const r = await register(env, kv, VIPFORM(), {});
+    assert.ok(r.ok);
+    assert.equal(r.person.team, 'vip');
+    assert.equal(r.person.status, 'pending');
+
+    /* And the team form's switch on its own opens nothing for the vip team. */
+    const teamOnly = await register(ENV({ ACCRED: kv }), kv, VIPFORM({ email: 'b@example.com' }), {});
+    assert.equal(teamOnly.ok, false);
+  } finally { w.restore(); }
+});
+
+test('/guest/ resolves in three languages, hidden, with no token in it', async () => {
+  for (const [lang, rel] of [['en', 'guest/index.html'], ['fr', 'fr/guest/index.html'],
+    ['nl', 'nl/guest/index.html']]) {
+    const html = readFileSync(join(DIST, rel), 'utf8');
+    assert.match(html, /<meta name="robots" content="noindex, nofollow">/, `${rel} is indexable`);
+    assert.ok(html.includes(`<title>${COPY.vip_title[lang].replace(/'/g, '&#39;')}</title>`)
+      || html.includes(`<title>${COPY.vip_title[lang]}</title>`), `${rel} has the wrong title`);
+    assert.ok(html.includes('var KIND = "guest"'), `${rel} is not the guest form`);
+    assert.ok(!html.includes('{{'), `${rel} has an unfilled token`);
+    assert.ok(!html.includes('diya'), `${rel} loads the chat widget`);
+    const main = html.slice(html.indexOf('<main'), html.indexOf('</main>'));
+    for (const prefix of ['', '/fr', '/nl']) {
+      assert.ok(main.includes(`href="${prefix}/guest/"`), `${rel} does not switch to ${prefix || 'en'}`);
+    }
+    assert.ok(main.indexOf('class="tf-langs"') < main.indexOf('<h1>'), `${rel} buries the switch`);
+  }
+  const sitemap = readFileSync(join(DIST, 'sitemap.xml'), 'utf8');
+  assert.ok(!sitemap.includes('/guest/'), '/guest/ is in the sitemap');
+  const js = readFileSync(join(ROOT, 'diwali-web/diya.js'), 'utf8');
+  const guard = /^(\/(fr|nl))?\/guest(\/|$)/;
+  assert.ok(js.includes(guard.source), 'the widget does not skip /guest/');
+  for (const path of ['/guest/', '/fr/guest/', '/nl/guest/']) assert.ok(guard.test(path));
+
+  /* And the server side of it: /guest/ asks with guest=1, in its language,
+     and gets the vip form of the link VIP_LINK_TOKEN names. */
+  const { kv } = await withLink('vip');
+  for (const lang of ['en', 'fr', 'nl']) {
+    const d = await (await guestForm(`guest=1&lang=${lang}`, VIPENV(kv))).json();
+    assert.ok(d.ok, lang);
+    assert.equal(d.vip, true);
+    assert.equal(d.strings.vip_title, COPY.vip_title[lang]);
+    assert.equal(d.teamName, COPY.vip_badge[lang]);
+  }
+  const missing = await (await guestForm('guest=1', VIPENV(kv, { VIP_LINK_TOKEN: '' }))).json();
+  assert.equal(missing.message, 'vip_inactive', 'no token set, no form');
+  const other = await withLink('artist');
+  const wrong = await (await guestForm('guest=1', VIPENV(other.kv))).json();
+  assert.equal(wrong.ok, false, 'a token that names another team does not open its form at /guest/');
+
+  const w = world();
+  try {
+    const posted = await (await guestPost({ ...VIPFORM({ lang: 'fr' }), k: undefined, viaGuest: true },
+      VIPENV(kv))).json();
+    assert.ok(posted.ok, 'a post from /guest/ lands on the vip link');
+    const all = await people(kv);
+    assert.equal(all.length, 1);
+    assert.equal(all[0].linkToken, 'LINKTOKEN0000000ABCD');
+    assert.equal(all[0].lang, 'fr');
+  } finally { w.restore(); }
+});
+
+test('the special guest copy is formal, complete and has no em dash', () => {
+  for (const [key, v] of Object.entries(COPY)) {
+    if (!key.startsWith('vip_')) continue;
+    for (const l of ['en', 'fr', 'nl']) {
+      assert.ok(v[l], `${key}.${l} is empty`);
+      assert.ok(!/[—–]/.test(v[l]), `${key}.${l} has an em dash`);
+      assert.ok(!/\b(je|jij|jouw|je)\b/i.test(l === 'nl' ? v[l] : ''), `${key}.nl is not formal`);
+      assert.ok(!/\b(tu|ton|ta|tes)\b/i.test(l === 'fr' ? v[l] : ''), `${key}.fr is not formal`);
+    }
+  }
+  assert.equal(COPY.vip_title.en, 'Special guest registration');
+  assert.equal(COPY.vip_title.fr, "Inscription des invités d'honneur");
+  assert.equal(COPY.vip_title.nl, 'Registratie eregasten');
+  assert.ok(COPY.vip_intro.en.startsWith('Exclusive Diwali Evening, Saturday 24 October 2026, 18:00 to 21:30'));
+  assert.equal(COPY.vip_mail_received_body.en,
+    'Thank you. We have received your registration and will confirm it shortly.');
+});
+
+test('mobile is optional on the special guest form and nowhere else', async () => {
+  const vip = teamOf('vip');
+  assert.equal(validate(VIPFORM({ phone: '' }), vip), '');
+  assert.equal(validate(VIPFORM({ phone: '0474 91 99 00' }), vip), '');
+  assert.equal(validate(VIPFORM({ phone: 'call my office' }), vip), 'phone',
+    'a number that is given still has to be one');
+  assert.equal(validate(VIPFORM({ organisation: '' }), vip), 'organisation');
+  assert.equal(validate(VIPFORM({ attending: '' }), vip), 'attending');
+  assert.equal(validate(VIPFORM({ attending: 'guest' }), vip), 'guest');
+  assert.equal(validate(VIPFORM({ salutation: '', jobTitle: '' }), vip), '', 'both optional');
+
+  for (const key of ['artist', 'crew', 'press', 'guest', 'core']) {
+    assert.equal(validate(FORM({ phone: '' }), teamOf(key)), 'phone', `${key} still needs a phone`);
+  }
+  assert.equal(validate(FORM({ phone: '' }), teamOf('plus1')), 'phone');
+
+  const { kv } = await withLink('vip');
+  const w = world();
+  try {
+    const r = await register(VIPENV(kv), kv, VIPFORM({ phone: '' }), { ip: '1.1.1.1' });
+    assert.ok(r.ok);
+    assert.equal(r.person.phone, null);
+    assert.ok(![...kv.store.keys()].some(k => k.startsWith('phone:')), 'no phone index for no phone');
+    /* A second submit with no phone is recognised by the email instead. */
+    const again = await register(VIPENV(kv), kv, VIPFORM({ phone: '' }), { ip: '1.1.1.1' });
+    assert.ok(again.repeat);
+    assert.equal((await people(kv)).length, 1);
+  } finally { w.restore(); }
+});
+
+test('a registration with a guest creates two linked pending records and one email', async () => {
+  const { kv } = await withLink('vip');
+  const w = world();
+  try {
+    const r = await register(VIPENV(kv), kv, VIPFORM({
+      attending: 'guest', guest: { firstName: 'Meera', lastName: 'Kumar' },
+    }), { ip: '1.1.1.1' });
+    assert.ok(r.ok);
+    const all = await people(kv);
+    assert.equal(all.length, 2);
+    const host = all.find(p => !p.vip.guestOf);
+    const guest = all.find(p => p.vip.guestOf);
+
+    assert.equal(host.vip.guestId, guest.id);
+    assert.equal(host.vip.guestName, 'Meera Kumar');
+    assert.equal(host.vip.organisation, 'Embassy Partners SA');
+    assert.equal(host.vip.jobTitle, 'Director');
+    assert.equal(guest.vip.guestOf, host.id);
+    assert.equal(guest.vip.guestOfName, 'Anil Kumar');
+    assert.equal(guest.email, host.email, 'the guest carries the registrant\'s email');
+    assert.equal(guest.phone, null);
+    for (const p of [host, guest]) {
+      assert.equal(p.team, 'vip');
+      assert.equal(p.status, 'pending');
+      assert.equal(p.role, '');
+      assert.equal(p.tt, null);
+    }
+
+    const mails = w.brevo().filter(c => c.url.includes('/smtp/email'));
+    assert.equal(mails.length, 1, 'one received email, to the registrant');
+    const mail = JSON.parse(mails[0].body);
+    assert.equal(mail.subject, COPY.vip_mail_received_subject.en);
+    assert.ok(mail.textContent.startsWith('Dear Mr Kumar,'));
+    assert.ok(mail.textContent.includes(COPY.vip_mail_received_body.en));
+    assert.ok(!/code|WhatsApp/i.test(mail.textContent), 'no code promise, no WhatsApp');
+    const contacts = w.brevo().filter(c => c.url.includes('/contacts') && c.method !== 'GET');
+    assert.equal(contacts.length, 1, 'one Brevo contact, the registrant');
+    assert.ok(contacts[0].body.includes('"ORGANISATION":"Embassy Partners SA"'));
+    assert.ok(!contacts[0].body.includes('Meera'));
+    assert.equal(w.tt().length, 0, 'registration issues nothing');
+    assert.equal(w.wa().length, 0);
+
+    /* The cap counts the invitation once, not the two seats. */
+    const line = (await allSubmissions(kv))[0];
+    assert.equal(line.outcome, 'stored');
+  } finally { w.restore(); }
+});
+
+test('approving a special guest issues two tickets, each in its own name, and nothing else', async () => {
+  const { kv } = await withLink('vip');
+  const env = VIPENV(kv);
+  const w = world();
+  try {
+    await register(env, kv, VIPFORM({
+      attending: 'guest', guest: { firstName: 'Meera', lastName: 'Kumar' },
+    }), { ip: '1.1.1.1' });
+    const host = (await people(kv)).find(p => !p.vip.guestOf);
+    w.calls.length = 0;
+
+    const res = await adminPost({
+      request: req('POST', { action: 'approve', id: host.id }, { 'x-admin-token': ADMIN.keerthi }), env,
+    });
+    const d = await res.json();
+    assert.equal(res.status, 200, JSON.stringify(d.detail || d.error));
+    assert.ok(d.ok);
+    assert.equal(d.person.status, 'approved');
+    assert.equal(d.companion.person.status, 'approved');
+    assert.equal(d.companion.person.decidedBy, 'keerthi');
+
+    const issued = w.tt().filter(c => c.url.includes('/issued_tickets') && c.method === 'POST')
+      .map(c => new URLSearchParams(c.body));
+    assert.equal(issued.length, 2, 'one VIP ticket per person');
+    assert.deepEqual(issued.map(p => p.get('full_name')), ['Anil Kumar', 'Meera Kumar']);
+    for (const p of issued) {
+      assert.equal(p.get('ticket_type_id'), 'tt_vip');
+      assert.equal(p.get('email'), 'anil@example.com', 'both to the registrant');
+    }
+    assert.equal(w.tt().filter(c => c.url.includes('/discounts')).length, 0, 'no discount code');
+    assert.equal(w.wa().length, 0, 'no WhatsApp');
+
+    const mails = w.brevo().filter(c => c.url.includes('/smtp/email')).map(c => JSON.parse(c.body));
+    assert.equal(mails.length, 2);
+    assert.equal(mails[0].subject, COPY.vip_mail_approved_subject.en);
+    assert.ok(mails[0].textContent.startsWith('Dear Mr Kumar,'));
+    assert.ok(mails[0].textContent.includes(COPY.vip_mail_pass_own.en));
+    assert.ok(mails[0].textContent.includes('The pass for your guest, Meera Kumar, follows'));
+    assert.equal(mails[1].subject, 'The pass for your guest, Meera Kumar');
+    assert.ok(mails[1].textContent.startsWith('Dear Mr Kumar,'), 'the guest pass is addressed to the registrant');
+    for (const m of mails) {
+      assert.equal(m.to[0].email, 'anil@example.com');
+      assert.ok(m.attachment && m.attachment.length === 1, 'the QR goes with each');
+      assert.ok(!/code|WhatsApp|—/.test(m.textContent));
+    }
+    assert.ok(mails[1].attachment[0].name.includes('Meera'));
+
+    const contacts = w.brevo().filter(c => c.url.includes('/contacts') && c.method !== 'GET');
+    assert.equal(contacts.length, 1, 'the guest does not overwrite the registrant in Brevo');
+    assert.ok(contacts[0].body.includes('"FIRSTNAME":"Anil"'));
+    assert.ok(!contacts[0].body.includes('"12"') && !/"listIds":\[12\]/.test(contacts[0].body));
+
+    const guest = await getPersonForTest(kv, host.vip.guestId);
+    assert.deepEqual(stepsOutstanding(guest, teamOf('vip')), [], 'nothing left hanging');
+    assert.equal(guest.steps.whatsapp, null, 'no WhatsApp step at all');
+    assert.match(guest.steps.brevo, /^done:not needed/);
+
+    /* Twice is once. */
+    w.calls.length = 0;
+    await adminPost({ request: req('POST', { action: 'approve', id: host.id }, { 'x-admin-token': ADMIN.ravi }), env });
+    assert.equal(w.tt().filter(c => c.method === 'POST').length, 0, 'a second approve issues nothing');
+
+    /* And a retry never reaches WhatsApp for this team. */
+    w.calls.length = 0;
+    await adminPost({ request: req('POST', { action: 'retry', id: host.id }, { 'x-admin-token': ADMIN.ravi }), env });
+    assert.equal(w.wa().length, 0);
+  } finally { w.restore(); }
+});
+
+test('a special guest whose own ticket fails keeps their guest waiting too', async () => {
+  const { kv } = await withLink('vip');
+  const env = VIPENV(kv);
+  const w = world({ fail: 'tt' });
+  try {
+    await register(env, kv, VIPFORM({
+      attending: 'guest', guest: { firstName: 'Meera', lastName: 'Kumar' },
+    }), {});
+    const host = (await people(kv)).find(p => !p.vip.guestOf);
+    const res = await adminPost({
+      request: req('POST', { action: 'approve', id: host.id }, { 'x-admin-token': ADMIN.ravi }), env,
+    });
+    assert.equal(res.status, 409);
+    const all = await people(kv);
+    assert.ok(all.every(p => p.status === 'pending'));
+  } finally { w.restore(); }
+});
+
+test('rejecting a special guest rejects their guest and sends nothing at all', async () => {
+  const { kv } = await withLink('vip');
+  const env = VIPENV(kv);
+  const w = world();
+  try {
+    await register(env, kv, VIPFORM({
+      attending: 'guest', guest: { firstName: 'Meera', lastName: 'Kumar' },
+    }), {});
+    const host = (await people(kv)).find(p => !p.vip.guestOf);
+    w.calls.length = 0;
+
+    const d = await (await adminPost({
+      request: req('POST', { action: 'reject', id: host.id, note: 'not on the list' },
+        { 'x-admin-token': ADMIN.ravi }), env,
+    })).json();
+    assert.ok(d.ok);
+    assert.equal(d.companion.person.status, 'rejected');
+    const all = await people(kv);
+    assert.ok(all.every(p => p.status === 'rejected' && p.decidedBy === 'ravi'));
+    assert.deepEqual(w.calls.filter(c => c.method !== 'GET'), [], 'no ticket, no mail, no Brevo, no WhatsApp');
+
+    /* The registrant's own mark is the one remembered for the shared email. */
+    const mark = JSON.parse(kv.store.get(rejectedEmailKey('anil@example.com')));
+    assert.equal(mark.id, host.id);
+    const again = await register(env, kv, VIPFORM(), {});
+    assert.equal(again.ok, false, 'the same person cannot simply register again');
+  } finally { w.restore(); }
+});
+
+test('a guest can be decided alone when the approver says so', async () => {
+  const { kv } = await withLink('vip');
+  const env = VIPENV(kv);
+  const w = world();
+  try {
+    await register(env, kv, VIPFORM({
+      attending: 'guest', guest: { firstName: 'Meera', lastName: 'Kumar' },
+    }), {});
+    const host = (await people(kv)).find(p => !p.vip.guestOf);
+    await adminPost({
+      request: req('POST', { action: 'reject', id: host.vip.guestId, note: 'one place only' },
+        { 'x-admin-token': ADMIN.ravi }), env,
+    });
+    const d = await (await adminPost({
+      request: req('POST', { action: 'approve', id: host.id }, { 'x-admin-token': ADMIN.ravi }), env,
+    })).json();
+    assert.ok(d.ok);
+    assert.equal(d.companion, undefined, 'a rejected guest is not approved with the registrant');
+    const issued = w.tt().filter(c => c.url.includes('/issued_tickets') && c.method === 'POST');
+    assert.equal(issued.length, 1);
+  } finally { w.restore(); }
+});
+
+test('after VIP_CLOSE_AT the special guest form shows the closed message', async () => {
+  const { kv, t } = await withLink('vip');
+  const w = world();
+  try {
+    const shut = VIPENV(kv, { VIP_CLOSE_AT: '2020-10-20T23:59:00+02:00' });
+    for (const lang of ['en', 'fr', 'nl']) {
+      const d = await (await guestForm(`guest=1&lang=${lang}`, shut)).json();
+      assert.equal(d.ok, false);
+      assert.equal(d.message, 'vip_closed');
+      assert.equal(d.strings[d.message], COPY.vip_closed[lang], 'the page prints this string');
+    }
+    const r = await register(shut, kv, VIPFORM(), {});
+    assert.equal(r.message, 'vip_closed');
+    const posted = await (await guestPost({ ...VIPFORM(), k: undefined, viaGuest: true }, shut)).json();
+    assert.equal(posted.text, COPY.vip_closed.en);
+    assert.equal((await people(kv)).length, 0);
+
+    /* Independent of the team deadline, both ways. */
+    const teamShut = VIPENV(kv, { TEAM_CLOSE_AT: '2020-10-18T23:59:00+02:00' });
+    assert.ok((await (await guestForm(`k=${t}`, teamShut)).json()).ok);
+    const artist = await withLink('artist');
+    const teamOpen = VIPENV(artist.kv, { VIP_CLOSE_AT: '2020-10-20T23:59:00+02:00' });
+    assert.ok((await register(teamOpen, artist.kv, FORM(), {})).ok, 'the team form does not close with it');
+  } finally { w.restore(); }
+});
+
+test('the default VIP closing date is 20 October, apart from the team one', () => {
+  assert.equal(new Date(String(vipCloseAtFor({}))).toISOString(), '2026-10-20T21:59:00.000Z');
+});
+
+test('the admin page shows organisation, function and guest of, and exports the special guests', async () => {
+  const html = adminPage();
+  assert.match(html, /function vipBits\(p\)/);
+  assert.match(html, /'Guest of ' \+/);
+  assert.match(html, /data-act="csv_vip"/);
+  assert.match(html, /'status', 'salutation', 'firstName', 'lastName', 'organisation', 'function',\s*'email', 'guestName', 'registeredAt', 'approvedAt'/);
+  assert.match(html, /'organisation', 'guestOf', 'rsvp'/, 'the full export carries guest of');
+
+  const { kv, t } = await withLink('vip');
+  const env = VIPENV(kv);
+  const w = world();
+  try {
+    await register(env, kv, VIPFORM({
+      attending: 'guest', guest: { firstName: 'Meera', lastName: 'Kumar' },
+    }), {});
+    const d = await (await adminGet({ request: req('GET', null, { 'x-admin-token': ADMIN.ravi }), env })).json();
+    assert.equal(d.settings.vip.enabled, true);
+    assert.equal(d.settings.vip.linkFound, true);
+    assert.equal(d.links.find(l => l.token === t).url, 'https://diwali.artindia.be/guest/');
+    const host = d.people.find(p => p.vip && !p.vip.guestOf);
+    assert.equal(host.vip.organisation, 'Embassy Partners SA');
+    assert.equal(d.teams.find(x => x.key === 'vip').whatsapp, false);
+  } finally { w.restore(); }
+});
+
+test('a special guest is nobody to Diya, pending or approved', async () => {
+  const { kv } = await withLink('vip');
+  const env = VIPENV(kv);
+  const w = world();
+  try {
+    const r = await register(env, kv, VIPFORM({ phone: '+32 474 91 99 00' }), {});
+    assert.equal(await teamMemberFor(kv, r.person.phone), null);
+  } finally { w.restore(); }
+});
+
+/* The guest form removes the consent box, and the payload used to read it
+   unguarded: the first browser submit threw before it left the page. */
+test('the form never reads a consent box that the guest form has removed', () => {
+  const html = readFileSync(join(DIST, 'guest/index.html'), 'utf8');
+  assert.ok(!/consent: form\.consent\.checked/.test(html));
+  assert.match(html, /consent: !!\(form\.consent && form\.consent\.checked\)/);
+  assert.match(html, /getElementById\('tf-consent'\)\.remove\(\)/);
 });

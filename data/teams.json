@@ -1,5 +1,5 @@
 {
-  "_comment": "Seed for the accreditation module. expected is a starting guess and is overridden per team by teamcfg:<key> in the ACCRED namespace, so the admin page can change it without a deploy. arrival is the line printed in the approved email: left empty here for Ravi to fill.",
+  "_comment": "Seed for the accreditation module. expected is a starting guess and is overridden per team by teamcfg:<key> in the ACCRED namespace, so the admin page can change it without a deploy. arrival is the line printed in the approved email: left empty here for Ravi to fill. guestForm (vip only) gives the team its own registration form at /guest/, switched by VIP_REG_ENABLED and closed by VIP_CLOSE_AT; formal sends the formal emails; whatsapp false means no WhatsApp step at all.",
   "teams": [
     { "key": "core", "letter": "core",   "env": "TT_TYPE_CORE",   "expected": 15, "plusOne": false, "promoCode": true,  "wall": true,
       "name": {"en": "Core team", "fr": "Équipe centrale", "nl": "Kernteam"}, "arrival": {"en": "", "fr": "", "nl": ""} },
@@ -18,6 +18,7 @@
     { "key": "child", "letter": "parent",  "env": "TT_TYPE_CHILD",  "expected": 50, "plusOne": false, "promoCode": true,  "wall": false, "childTeam": true,
       "name": {"en": "Child artists", "fr": "Jeunes artistes", "nl": "Kindartiesten"}, "arrival": {"en": "", "fr": "", "nl": ""} },
     { "key": "vip", "letter": null,    "env": "TT_TYPE_VIP",    "expected": 30, "plusOne": false, "promoCode": false, "wall": false, "inviteOnly": true,
+      "guestForm": true, "formal": true, "whatsapp": false,
       "name": {"en": "VIPs", "fr": "Invités d'honneur", "nl": "Eregasten"}, "arrival": {"en": "", "fr": "", "nl": ""} },
     { "key": "press", "letter": null,  "env": "TT_TYPE_PRESS",  "expected": 20, "plusOne": false, "promoCode": false, "wall": false,
       "name": {"en": "Press", "fr": "Presse", "nl": "Pers"}, "arrival": {"en": "", "fr": "", "nl": ""} },

@@ -364,6 +364,156 @@
       "en": "Thank you for registering for the 10th Brussels Diwali Festival. Your registration is with the festival team for approval, and you will hear from us by email and WhatsApp.",
       "fr": "Merci pour votre inscription au 10e Brussels Diwali Festival. Elle est entre les mains de l'équipe du festival pour validation, et vous recevrez une réponse par e-mail et WhatsApp.",
       "nl": "Bedankt voor je registratie voor het 10e Brussels Diwali Festival. Ze ligt nu bij het festivalteam ter goedkeuring, en je hoort van ons via e-mail en WhatsApp."
+    },
+    "vip_title": {
+      "en": "Special guest registration",
+      "fr": "Inscription des invités d'honneur",
+      "nl": "Registratie eregasten"
+    },
+    "vip_intro": {
+      "en": "Exclusive Diwali Evening, Saturday 24 October 2026, 18:00 to 21:30, Atomium Esplanade, Brussels. Please register with the name on your invitation. Your personal pass will follow by email once your registration is confirmed.",
+      "fr": "Soirée exclusive de Diwali, samedi 24 octobre 2026, de 18h00 à 21h30, esplanade de l'Atomium, Bruxelles. Nous vous prions de vous inscrire au nom figurant sur votre invitation. Votre pass personnel vous sera envoyé par e-mail dès la confirmation de votre inscription.",
+      "nl": "Exclusieve Diwali-avond, zaterdag 24 oktober 2026, van 18.00 tot 21.30 uur, esplanade van het Atomium, Brussel. Gelieve u te registreren met de naam op uw uitnodiging. Uw persoonlijke pas ontvangt u per e-mail zodra uw registratie bevestigd is."
+    },
+    "vip_badge": {
+      "en": "Exclusive Diwali Evening",
+      "fr": "Soirée exclusive de Diwali",
+      "nl": "Exclusieve Diwali-avond"
+    },
+    "vip_salutation": {
+      "en": "Salutation (optional)",
+      "fr": "Civilité (facultatif)",
+      "nl": "Aanspreking (optioneel)"
+    },
+    "vip_organisation": {
+      "en": "Organisation",
+      "fr": "Organisation",
+      "nl": "Organisatie"
+    },
+    "vip_function": {
+      "en": "Function (optional)",
+      "fr": "Fonction (facultatif)",
+      "nl": "Functie (optioneel)"
+    },
+    "vip_email_hint": {
+      "en": "Your pass will be sent to this address.",
+      "fr": "Votre pass sera envoyé à cette adresse.",
+      "nl": "Uw pas wordt naar dit adres gestuurd."
+    },
+    "vip_mobile": {
+      "en": "Mobile number (optional)",
+      "fr": "Numéro de portable (facultatif)",
+      "nl": "Gsm-nummer (optioneel)"
+    },
+    "vip_attend": {
+      "en": "I will attend",
+      "fr": "Je serai présent(e)",
+      "nl": "Ik zal aanwezig zijn"
+    },
+    "vip_alone": {
+      "en": "Alone",
+      "fr": "Seul(e)",
+      "nl": "Alleen"
+    },
+    "vip_with_guest": {
+      "en": "With one guest",
+      "fr": "Accompagné(e) d'une personne",
+      "nl": "Met één gast"
+    },
+    "vip_guest_legend": {
+      "en": "Your guest",
+      "fr": "Votre invité(e)",
+      "nl": "Uw gast"
+    },
+    "vip_fine": {
+      "en": "Each registration is confirmed personally by the festival team. Art India ASBL uses these details only to manage your registration and your pass.",
+      "fr": "Chaque inscription est confirmée personnellement par l'équipe du festival. Art India ASBL utilise ces données uniquement pour gérer votre inscription et votre pass.",
+      "nl": "Elke registratie wordt persoonlijk bevestigd door het festivalteam. Art India vzw gebruikt deze gegevens uitsluitend voor het beheer van uw registratie en uw pas."
+    },
+    "vip_check": {
+      "en": "Please check the fields above and try again.",
+      "fr": "Veuillez vérifier les champs ci-dessus et réessayer.",
+      "nl": "Gelieve de velden hierboven te controleren en opnieuw te proberen."
+    },
+    "vip_inactive": {
+      "en": "This registration page is not open. Please contact us at diwali@artindia.be.",
+      "fr": "Cette page d'inscription n'est pas ouverte. Veuillez nous contacter à l'adresse diwali@artindia.be.",
+      "nl": "Deze registratiepagina is niet open. Gelieve contact met ons op te nemen via diwali@artindia.be."
+    },
+    "vip_closed": {
+      "en": "Registration is now closed. Please contact us at diwali@artindia.be.",
+      "fr": "Les inscriptions sont clôturées. Veuillez nous contacter à l'adresse diwali@artindia.be.",
+      "nl": "De registratie is afgesloten. Gelieve contact met ons op te nemen via diwali@artindia.be."
+    },
+    "vip_done_title": {
+      "en": "Thank you",
+      "fr": "Merci",
+      "nl": "Dank u"
+    },
+    "vip_done_lede": {
+      "en": "We have received your registration and will confirm it shortly.",
+      "fr": "Nous avons bien reçu votre inscription et vous la confirmerons sous peu.",
+      "nl": "Wij hebben uw registratie goed ontvangen en bevestigen ze u binnenkort."
+    },
+    "vip_mail_greeting": {
+      "en": "Dear {NAME},",
+      "fr": "Bonjour {NAME},",
+      "nl": "Geachte {NAME},"
+    },
+    "vip_mail_received_subject": {
+      "en": "Your registration for the Exclusive Diwali Evening",
+      "fr": "Votre inscription à la Soirée exclusive de Diwali",
+      "nl": "Uw registratie voor de Exclusieve Diwali-avond"
+    },
+    "vip_mail_received_body": {
+      "en": "Thank you. We have received your registration and will confirm it shortly.",
+      "fr": "Merci. Nous avons bien reçu votre inscription et vous la confirmerons sous peu.",
+      "nl": "Dank u. Wij hebben uw registratie goed ontvangen en bevestigen ze u binnenkort."
+    },
+    "vip_mail_regards": {
+      "en": "With kind regards,",
+      "fr": "Avec nos salutations les plus cordiales,",
+      "nl": "Met vriendelijke groeten,"
+    },
+    "vip_mail_approved_subject": {
+      "en": "Your pass for the Exclusive Diwali Evening",
+      "fr": "Votre pass pour la Soirée exclusive de Diwali",
+      "nl": "Uw pas voor de Exclusieve Diwali-avond"
+    },
+    "vip_mail_approved_body": {
+      "en": "We are pleased to confirm your registration for the Exclusive Diwali Evening on Saturday 24 October 2026, from 18:00 to 21:30, on the Atomium Esplanade in Brussels.",
+      "fr": "Nous avons le plaisir de vous confirmer votre inscription à la Soirée exclusive de Diwali, le samedi 24 octobre 2026, de 18h00 à 21h30, sur l'esplanade de l'Atomium à Bruxelles.",
+      "nl": "Wij bevestigen graag uw registratie voor de Exclusieve Diwali-avond op zaterdag 24 oktober 2026, van 18.00 tot 21.30 uur, op de esplanade van het Atomium in Brussel."
+    },
+    "vip_mail_pass_own": {
+      "en": "Your personal pass, in your name, is below and attached to this email. Please show it on your phone at the entrance.",
+      "fr": "Votre pass personnel, à votre nom, se trouve ci-dessous et en pièce jointe. Nous vous prions de le présenter sur votre téléphone à l'entrée.",
+      "nl": "Uw persoonlijke pas, op uw naam, vindt u hieronder en in bijlage. Gelieve hem aan de ingang op uw telefoon te tonen."
+    },
+    "vip_mail_guest_follows": {
+      "en": "The pass for your guest, {GUEST}, follows in a separate email.",
+      "fr": "Le pass de votre invité(e), {GUEST}, vous parviendra dans un e-mail séparé.",
+      "nl": "De pas van uw gast, {GUEST}, ontvangt u in een afzonderlijke e-mail."
+    },
+    "vip_mail_guest_subject": {
+      "en": "The pass for your guest, {GUEST}",
+      "fr": "Le pass de votre invité(e), {GUEST}",
+      "nl": "De pas van uw gast, {GUEST}"
+    },
+    "vip_mail_guest_pass": {
+      "en": "Please find below, and attached to this email, the personal pass for your guest, {GUEST}, for the Exclusive Diwali Evening on Saturday 24 October 2026, from 18:00 to 21:30. Each pass is personal: we kindly ask you to forward it to your guest, or to show it together with your own at the entrance.",
+      "fr": "Vous trouverez ci-dessous, et en pièce jointe, le pass personnel de votre invité(e), {GUEST}, pour la Soirée exclusive de Diwali du samedi 24 octobre 2026, de 18h00 à 21h30. Chaque pass est nominatif : nous vous prions de le transmettre à votre invité(e) ou de le présenter avec le vôtre à l'entrée.",
+      "nl": "Hieronder, en in bijlage, vindt u de persoonlijke pas van uw gast, {GUEST}, voor de Exclusieve Diwali-avond op zaterdag 24 oktober 2026, van 18.00 tot 21.30 uur. Elke pas is persoonlijk: gelieve hem door te sturen naar uw gast of hem samen met de uwe aan de ingang te tonen."
+    },
+    "vip_mail_look_forward": {
+      "en": "We look forward to welcoming you.",
+      "fr": "Nous nous réjouissons de vous accueillir.",
+      "nl": "Wij kijken ernaar uit u te verwelkomen."
+    },
+    "vip_mail_questions": {
+      "en": "Should you have any questions, please write to diwali@artindia.be.",
+      "fr": "Pour toute question, vous pouvez nous écrire à diwali@artindia.be.",
+      "nl": "Met vragen kunt u terecht bij diwali@artindia.be."
     }
   }
 }

@@ -11,6 +11,7 @@
 import { json } from './_shared.js';
 import {
   allowedOrigin, langOf, plus1Key, getPerson, register, regEnabled, say,
+  linkKey, teamOf, isGuestForm,
 } from './_accred.js';
 
 export async function onRequestPost({ request, env }) {
@@ -18,10 +19,25 @@ export async function onRequestPost({ request, env }) {
     return json(403, { ok: false, error: 'bad_origin' });
   }
   if (!env.ACCRED) return json(200, { ok: false, message: 'inactive' });
-  if (!regEnabled(env)) return json(200, { ok: false, message: 'inactive' });
 
   let body;
   try { body = await request.json(); } catch { return json(400, { ok: false, error: 'bad_json' }); }
+
+  /* /guest/ posts no token. The link is the one VIP_LINK_TOKEN names, and
+     register() applies that team's own switch and closing date. */
+  if (body && body.viaGuest === true) {
+    if (!env.VIP_LINK_TOKEN) {
+      return json(200, { ok: false, message: 'vip_inactive', text: say('vip_inactive', langOf(body.lang)) });
+    }
+    body.k = String(env.VIP_LINK_TOKEN);
+  } else if (!regEnabled(env)) {
+    /* Not a +1 and not the guest form: the team form's switch, as before.
+       A vip link pasted by hand is resolved by register() itself. */
+    const link = await env.ACCRED.get(linkKey(String((body && body.k) || '')), 'json');
+    if (!(link && isGuestForm(teamOf(link.team)))) {
+      return json(200, { ok: false, message: 'inactive' });
+    }
+  }
 
   const kv = env.ACCRED;
   const lang = langOf(body.lang);

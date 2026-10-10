@@ -21,6 +21,8 @@
      site. /fr/team/ and /nl/team/ too. */
   if (/^\/(admin|r|i|team)(\/|$)/.test(PATH)) return;
   if (/^\/(fr|nl)\/team(\/|$)/.test(PATH)) return;
+  /* The special guest form at /guest/ is a private page in the same way. */
+  if (/^(\/(fr|nl))?\/guest(\/|$)/.test(PATH)) return;
   if (window.__diya) return;
   window.__diya = true;
 

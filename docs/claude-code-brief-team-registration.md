@@ -322,6 +322,58 @@ The link in the email and in the PDF goes to this page. The answer is recorded o
 
 The Invitations tab shows per invitation: status, sent, reminded, answered and how, places, number attending, on stage; and totals of invited, accepted, declined, no answer, people attending, passes issued. Two exports: the full VIP list with every attending person on a row (honorific, salutation, last name, first name, title, organisation, on stage), and the on-stage list alone.
 
+## 5B. Special guest registration (2026, replaces 5A)
+
+For this edition the site sends no invitation emails and builds no invitation PDFs. Ravi sends the invitations from his own mailbox; they print `diwali.artindia.be/guest`. The site does registration, approval and the pass, nothing else. Invitations go only to patrons, paid sponsors and long-term strategic partners, and Ravi or Keerthi approve every registration against the invitation list, so the page never issues a pass by itself.
+
+- **Address.** `/guest/`, `/fr/guest/`, `/nl/guest/`: the form of the `vip` link whose token is in `VIP_LINK_TOKEN`. The token is never in the URL; the page asks `/api/team-form?guest=1` and posts `viaGuest: true`. The same form opens at `/team/?k=<that token>`. `noindex`, in no menu, not in the sitemap, no Diya widget.
+- **Links.** The `vip` team stays `inviteOnly` (no Diya team menu, no generic form, no Add person) and gains `guestForm: true`, which allows links on the Links tab and gives it this form. `formal: true` sends the formal emails; `whatsapp: false` removes the WhatsApp step.
+- **Switches.** `VIP_REG_ENABLED` (default off) and `VIP_CLOSE_AT` (default `2026-10-20T23:59:00+02:00`), independent of `TEAM_REG_ENABLED` and `TEAM_CLOSE_AT`. `TEAM_DRY_RUN` applies as everywhere.
+- **Fields.** Salutation (optional), first name, last name, organisation, function (optional), email, mobile (optional, this team only), then "I will attend": alone, or with one guest, whose first and last name are then required. No role, no consent box, no code promise, no WhatsApp, no photo wall.
+- **Queue.** The registrant is a pending `vip` person with `vip: { salutation, organisation, jobTitle, bringsGuest, guestId, guestName }`. A guest is a second pending person with the same email, no phone, and `vip: { guestOf, guestOfName, host }`. Approving or rejecting the registrant decides the guest too (`alone: true` decides one). The guest is approved only after the registrant's own ticket is issued.
+- **Approval.** One VIP ticket per person, in that person's own name, both to the registrant's email. Brevo for the registrant only (with `SALUTATION`, `ORGANISATION`, `JOB_TITLE`); the guest shares that contact and is not written to it. The approved email in formal wording; the guest's pass comes as a second email to the registrant. No code, no WhatsApp. A rejection sends nothing.
+- **Received email.** Formal, one paragraph, to the registrant only.
+- **Admin.** Organisation, function and "guest of" on the People tab and in its export; **Export special guests CSV** (status, salutation, names, organisation, function, email, guest name, registered at, approved at, and the guest's own status) to reconcile with the invitation tracker.
+
+The cap on a link counts registrations, not seats: a registrant and their guest are one.
+
+### 5B copy
+
+FR and NL are in the formal register (vous, u). They were written for this brief, not given by Ravi: read them before switching the form on.
+
+| Key | EN | FR | NL |
+|---|---|---|---|
+| vip_title | Special guest registration | Inscription des invités d'honneur | Registratie eregasten |
+| vip_intro | Exclusive Diwali Evening, Saturday 24 October 2026, 18:00 to 21:30, Atomium Esplanade, Brussels. Please register with the name on your invitation. Your personal pass will follow by email once your registration is confirmed. | Soirée exclusive de Diwali, samedi 24 octobre 2026, de 18h00 à 21h30, esplanade de l'Atomium, Bruxelles. Nous vous prions de vous inscrire au nom figurant sur votre invitation. Votre pass personnel vous sera envoyé par e-mail dès la confirmation de votre inscription. | Exclusieve Diwali-avond, zaterdag 24 oktober 2026, van 18.00 tot 21.30 uur, esplanade van het Atomium, Brussel. Gelieve u te registreren met de naam op uw uitnodiging. Uw persoonlijke pas ontvangt u per e-mail zodra uw registratie bevestigd is. |
+| vip_badge | Exclusive Diwali Evening | Soirée exclusive de Diwali | Exclusieve Diwali-avond |
+| vip_salutation | Salutation (optional) | Civilité (facultatif) | Aanspreking (optioneel) |
+| vip_organisation | Organisation | Organisation | Organisatie |
+| vip_function | Function (optional) | Fonction (facultatif) | Functie (optioneel) |
+| vip_email_hint | Your pass will be sent to this address. | Votre pass sera envoyé à cette adresse. | Uw pas wordt naar dit adres gestuurd. |
+| vip_mobile | Mobile number (optional) | Numéro de portable (facultatif) | Gsm-nummer (optioneel) |
+| vip_attend | I will attend | Je serai présent(e) | Ik zal aanwezig zijn |
+| vip_alone | Alone | Seul(e) | Alleen |
+| vip_with_guest | With one guest | Accompagné(e) d'une personne | Met één gast |
+| vip_guest_legend | Your guest | Votre invité(e) | Uw gast |
+| vip_fine | Each registration is confirmed personally by the festival team. Art India ASBL uses these details only to manage your registration and your pass. | Chaque inscription est confirmée personnellement par l'équipe du festival. Art India ASBL utilise ces données uniquement pour gérer votre inscription et votre pass. | Elke registratie wordt persoonlijk bevestigd door het festivalteam. Art India vzw gebruikt deze gegevens uitsluitend voor het beheer van uw registratie en uw pas. |
+| vip_check | Please check the fields above and try again. | Veuillez vérifier les champs ci-dessus et réessayer. | Gelieve de velden hierboven te controleren en opnieuw te proberen. |
+| vip_inactive | This registration page is not open. Please contact us at diwali@artindia.be. | Cette page d'inscription n'est pas ouverte. Veuillez nous contacter à l'adresse diwali@artindia.be. | Deze registratiepagina is niet open. Gelieve contact met ons op te nemen via diwali@artindia.be. |
+| vip_closed | Registration is now closed. Please contact us at diwali@artindia.be. | Les inscriptions sont clôturées. Veuillez nous contacter à l'adresse diwali@artindia.be. | De registratie is afgesloten. Gelieve contact met ons op te nemen via diwali@artindia.be. |
+| vip_done_title | Thank you | Merci | Dank u |
+| vip_done_lede | We have received your registration and will confirm it shortly. | Nous avons bien reçu votre inscription et vous la confirmerons sous peu. | Wij hebben uw registratie goed ontvangen en bevestigen ze u binnenkort. |
+| vip_mail_greeting | Dear {NAME}, | Bonjour {NAME}, | Geachte {NAME}, |
+| vip_mail_received_subject | Your registration for the Exclusive Diwali Evening | Votre inscription à la Soirée exclusive de Diwali | Uw registratie voor de Exclusieve Diwali-avond |
+| vip_mail_received_body | Thank you. We have received your registration and will confirm it shortly. | Merci. Nous avons bien reçu votre inscription et vous la confirmerons sous peu. | Dank u. Wij hebben uw registratie goed ontvangen en bevestigen ze u binnenkort. |
+| vip_mail_regards | With kind regards, | Avec nos salutations les plus cordiales, | Met vriendelijke groeten, |
+| vip_mail_approved_subject | Your pass for the Exclusive Diwali Evening | Votre pass pour la Soirée exclusive de Diwali | Uw pas voor de Exclusieve Diwali-avond |
+| vip_mail_approved_body | We are pleased to confirm your registration for the Exclusive Diwali Evening on Saturday 24 October 2026, from 18:00 to 21:30, on the Atomium Esplanade in Brussels. | Nous avons le plaisir de vous confirmer votre inscription à la Soirée exclusive de Diwali, le samedi 24 octobre 2026, de 18h00 à 21h30, sur l'esplanade de l'Atomium à Bruxelles. | Wij bevestigen graag uw registratie voor de Exclusieve Diwali-avond op zaterdag 24 oktober 2026, van 18.00 tot 21.30 uur, op de esplanade van het Atomium in Brussel. |
+| vip_mail_pass_own | Your personal pass, in your name, is below and attached to this email. Please show it on your phone at the entrance. | Votre pass personnel, à votre nom, se trouve ci-dessous et en pièce jointe. Nous vous prions de le présenter sur votre téléphone à l'entrée. | Uw persoonlijke pas, op uw naam, vindt u hieronder en in bijlage. Gelieve hem aan de ingang op uw telefoon te tonen. |
+| vip_mail_guest_follows | The pass for your guest, {GUEST}, follows in a separate email. | Le pass de votre invité(e), {GUEST}, vous parviendra dans un e-mail séparé. | De pas van uw gast, {GUEST}, ontvangt u in een afzonderlijke e-mail. |
+| vip_mail_guest_subject | The pass for your guest, {GUEST} | Le pass de votre invité(e), {GUEST} | De pas van uw gast, {GUEST} |
+| vip_mail_guest_pass | Please find below, and attached to this email, the personal pass for your guest, {GUEST}, for the Exclusive Diwali Evening on Saturday 24 October 2026, from 18:00 to 21:30. Each pass is personal: we kindly ask you to forward it to your guest, or to show it together with your own at the entrance. | Vous trouverez ci-dessous, et en pièce jointe, le pass personnel de votre invité(e), {GUEST}, pour la Soirée exclusive de Diwali du samedi 24 octobre 2026, de 18h00 à 21h30. Chaque pass est nominatif : nous vous prions de le transmettre à votre invité(e) ou de le présenter avec le vôtre à l'entrée. | Hieronder, en in bijlage, vindt u de persoonlijke pas van uw gast, {GUEST}, voor de Exclusieve Diwali-avond op zaterdag 24 oktober 2026, van 18.00 tot 21.30 uur. Elke pas is persoonlijk: gelieve hem door te sturen naar uw gast of hem samen met de uwe aan de ingang te tonen. |
+| vip_mail_look_forward | We look forward to welcoming you. | Nous nous réjouissons de vous accueillir. | Wij kijken ernaar uit u te verwelkomen. |
+| vip_mail_questions | Should you have any questions, please write to diwali@artindia.be. | Pour toute question, vous pouvez nous écrire à diwali@artindia.be. | Met vragen kunt u terecht bij diwali@artindia.be. |
+
 ## 6. Diya for team members
 
 In the WhatsApp bot, before the buyer or prospect decision, look the sender up in `ACCRED` by phone. An approved person is "team".
@@ -478,7 +530,7 @@ Ticket Tailor sending the pass separately: our own email carries it.
 
 New, all set by Ravi in Cloudflare before switching on:
 
-`TEAM_REG_ENABLED`, `TEAM_DRY_RUN`, `TEAM_TEST_EMAILS`, `TEAM_ADMIN_TOKENS`, `TEAM_CLOSE_AT`, `TEAM_CODE_MAX_ORDERS`, `VIP_RSVP_BY` (default `2026-10-16T23:59:00+02:00`), `VIP_REPLY_TO` (`guests@artindia.be`), `VIP_SENDER_EMAIL`, `WALL_ENABLED`, `WALL_URL`, `TT_API_KEY` (write access, new key, not the read-only one), `TT_EVENT_ID`, `TT_TYPE_CORE`, `TT_TYPE_CREW`, `TT_TYPE_DJ`, `TT_TYPE_MEDIA`, `TT_TYPE_ARTIST`, `TT_TYPE_COLLAB`, `TT_TYPE_AIMC`, `TT_TYPE_CHILD`, `TT_TYPE_VIP`, `TT_TYPE_PRESS`, `TT_TYPE_GUEST`, `TT_TYPE_PLUS1`, `TT_DISCOUNT_TICKET_TYPES`, `BREVO_ACCRED_LIST_ID`, `WA_TEMPLATE_TEAM`, `WA_TEMPLATE_TEAM_PLAIN`. KV binding `ACCRED`.
+`TEAM_REG_ENABLED`, `TEAM_DRY_RUN`, `TEAM_TEST_EMAILS`, `TEAM_ADMIN_TOKENS`, `TEAM_CLOSE_AT`, `TEAM_CODE_MAX_ORDERS`, `VIP_RSVP_BY` (default `2026-10-16T23:59:00+02:00`), `VIP_REPLY_TO` (`guests@artindia.be`), `VIP_SENDER_EMAIL`, `WALL_ENABLED`, `WALL_URL`, `TT_API_KEY` (write access, new key, not the read-only one), `TT_EVENT_ID`, `TT_TYPE_CORE`, `TT_TYPE_CREW`, `TT_TYPE_DJ`, `TT_TYPE_MEDIA`, `TT_TYPE_ARTIST`, `TT_TYPE_COLLAB`, `TT_TYPE_AIMC`, `TT_TYPE_CHILD`, `TT_TYPE_VIP`, `TT_TYPE_PRESS`, `TT_TYPE_GUEST`, `TT_TYPE_PLUS1`, `TT_DISCOUNT_TICKET_TYPES`, `BREVO_ACCRED_LIST_ID`, `WA_TEMPLATE_TEAM`, `WA_TEMPLATE_TEAM_PLAIN`, `VIP_REG_ENABLED`, `VIP_LINK_TOKEN`, `VIP_CLOSE_AT`. KV binding `ACCRED`.
 
 A missing ticket type id for a team disables approval for that team only, with a clear message in the queue.
 

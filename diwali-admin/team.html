@@ -416,6 +416,8 @@
       + '<span class="muted">' + esc(p.role || '') + '</span></div>'
       + '<div class="muted">' + esc(teamName(p.team) + label) + '</div>'
       + '<div class="muted">' + esc(p.phone || 'no phone') + ' · ' + esc(p.email) + '</div>';
+    var vipLine = vipBits(p);
+    if (vipLine) who += '<div class="muted">' + esc(vipLine) + '</div>';
     if (p.child) {
       who += '<div class="muted">Child: ' + esc(p.child.firstName + ' ' + p.child.lastName)
         + ' · born ' + esc(p.child.dob)
@@ -438,6 +440,26 @@
         + esc((p.ttError.status ? p.ttError.status + ' ' : '') + p.ttError.detail) + '</div>';
     }
     return who;
+  }
+
+  /* A special guest: who they are with, and who they bring or came with.
+     Empty for everybody else. */
+  function vipBits(p) {
+    var v = p.vip;
+    if (!v) return '';
+    var bits = [];
+    if (v.salutation) bits.push(v.salutation);
+    if (v.organisation) bits.push(v.organisation);
+    if (v.jobTitle) bits.push(v.jobTitle);
+    if (v.guestOf) bits.push('Guest of ' + (v.guestOfName || v.guestOf));
+    if (v.guestName) bits.push('Brings ' + v.guestName);
+    return bits.join(' \u00b7 ');
+  }
+
+  /* The person a special guest brings, and still waiting with them. */
+  function pendingCompanion(p) {
+    var c = p.vip && p.vip.guestId ? personOf(p.vip.guestId) : null;
+    return c && c.status === 'pending' ? c : null;
   }
 
   /* When they registered, and when somebody decided about them. */
@@ -504,24 +526,31 @@
           : '');
     }
     var hasTicket = p.tt && p.tt.issuedTicketId;
-    return '<div class="acts">'
+    /* A special guest and the person they bring are decided together, and
+       the buttons say so. The guest's own card can still be decided alone. */
+    var both = pendingCompanion(p) ? ' both' : '';
+    return (both ? '<p class="muted">Approving or rejecting also decides for '
+        + esc(p.vip.guestName) + ', their guest.</p>' : '')
+      + (p.vip && p.vip.guestOf ? '<p class="muted">Decided together with '
+        + esc(p.vip.guestOfName) + ' unless you decide here first.</p>' : '')
+      + '<div class="acts">'
       /* The form switch is about registering, not about deciding: with the
          form off, somebody already in the queue can still be let in. */
       + '<button type="button" class="go" data-act="approve"'
       + (t && t.blocked ? ' disabled' : '') + '>'
-      + esc(label(p.id, 'approve', '', 'Approve')) + '</button>'
+      + esc(label(p.id, 'approve', '', 'Approve' + both)) + '</button>'
       + (hasTicket
         ? '<button type="button" class="no" data-act="revoke">'
           + esc(label(p.id, 'revoke', '', 'Revoke')) + '</button>'
         : '<button type="button" class="no" data-act="reject">'
-          + esc(label(p.id, 'reject', '', 'Reject')) + '</button>')
+          + esc(label(p.id, 'reject', '', 'Reject' + both)) + '</button>')
       + '</div>';
   }
 
   function teamTotals() {
     var rows = D.teams.map(function (t) {
       return '<div class="teamline"><span>' + esc(t.name.en)
-        + (t.inviteOnly ? ' <span class="muted">(invite only)</span>' : '')
+        + (t.inviteOnly && !t.guestForm ? ' <span class="muted">(invite only)</span>' : '')
         + '</span><span class="muted">' + t.registered + ' / ' + t.expected + '</span></div>';
     }).join('');
     return '<h2>Everyone, by team</h2><div class="card">' + rows + '</div>';
@@ -577,6 +606,7 @@
       }).join('') + '</select>'
       + '<input data-filter="q" placeholder="Name or phone" value="' + esc(q) + '">'
       + '<button type="button" data-act="csv">Export CSV</button>'
+      + '<button type="button" data-act="csv_vip">Export special guests CSV</button>'
       + '<button type="button" data-act="addform">Add person</button>'
       + '</div><div id="addwrap"></div>';
 
@@ -595,7 +625,8 @@
       if (fTeam && p.team !== fTeam) return false;
       if (fStatus && p.status !== fStatus) return false;
       if (q) {
-        var hay = (p.firstName + ' ' + p.lastName + ' ' + (p.phone || '')).toLowerCase();
+        var hay = (p.firstName + ' ' + p.lastName + ' ' + (p.phone || '') + ' '
+          + ((p.vip && p.vip.organisation) || '')).toLowerCase();
         if (hay.indexOf(q) < 0) return false;
       }
       return true;
@@ -610,6 +641,11 @@
       var code = (p.promo && p.promo.code) || '';
       /* Never the child's date of birth out here: that lives in the card. */
       var second = [teamName(p.team), code].filter(Boolean).join(' \u00b7 ');
+      /* A special guest's organisation and function, or whose guest they are. */
+      var v = p.vip || {};
+      var vipSub = [v.organisation, v.jobTitle,
+        v.guestOf ? 'guest of ' + (v.guestOfName || '') : ''].filter(Boolean).join(' \u00b7 ');
+      if (vipSub) second += ' \u00b7 ' + vipSub;
 
       return '<div class="prow" data-id="' + esc(p.id) + '">'
         + '<button type="button" class="phead" data-row="' + esc(p.id) + '"'
@@ -642,7 +678,7 @@
       + stepline(p)
       + '<div class="acts">'
       + (p.status === 'pending' ? '<button type="button" class="go" data-act="approve">'
-        + esc(label(p.id, 'approve', '', 'Approve')) + '</button>' : '')
+        + esc(label(p.id, 'approve', '', pendingCompanion(p) ? 'Approve both' : 'Approve')) + '</button>' : '')
       + (p.status === 'approved' ? '<button type="button" data-act="retry">'
         + esc(label(p.id, 'retry', '', 'Retry failed steps')) + '</button>' : '')
       + (p.status === 'approved' && p.promo && p.promo.code && !isDry(p.promo.discountId)
@@ -652,14 +688,14 @@
         ? '<button type="button" data-act="resend" data-step="email"'
           + (heldLabel(p.id, 'resend', 'email') ? ' class="done"' : '') + '>'
           + esc(label(p.id, 'resend', 'email', 'Resend email')) + '</button>' : '')
-      + (p.status === 'approved' && p.phone
+      + (p.status === 'approved' && p.phone && (teamOf(p.team) || {}).whatsapp !== false
         ? '<button type="button" data-act="resend" data-step="whatsapp"'
           + (heldLabel(p.id, 'resend', 'whatsapp') ? ' class="done"' : '') + '>'
           + esc(label(p.id, 'resend', 'whatsapp', 'Resend WhatsApp')) + '</button>' : '')
       + (p.status === 'approved' ? '<button type="button" class="no" data-act="revoke">'
         + esc(label(p.id, 'revoke', '', 'Revoke')) + '</button>' : '')
       + (p.status === 'pending' ? '<button type="button" class="no" data-act="reject">'
-        + esc(label(p.id, 'reject', '', 'Reject')) + '</button>' : '')
+        + esc(label(p.id, 'reject', '', pendingCompanion(p) ? 'Reject both' : 'Reject')) + '</button>' : '')
       + (p.status === 'rejected' ? '<button type="button" data-act="restore">'
         + esc(label(p.id, 'restore', '', 'Restore')) + '</button>' : '')
       + '</div>' + resultLine(p.id) + '</div>';
@@ -690,7 +726,7 @@
   }
 
   function renderLinks() {
-    var teams = D.teams.filter(function (t) { return !t.inviteOnly && !t.derived; });
+    var teams = D.teams.filter(function (t) { return (!t.inviteOnly || t.guestForm) && !t.derived; });
     var form = '<div class="card"><h2>New link</h2>'
       + '<label>Team</label><select id="l-team">'
       + teams.map(function (t) { return '<option value="' + t.key + '">' + esc(t.name.en) + '</option>'; }).join('')
@@ -724,7 +760,19 @@
           + '<button type="button" data-act="team_expected" data-team="' + t.key + '">edit</button></span></div>';
       }).join('') + '</div>';
 
-    $('links').innerHTML = form + rows + teamRows;
+    /* The special guest form, which runs on its own switch and its own
+       deadline, and opens whichever VIP link VIP_LINK_TOKEN names. */
+    var g = D.settings.vip || {};
+    var guest = '<div class="card"><h2>Special guest form</h2>'
+      + '<div class="muted">' + esc(g.guestUrl || '/guest/') + ' \u00b7 '
+      + (g.enabled ? 'on' : 'off (VIP_REG_ENABLED)') + ' \u00b7 closes '
+      + esc(when(g.closesAt)) + '</div>'
+      + '<div class="muted">' + (g.linkFound ? 'Shows the VIP link marked with that address below.'
+        : g.linkSet ? 'VIP_LINK_TOKEN does not match any VIP link. Create one and set its token.'
+          : 'VIP_LINK_TOKEN is not set. Create a VIP link and set its token in Cloudflare.')
+      + '</div></div>';
+
+    $('links').innerHTML = guest + form + rows + teamRows;
   }
 
   /* Every form that was submitted, whatever became of it. The visitor got one
@@ -750,6 +798,9 @@
     name: 'name',
     role: 'role',
     child: "child's name",
+    organisation: 'organisation',
+    attending: 'attending not chosen',
+    guest: "guest's name",
     hidden_field_filled: 'hidden field was filled in'
   };
 
@@ -846,7 +897,7 @@
   function csv() {
     var cols = ['firstName', 'lastName', 'email', 'phone', 'team', 'label', 'role',
       'childFirstName', 'childLastName', 'childDob', 'salutation', 'title',
-      'organisation', 'rsvp', 'status', 'approver', 'registered', 'decided',
+      'organisation', 'guestOf', 'rsvp', 'status', 'approver', 'registered', 'decided',
       'promoCode', 'previousCodes', 'ticketsSold'];
     function cell(v) {
       var s = String(v == null ? '' : v);
@@ -858,7 +909,7 @@
       lines.push([
         p.firstName, p.lastName, p.email, p.phone, teamName(p.team), p.label, p.role,
         p.child ? p.child.firstName : '', p.child ? p.child.lastName : '', p.child ? p.child.dob : '',
-        v.salutation || '', v.jobTitle || '', v.organisation || '',
+        v.salutation || '', v.jobTitle || '', v.organisation || '', v.guestOfName || '',
         v.attending == null ? '' : (v.attending ? 'accepted' : 'declined'),
         p.status, p.decidedBy || '', when(p.createdAt), when(p.decidedAt),
         (p.promo && p.promo.code) || '',
@@ -870,6 +921,34 @@
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'artindia-team-' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  /* The special guests alone, one row per registration with the person they
+     bring on the same row, to reconcile against the invitation tracker. */
+  function csvVip() {
+    var cols = ['status', 'salutation', 'firstName', 'lastName', 'organisation', 'function',
+      'email', 'guestName', 'registeredAt', 'approvedAt', 'guestStatus'];
+    function cell(v) {
+      var s = String(v == null ? '' : v);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }
+    var lines = [cols.join(',')];
+    D.people.forEach(function (p) {
+      if (p.team !== 'vip' || !p.vip || p.vip.guestOf) return;
+      var v = p.vip;
+      var c = v.guestId ? personOf(v.guestId) : null;
+      lines.push([
+        p.status, v.salutation || '', p.firstName, p.lastName, v.organisation || '',
+        v.jobTitle || '', p.email, v.guestName || '', when(p.createdAt),
+        p.status === 'approved' ? when(p.decidedAt) : '', c ? c.status : ''
+      ].map(cell).join(','));
+    });
+    var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'artindia-special-guests-' + new Date().toISOString().slice(0, 10) + '.csv';
     a.click();
     URL.revokeObjectURL(a.href);
   }
@@ -964,7 +1043,9 @@
       reject: 'Rejected at ' + at,
       restore: 'Put back in the queue at ' + at
     };
-    return { bad: false, at: at, text: said[body.action] || ('Done at ' + at) };
+    var text = said[body.action] || ('Done at ' + at);
+    if (d.companion && d.companion.ok) text += ', together with their guest';
+    return { bad: false, at: at, text: text };
   }
 
   /* The person the server just wrote, spliced into the list we already hold.
@@ -1079,6 +1160,8 @@
          with the server in the background. */
       done(d);
       var drawn = absorb(d.person);
+      /* A special guest's companion, decided in the same request. */
+      if (d.companion && d.companion.person) drawn = absorb(d.companion.person) || drawn;
       if (drawn) render();
       window.scrollTo(0, scroll);
 
@@ -1088,6 +1171,7 @@
           /* A refusal still changes the record, so the page catches up, but
              what the server just handed back wins. */
           if (!d.ok) absorb(d.person);
+          if (d.companion && d.companion.person) absorb(d.companion.person);
           render();
           window.scrollTo(0, scroll);
         }
@@ -1207,6 +1291,7 @@
       return;
     }
     if (a === 'csv') { csv(); return; }
+    if (a === 'csv_vip') { csvVip(); return; }
     if (a === 'addform') { addForm(); return; }
     if (a === 'addcancel') { $('addwrap').innerHTML = ''; return; }
     if (a === 'addsave') {

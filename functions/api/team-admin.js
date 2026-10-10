@@ -19,8 +19,15 @@ import {
   approvalBlocker, getPerson, putPerson, addIdTo, phoneKey, emailKey, newPersonId,
   ageOnFestival, validDob, langOf, STEPS, hardCap, allSubmissions, trimSubmissions,
   SKIPPED, isDryId, changeCode, recentlySent, markSent, RESEND_LOCK_SECONDS,
-  finishIfDone, stepsOutstanding,
+  finishIfDone, stepsOutstanding, companionOf, hasForm, vipEnabled, vipCloseAt,
 } from './_accred.js';
+
+/* The address printed on the special guest invitations. It shows the form of
+   whichever vip link VIP_LINK_TOKEN names. */
+const GUEST_URL = 'https://diwali.artindia.be/guest/';
+const linkUrl = (env, l) => (l.team === 'vip' && env.VIP_LINK_TOKEN && l.token === env.VIP_LINK_TOKEN
+  ? GUEST_URL
+  : `https://diwali.artindia.be/team/?k=${l.token}`);
 
 /* The caller, or null. 503 when the secret is unset: an admin route with no
    configured tokens must refuse everyone rather than let anyone in. */
@@ -82,9 +89,12 @@ export async function onRequestGet({ request, env }) {
       wall: Boolean(t.wall),
       childTeam: Boolean(t.childTeam),
       inviteOnly: Boolean(t.inviteOnly),
+      guestForm: Boolean(t.guestForm),
+      formal: Boolean(t.formal),
+      whatsapp: t.whatsapp !== false,
       derived: Boolean(t.derived),
       /* Why the Approve button on this team is dead, if it is. */
-      blocked: t.inviteOnly ? 'invite_only'
+      blocked: !hasForm(t) ? 'invite_only'
         : (env.TT_EVENT_ID ? '' : 'no_tt_event_id')
           || (ticketTypeFor(env, t.key) ? '' : `no_ticket_type_for_${t.key}`),
     });
@@ -100,13 +110,23 @@ export async function onRequestGet({ request, env }) {
       closesAt: closeAt(env).toISOString(),
       wallEnabled: String(env.WALL_ENABLED) === 'true',
       accredList: env.BREVO_ACCRED_LIST_ID || '',
+      /* The special guest form: its own switch, its own deadline, and which
+         link /guest/ shows. The token itself is not repeated here; the link
+         it names says so with its url. */
+      vip: {
+        enabled: vipEnabled(env),
+        closesAt: vipCloseAt(env).toISOString(),
+        guestUrl: GUEST_URL,
+        linkSet: Boolean(env.VIP_LINK_TOKEN),
+        linkFound: links.some(l => l.team === 'vip' && l.token === env.VIP_LINK_TOKEN),
+      },
     },
     teams,
     links: links.map(l => ({
       ...l,
       registered: people.filter(p => p.linkToken === l.token && p.status !== 'rejected').length,
       cap: hardCap(l.expected),
-      url: `https://diwali.artindia.be/team/?k=${l.token}`,
+      url: linkUrl(env, l),
     })),
     log,
     people: people
@@ -158,6 +178,22 @@ export async function onRequestPost({ request, env }) {
       const p = await getPerson(kv, String(body.id));
       if (!p) return json(404, { ok: false, error: 'unknown_person' });
       const r = await approve(env, kv, { id: p.id, approver, log: logger(kv, p) });
+      /* A special guest and the person they bring are decided together unless
+         the approver says otherwise. Only once the registrant's own pass is
+         out: a guest of somebody whose ticket failed waits with them. */
+      if (r.ok && r.person && r.person.status === 'approved' && !body.alone) {
+        const c = await companionOf(kv, r.person);
+        if (c && c.status === 'pending') {
+          const rc = await approve(env, kv, { id: c.id, approver, log: logger(kv, c) });
+          r.companion = rc;
+          if (!rc.ok) {
+            r.ok = false;
+            r.error = 'companion_failed';
+            r.detail = `${r.person.firstName} ${r.person.lastName} is approved. Their guest `
+              + `${c.firstName} ${c.lastName} is not: ${rc.detail || rc.error}`;
+          }
+        }
+      }
       /* Even a refusal answers with the record. A failed approval leaves a
          person sitting in the queue, and the page draws them from this rather
          than from a read that may not see the write yet. */
@@ -209,9 +245,19 @@ export async function onRequestPost({ request, env }) {
       return json(r.ok ? 200 : 409, r);
     }
 
-    case 'reject':
-      return json(200, await reject(env, kv,
-        { id: String(body.id), approver, note: body.note || '' }));
+    case 'reject': {
+      const r = await reject(env, kv,
+        { id: String(body.id), approver, note: body.note || '' });
+      /* Turning down a special guest turns down the person they would have
+         brought. Nothing is sent to either. */
+      if (r.ok && !body.alone) {
+        const c = await companionOf(kv, r.person);
+        if (c && c.status === 'pending') {
+          r.companion = await reject(env, kv, { id: c.id, approver, note: body.note || '' });
+        }
+      }
+      return json(200, r);
+    }
 
     case 'revoke':
       return json(200, await revoke(env, kv,
@@ -232,7 +278,7 @@ export async function onRequestPost({ request, env }) {
       const team = teamOf(String(body.team || ''));
       if (!team) return json(400, { ok: false, error: 'unknown_team' });
       /* No link for a team nobody fills a form for. */
-      if (team.inviteOnly || team.derived) return json(400, { ok: false, error: 'team_has_no_links' });
+      if (!hasForm(team) || team.derived) return json(400, { ok: false, error: 'team_has_no_links' });
       const t = token(20);
       const link = {
         token: t,
@@ -245,7 +291,7 @@ export async function onRequestPost({ request, env }) {
         createdAt: new Date().toISOString(),
       };
       await kv.put(linkKey(t), JSON.stringify(link));
-      return json(200, { ok: true, link, url: `https://diwali.artindia.be/team/?k=${t}` });
+      return json(200, { ok: true, link, url: linkUrl(env, link) });
     }
 
     case 'link_update': {

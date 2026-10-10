@@ -118,6 +118,15 @@
 .tf-step-t{display:block;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
 .tf-step-p{display:block;margin-top:3px;font-size:14.5px;line-height:1.5;color:var(--ink-2);
   overflow-wrap:anywhere}
+
+/* ------------------------------------------------- the special guest form */
+.tf-set{border:0;margin:0;padding:0;min-width:0}
+.tf-set > legend{padding:0}
+.tf-choice{display:flex;gap:12px;align-items:center;margin:0 0 10px;padding:13px 14px;
+  border:1px solid var(--line);border-radius:11px;cursor:pointer;font-size:16px}
+.tf-choice input{flex:0 0 auto;width:20px;height:20px;margin:0;accent-color:var(--marigold)}
+.tf-choice:has(input:checked){border-color:var(--marigold)}
+.tf-sub{margin:16px 0 0;padding:16px 0 0;border-top:1px solid var(--line)}
 </style>
 </head>
 <body>
@@ -163,7 +172,50 @@
       </div>
     </div>
 
-    <div class="tf-card">
+    <!-- The special guest form. Only shown for the vip team, at /guest/ or by
+         its link; every other team's form is the card below, unchanged. -->
+    <div class="tf-card" id="tf-vip-set" hidden>
+      <div class="tf-field"><label for="v-sal">{{C:vip_salutation}}</label>
+        <input type="text" id="v-sal" name="vSalutation" autocomplete="honorific-prefix" list="v-sals">
+        <datalist id="v-sals">{{VIP_SALS}}</datalist></div>
+      <div class="tf-pair">
+        <div class="tf-field"><label for="v-first">{{S_FIRST}}</label>
+          <input type="text" id="v-first" name="vFirst" autocomplete="given-name"></div>
+        <div class="tf-field"><label for="v-last">{{S_LAST}}</label>
+          <input type="text" id="v-last" name="vLast" autocomplete="family-name"></div>
+      </div>
+      <div class="tf-field"><label for="v-org">{{C:vip_organisation}}</label>
+        <input type="text" id="v-org" name="vOrg" autocomplete="organization"></div>
+      <div class="tf-field"><label for="v-fn">{{C:vip_function}}</label>
+        <input type="text" id="v-fn" name="vFunction" autocomplete="organization-title"></div>
+      <div class="tf-field"><label for="v-email">{{S_EMAIL}}</label>
+        <input type="email" id="v-email" name="vEmail" autocomplete="email" inputmode="email">
+        <span class="tf-hint">{{C:vip_email_hint}}</span></div>
+      <div class="tf-field"><label for="v-phone">{{C:vip_mobile}}</label>
+        <input type="tel" id="v-phone" name="vPhone" autocomplete="tel" inputmode="tel">
+        <span class="tf-hint">{{S_PHONE_HINT}}</span></div>
+    </div>
+
+    <div class="tf-card" id="tf-vip-attend" hidden>
+      <fieldset class="tf-set">
+        <legend class="tf-legend">{{C:vip_attend}}</legend>
+        <label class="tf-choice"><input type="radio" name="vAttend" value="alone">
+          <span>{{C:vip_alone}}</span></label>
+        <label class="tf-choice"><input type="radio" name="vAttend" value="guest">
+          <span>{{C:vip_with_guest}}</span></label>
+      </fieldset>
+      <div class="tf-sub" id="tf-vip-guest" hidden>
+        <p class="tf-legend">{{C:vip_guest_legend}}</p>
+        <div class="tf-pair">
+          <div class="tf-field"><label for="g-first">{{S_FIRST}}</label>
+            <input type="text" id="g-first" name="gFirst" autocomplete="off"></div>
+          <div class="tf-field"><label for="g-last">{{S_LAST}}</label>
+            <input type="text" id="g-last" name="gLast" autocomplete="off"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tf-card" id="tf-std-set">
       <p class="tf-legend" id="tf-person-legend" hidden></p>
       <div class="tf-pair">
         <div class="tf-field"><label for="f-first">{{S_FIRST}}</label>
@@ -181,11 +233,11 @@
         <input type="text" id="f-role" name="role" autocomplete="off"></div>
     </div>
 
-    <label class="tf-consent">
+    <label class="tf-consent" id="tf-consent">
       <input type="checkbox" name="consent" required>
       <span>{{S_CONSENT}}</span>
     </label>
-    <p class="tf-fine">{{S_FINE}}</p>
+    <p class="tf-fine" id="tf-fine">{{S_FINE}}</p>
 
     <!-- A trap for something filling the form in automatically. It has no
          label and a name that matches no contact or address field, because a
@@ -207,8 +259,8 @@
         stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5"/></svg>
     </div>
     <h2 id="tf-done-title"></h2>
-    <p class="tf-done-lede">{{S_DONE_LEDE}}</p>
-    <ol class="tf-steps">
+    <p class="tf-done-lede" id="tf-done-lede">{{S_DONE_LEDE}}</p>
+    <ol class="tf-steps" id="tf-steps">
       <li class="tf-step"><span class="tf-step-b">
         <span class="tf-step-t">{{S_STEP1_T}}</span>
         <span class="tf-step-p">{{S_STEP1_P}}</span></span></li>
@@ -229,6 +281,9 @@
   var KIND = {{KIND_JSON}};
   var S = {{STRINGS_JSON}};
   var k = new URLSearchParams(location.search).get('k') || '';
+  /* /guest/ has no token: the server knows which link it is. */
+  var GUEST = KIND === 'guest';
+  var VIP = false;
   var boot = document.getElementById('tf-boot');
   var head = document.getElementById('tf-head');
   var form = document.getElementById('tf-form');
@@ -253,13 +308,17 @@
     if (bad) msg.dataset.bad = '1'; else delete msg.dataset.bad;
   }
 
-  if (!k) { stop(S.inactive); return; }
+  if (!k && !GUEST) { stop(S.inactive); return; }
 
-  fetch('/api/team-form?k=' + encodeURIComponent(k) + '&lang=' + LANG)
+  fetch('/api/team-form?' + (GUEST ? 'guest=1' : 'k=' + encodeURIComponent(k)) + '&lang=' + LANG)
     .then(function (r) { return r.json(); })
     .then(function (d) {
-      if (!d || !d.ok) { stop((d && d.strings && d.strings[d.message]) || S.inactive); return; }
+      if (!d || !d.ok) {
+        stop((d && d.strings && d.strings[d.message]) || (GUEST ? S.vip_inactive : S.inactive));
+        return;
+      }
       if (d.strings) S = d.strings;
+      if (d.vip) { vipMode(); head.hidden = false; form.hidden = false; return; }
 
       document.getElementById('tf-team').textContent = d.teamName;
       /* The label only earns its place when it says something the badge does
@@ -289,9 +348,67 @@
     })
     .catch(function () { stop(S.error || S.inactive); });
 
+  /* The special guest form: its own fields, formal copy, no consent box, no
+     promise of a code, and one screen at the end rather than three steps. */
+  function vipMode() {
+    VIP = true;
+    document.getElementById('tf-team').textContent = S.vip_badge;
+    head.querySelector('h1').textContent = S.vip_title;
+    document.getElementById('tf-intro').textContent = S.vip_intro;
+    document.title = S.vip_title;
+    document.getElementById('tf-std-set').remove();
+    document.getElementById('tf-consent').remove();
+    document.getElementById('tf-fine').textContent = S.vip_fine;
+    document.getElementById('tf-vip-set').hidden = false;
+    document.getElementById('tf-vip-attend').hidden = false;
+    document.getElementById('tf-steps').hidden = true;
+    document.getElementById('tf-done-lede').textContent = S.vip_done_lede;
+    again.hidden = true;
+  }
+
+  form.addEventListener('change', function (ev) {
+    if (ev.target.name !== 'vAttend') return;
+    document.getElementById('tf-vip-guest').hidden = ev.target.value !== 'guest';
+  });
+
+  /* What the server would refuse anyway, said before the round trip, with the
+     cursor put where the answer is missing. */
+  function vipMissing(f) {
+    var need = ['vFirst', 'vLast', 'vOrg', 'vEmail'];
+    if (f.get('vAttend') === 'guest') need.push('gFirst', 'gLast');
+    for (var i = 0; i < need.length; i++) {
+      if (!String(f.get(need[i]) || '').trim()) return form.elements[need[i]];
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(f.get('vEmail')).trim())) return form.elements.vEmail;
+    if (!f.get('vAttend')) return form.elements.vAttend[0];
+    return null;
+  }
+
+  function vipPayload(f) {
+    var p = {
+      lang: LANG,
+      salutation: f.get('vSalutation') || '',
+      firstName: f.get('vFirst') || '',
+      lastName: f.get('vLast') || '',
+      organisation: f.get('vOrg') || '',
+      jobTitle: f.get('vFunction') || '',
+      email: f.get('vEmail') || '',
+      phone: f.get('vPhone') || '',
+      attending: f.get('vAttend') || '',
+      hp: f.get('tf_x7') || ''
+    };
+    if (p.attending === 'guest') p.guest = { firstName: f.get('gFirst') || '', lastName: f.get('gLast') || '' };
+    if (GUEST) p.viaGuest = true; else p.k = k;
+    return p;
+  }
+
   form.addEventListener('submit', function (ev) {
     ev.preventDefault();
     var f = new FormData(form);
+    if (VIP) {
+      var gap = vipMissing(f);
+      if (gap) { show(S.vip_check, true); gap.focus(); return; }
+    }
     var y = f.get('dobYear'), m = f.get('dobMonth'), dd = f.get('dobDay');
     var payload = {
       k: k, lang: LANG,
@@ -300,10 +417,11 @@
       email: f.get('email') || '',
       phone: f.get('phone') || '',
       role: f.get('role') || '',
-      consent: form.consent.checked,
+      consent: !!(form.consent && form.consent.checked),
       hp: f.get('tf_x7') || ''
     };
-    if (!document.getElementById('tf-child-set').hidden) {
+    if (VIP) payload = vipPayload(f);
+    if (!VIP && !document.getElementById('tf-child-set').hidden) {
       payload.child = {
         firstName: f.get('childFirst') || '',
         lastName: f.get('childLast') || '',
@@ -323,8 +441,8 @@
         if (d && d.ok) {
           /* On the child team the pass is the child's and the email is the
              parent's, and it is the parent standing here reading this. */
-          document.getElementById('tf-done-title').textContent =
-            S.done_title.replace('{FIRST}', payload.firstName);
+          document.getElementById('tf-done-title').textContent = VIP ? S.vip_done_title
+            : S.done_title.replace('{FIRST}', payload.firstName);
           form.hidden = true;
           head.hidden = true;
           msg.hidden = true;

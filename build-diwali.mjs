@@ -1947,20 +1947,43 @@ if (existsSync(join(HERE, 'diwali-web'))) {
       : `<a href="${base[l]}/team/${leaf}">${l.toUpperCase()}</a>`))
       .join(' &middot; ');
 
+    /* Suggestions for the special guest form's salutation. A datalist, not a
+       select: "H.E. Mr and Mrs" is a salutation too. */
+    const SALS = {
+      en: ['Mr', 'Mrs', 'Ms', 'Dr', 'Prof.', 'H.E.'],
+      fr: ['Monsieur', 'Madame', 'Docteur', 'Professeur', 'S.E.'],
+      nl: ['de heer', 'mevrouw', 'dr.', 'prof.', 'Z.E.'],
+    };
+
+    /* /guest/ is the address printed on the special guest invitations: the
+       same template, the vip form, and no token in the URL. */
+    const guestSwitcher = lang => LANGS.map(l => (l === lang
+      ? `<a href="${base[l]}/guest/" aria-current="page">${l.toUpperCase()}</a>`
+      : `<a href="${base[l]}/guest/">${l.toUpperCase()}</a>`))
+      .join(' &middot; ');
+
     let n = 0;
     for (const lang of LANGS) {
       const t = key => (COPY[key] && (COPY[key][lang] || COPY[key].en)) || '';
       const strings = Object.fromEntries(Object.entries(COPY)
         .map(([k, v]) => [k, v[lang] || v.en || '']));
-      for (const [kind, leaf] of [['team', ''], ['plus1', 'plus1/']]) {
+      for (const [kind, leaf] of [['team', ''], ['plus1', 'plus1/'], ['guest', '']]) {
+        const guest = kind === 'guest';
         const html = raw
           .replace(/\{\{LANG\}\}/g, HREFLANG[lang])
           .replace(/\{\{LANG_JSON\}\}/g, JSON.stringify(lang))
           .replace(/\{\{KIND_JSON\}\}/g, JSON.stringify(kind))
           .replace(/\{\{STRINGS_JSON\}\}/g, JSON.stringify(strings))
           .replace(/\{\{CSSV\}\}/g, CSSV)
-          .replace(/\{\{TITLE\}\}/g, esc(t('title')))
-          .replace(/\{\{INTRO\}\}/g, esc(t('intro')))
+          .replace(/\{\{TITLE\}\}/g, esc(t(guest ? 'vip_title' : 'title')))
+          .replace(/\{\{INTRO\}\}/g, esc(t(guest ? 'vip_intro' : 'intro')))
+          /* Any string by its key. A key that is not in the copy file fails
+             the build rather than printing nothing. */
+          .replace(/\{\{C:([a-z0-9_]+)\}\}/g, (_, key) => {
+            if (!COPY[key]) throw new Error(`team form: no copy for ${key}`);
+            return esc(t(key));
+          })
+          .replace(/\{\{VIP_SALS\}\}/g, SALS[lang].map(v => `<option value="${esc(v)}">`).join(''))
           .replace(/\{\{S_FIRST\}\}/g, esc(t('first')))
           .replace(/\{\{S_LAST\}\}/g, esc(t('last')))
           .replace(/\{\{S_EMAIL\}\}/g, esc(t('email')))
@@ -1987,15 +2010,17 @@ if (existsSync(join(HERE, 'diwali-web'))) {
           .replace(/\{\{DAYS\}\}/g, days)
           .replace(/\{\{MONTHS\}\}/g, months)
           .replace(/\{\{YEARS\}\}/g, years)
-          .replace(/\{\{LANGS\}\}/g, switcher(lang, leaf));
+          .replace(/\{\{LANGS\}\}/g, guest ? guestSwitcher(lang) : switcher(lang, leaf));
         if (html.includes('{{')) throw new Error(`team form ${lang}/${kind} has an unfilled token`);
-        const dir = join(out, base[lang].slice(1), 'team', leaf);
+        const dir = guest
+          ? join(out, base[lang].slice(1), 'guest')
+          : join(out, base[lang].slice(1), 'team', leaf);
         mkdirSync(dir, { recursive: true });
         writeFileSync(join(dir, 'index.html'), html);
         n++;
       }
     }
-    console.log(`  Team form: ${n} pages, hidden`);
+    console.log(`  Team form: ${n} pages, hidden (including /guest/)`);
   }
 }
 

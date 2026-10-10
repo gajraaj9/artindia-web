@@ -120,6 +120,33 @@ export const closeAt = env =>
 
 export const registrationClosed = (env, now = new Date()) => now > closeAt(env);
 
+/* The special guests' form. One team (vip) with a form of its own at /guest/,
+   switched and closed independently of the team form: the invitations went
+   out on their own timetable, and a guest can still register after the
+   artists' deadline has passed. */
+export const vipEnabled = env => String(env.VIP_REG_ENABLED) === 'true';
+export const vipCloseAt = env =>
+  new Date(env.VIP_CLOSE_AT || '2026-10-20T23:59:00+02:00');
+
+/** The team behind /guest/, or null. One flag in data/teams.json says which. */
+export const isGuestForm = team => Boolean(team && team.guestForm);
+
+/** Is this team's form switched on? The vip form has its own switch. */
+export const formEnabledFor = (env, team) =>
+  (isGuestForm(team) ? vipEnabled(env) : regEnabled(env));
+
+export const closeAtFor = (env, team) =>
+  (isGuestForm(team) ? vipCloseAt(env) : closeAt(env));
+
+export const closedFor = (env, team, now = new Date()) => now > closeAtFor(env, team);
+
+/* A team that has a form at all. Invite-only teams have none, except the one
+   whose invitations point at /guest/. */
+export const hasForm = team => Boolean(team) && (!team.inviteOnly || isGuestForm(team));
+
+/** The accompanying guest of a special guest, as opposed to the guest themself. */
+export const isCompanion = person => Boolean(person && person.vip && person.vip.guestOf);
+
 /** Addresses that may receive real mail while the module is in dry run. */
 export function isTestAddress(env, email) {
   const list = String(env.TEAM_TEST_EMAILS || '')
@@ -907,9 +934,82 @@ const qrFor = person => ({
   fileName: qrFileName(person.child ? person.child.firstName : person.firstName),
 });
 
+/* ------------------------------------------------- the special guest mails */
+
+/**
+ * "Dear Mr Kumar," when a salutation was given, "Dear Anil Kumar," when not.
+ *
+ * Dutch says "Geachte heer Peeters", not "Geachte de heer Peeters": the
+ * article belongs to the salutation on an envelope and not in a greeting.
+ */
+export function vipGreeting(lang, { salutation = '', firstName = '', lastName = '' } = {}) {
+  let sal = String(salutation || '').trim();
+  if (lang === 'nl') sal = sal.replace(/^de\s+/i, '');
+  const name = sal ? `${sal} ${lastName}` : `${firstName} ${lastName}`;
+  return fill('vip_mail_greeting', lang, { NAME: name.trim() });
+}
+
+/** Who a special guest email is written to: the registrant, always. */
+const vipAddressee = person => (isCompanion(person) && person.vip.host) || {
+  salutation: (person.vip && person.vip.salutation) || '',
+  firstName: person.firstName,
+  lastName: person.lastName,
+};
+
+/** The formal "we have it", one paragraph, for the special guest form. */
+export function vipReceivedMail(person) {
+  const lang = person.lang;
+  return {
+    to: person.email,
+    subject: say('vip_mail_received_subject', lang),
+    lines: [
+      vipGreeting(lang, vipAddressee(person)),
+      '',
+      say('vip_mail_received_body', lang),
+      '',
+      say('vip_mail_regards', lang),
+    ],
+  };
+}
+
+/**
+ * The pass, formally. One per person, each in that person's own name, and
+ * every one of them to the registrant's address: the registrant's own pass,
+ * and then a second email with their guest's.
+ */
+export function vipApprovedMail(env, person, team) {
+  const lang = person.lang;
+  const companion = isCompanion(person);
+  const guest = companion
+    ? `${person.firstName} ${person.lastName}`
+    : (person.vip && person.vip.guestName) || '';
+
+  const lines = [vipGreeting(lang, vipAddressee(person)), ''];
+  if (companion) {
+    lines.push(fill('vip_mail_guest_pass', lang, { GUEST: guest }));
+  } else {
+    lines.push(say('vip_mail_approved_body', lang), '', say('vip_mail_pass_own', lang));
+    if (guest) lines.push('', fill('vip_mail_guest_follows', lang, { GUEST: guest }));
+  }
+  const arrival = arrivalLine(team, lang);
+  if (arrival) lines.push('', arrival);
+  lines.push('', say('vip_mail_look_forward', lang), '', say('vip_mail_questions', lang),
+    '', say('vip_mail_regards', lang));
+
+  return {
+    to: person.email,
+    subject: companion
+      ? fill('vip_mail_guest_subject', lang, { GUEST: guest })
+      : say('vip_mail_approved_subject', lang),
+    lines,
+    qr: qrFor(person),
+  };
+}
+
 /** The one a person actually gets. */
 export const approvedMail = (env, person, team) =>
-  (letterOf(team) ? letterMail : practicalMail)(env, person, team);
+  (team && team.formal ? vipApprovedMail
+    : letterOf(team) ? letterMail : practicalMail)(env, person, team);
 
 
 /* --------------------------------------------------------------- the brevo */
@@ -943,6 +1043,12 @@ export function brevoAttributesFor(person, team) {
   /* The same number on both attributes, the way the buyer flow writes it, so
      one person is one contact however they arrived. */
   if (person.phone) { attrs.SMS = person.phone; attrs.WHATSAPP = person.phone; }
+  /* Section 7's VIP attributes, from the special guest form. */
+  if (person.vip) {
+    attrs.SALUTATION = person.vip.salutation || '';
+    attrs.ORGANISATION = person.vip.organisation || '';
+    attrs.JOB_TITLE = person.vip.jobTitle || '';
+  }
   return attrs;
 }
 
@@ -1184,6 +1290,7 @@ export function stepsOutstanding(person, team) {
   const out = [];
   for (const name of STEPS) {
     if (name === 'discount' && !(team && team.promoCode)) continue;
+    if (name === 'whatsapp' && team && team.whatsapp === false) continue;
     const v = steps[name];
     if (typeof v === 'string' && (v === SKIPPED || v.indexOf('done') === 0)) continue;
     out.push(name);
@@ -1421,8 +1528,13 @@ async function runApproval(env, kv, { id, approver, only = null, log = null, for
     /* Carried by the next write, for the same reason. */
   }
 
-  /* 5. Brevo. The accreditation list and nothing else. */
-  if (todo(person, 'brevo', only, force)) {
+  /* 5. Brevo. The accreditation list and nothing else. A special guest's
+        companion has the registrant's address, and one address is one Brevo
+        contact: writing the guest's name onto it would overwrite the
+        registrant's. The registrant's own approval keeps the contact. */
+  if (todo(person, 'brevo', only, force) && isCompanion(person)) {
+    markStep(person, 'brevo', 'done:not needed, shares the contact of ' + person.vip.guestOfName);
+  } else if (todo(person, 'brevo', only, force)) {
     if (!mayReachOut) {
       markStep(person, 'brevo', SKIPPED);
       console.log('accred dry-run: skipped brevo for', person.id);
@@ -1450,8 +1562,9 @@ async function runApproval(env, kv, { id, approver, only = null, log = null, for
     await putPerson(kv, person);
   }
 
-  /* 7. The WhatsApp. */
-  if (todo(person, 'whatsapp', only, force)) {
+  /* 7. The WhatsApp, on the teams that have one. The special guests do not:
+        their pass is an email, and a marketing template is not the tone. */
+  if (team.whatsapp !== false && todo(person, 'whatsapp', only, force)) {
     const r = await sendTeamPass(env, kv, person, team, { log });
     markStep(person, 'whatsapp', r.ok
       ? (r.dry ? SKIPPED : `done:${r.template}${r.fellBack ? ' (fallback)' : ''}`)
@@ -1520,6 +1633,12 @@ export async function blockedAsRejected(kv, { phone, email, firstName, lastName,
   return false;
 }
 
+/** A special guest's companion, from the registrant's record, or null. */
+export async function companionOf(kv, person) {
+  const id = person && person.vip && person.vip.guestId;
+  return id ? getPerson(kv, id) : null;
+}
+
 /**
  * Not coming.
  *
@@ -1540,7 +1659,12 @@ export async function reject(env, kv, { id, approver, note = '' }) {
   await putPerson(kv, person);
 
   if (person.phone) await kv.put(rejectedPhoneKey(person.phone), rejectedMark(person));
-  if (person.email) await kv.put(rejectedEmailKey(person.email), rejectedMark(person));
+  /* A companion's address is the registrant's. Remembering it under the
+     companion's name would replace the registrant's own mark, and the key
+     holds one. */
+  if (person.email && !isCompanion(person)) {
+    await kv.put(rejectedEmailKey(person.email), rejectedMark(person));
+  }
 
   /* A rejected +1 reopens the artist's token, so the artist can name somebody
      else rather than losing the guest. */
@@ -1869,6 +1993,7 @@ export const sameName = (a, b) =>
  * were turned down last week" is not something a form should explain.
  */
 export function validate(body, team) {
+  if (isGuestForm(team)) return validateVip(body);
   if (!truthyConsent(body.consent)) return 'consent';
   if (!isEmail(body.email)) return 'email';
   if (!normalisePhone(body.phone)) return 'phone';
@@ -1885,6 +2010,24 @@ export function validate(body, team) {
   return '';
 }
 
+/**
+ * The special guest form. No consent box (nothing here is marketing), no role,
+ * and the mobile number is optional: an ambassador's office gives an email.
+ * A number that is given still has to be one.
+ */
+export function validateVip(body) {
+  if (!String(body.firstName || '').trim() || !String(body.lastName || '').trim()) return 'name';
+  if (!String(body.organisation || '').trim()) return 'organisation';
+  if (!isEmail(body.email)) return 'email';
+  if (String(body.phone || '').trim() && !normalisePhone(body.phone)) return 'phone';
+  if (!['alone', 'guest'].includes(String(body.attending || ''))) return 'attending';
+  if (body.attending === 'guest') {
+    const g = body.guest || {};
+    if (!String(g.firstName || '').trim() || !String(g.lastName || '').trim()) return 'guest';
+  }
+  return '';
+}
+
 const truthyConsent = v => v === true || v === 'true' || v === 'on' || v === 1 || v === '1';
 
 /**
@@ -1897,7 +2040,7 @@ const truthyConsent = v => v === true || v === 'true' || v === 'on' || v === 1 |
  */
 export async function flagsFor(kv, env, draft, team, link = null) {
   const flags = [];
-  const byPhone = await idsFor(kv, phoneKey(draft.phone));
+  const byPhone = draft.phone ? await idsFor(kv, phoneKey(draft.phone)) : [];
   const byEmail = await idsFor(kv, emailKey(draft.email));
 
   const others = [];
@@ -1924,7 +2067,7 @@ export async function flagsFor(kv, env, draft, team, link = null) {
      even though the child team expects fifty. */
   const expected = Number(link && link.expected) || Number(await expectedFor(kv, draft.team));
   const onLink = (await allPeople(kv)).filter(p =>
-    p.linkToken === draft.linkToken && p.status !== 'rejected');
+    p.linkToken === draft.linkToken && p.status !== 'rejected' && !isCompanion(p));
   if (onLink.length >= expected) flags.push('over_expected');
 
   if (env.BREVO_BUYERS_LIST_ID && env.BREVO_API_KEY) {
@@ -1955,12 +2098,16 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
      for a link can see what it is doing. The visitor's own message never
      changes: one neutral line, whatever the reason. */
   let about = { team: '', label: '', firstName: body.firstName, lastName: body.lastName };
+  /* On the special guest form the same refusals speak in the formal register
+     and point at an address rather than at a team lead nobody has. */
+  let vipMode = false;
   const no = async (message, reason) => {
     await logSubmission(kv, { ...about, outcome: 'refused', reason: reason || message });
-    return { ok: false, message, why: reason || message };
+    const said = vipMode
+      ? ({ inactive: 'vip_inactive', closed: 'vip_closed' }[message] || message)
+      : message;
+    return { ok: false, message: said, why: reason || message };
   };
-
-  if (!regEnabled(env)) return no('inactive', 'registration_off');
 
   /* The trap field.
    *
@@ -1980,22 +2127,32 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
   const link = plus1
     ? { team: 'plus1', label: plus1.label || '', open: true, expected: 1, token: body.k }
     : await kv.get(linkKey(String(body.k || '')), 'json');
+
+  /* Which switch applies depends on whose link this is: the special guest
+     form has its own. With no link at all it is the team form's switch, so a
+     module that is off says so before it says anything about the token. */
+  vipMode = Boolean(link) && isGuestForm(teamOf(link.team));
+  if (!formEnabledFor(env, link ? teamOf(link.team) : null)) {
+    return no('inactive', 'registration_off');
+  }
+
   if (!link) return no('inactive', 'unknown_link');
   about = { ...about, team: link.team, label: link.label || '' };
   if (!link.open) return no('inactive', 'link_closed');
 
   const team = teamOf(link.team);
-  if (!team || team.inviteOnly) return no('inactive', 'no_form_for_team');
+  if (!hasForm(team)) return no('inactive', 'no_form_for_team');
 
-  if (registrationClosed(env)) return no('closed', 'closed');
+  if (closedFor(env, team)) return no('closed', 'closed');
 
   const bad = validate(body, team);
   if (bad) {
-    const r = await no(bad === 'dob_invalid' ? 'dob_invalid' : 'inactive', bad);
+    const r = await no(bad === 'dob_invalid' ? 'dob_invalid' : (vipMode ? 'vip_check' : 'inactive'), bad);
     return { ...r, field: bad };
   }
 
-  const phone = normalisePhone(body.phone);
+  /* Optional on the special guest form only, and then simply absent. */
+  const phone = vipMode && !String(body.phone || '').trim() ? null : normalisePhone(body.phone);
   const email = String(body.email).trim().toLowerCase();
 
   if (await blockedAsRejected(kv, {
@@ -2007,9 +2164,14 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
      slow button, or a form resubmitted by a back arrow. Success, nothing
      stored, no second row for somebody to notice and reject. */
   const draftName = { firstName: body.firstName, lastName: body.lastName };
-  for (const id of await idsFor(kv, phoneKey(phone))) {
+  /* A special guest may have given no number, so on that form the email is
+     what recognises them. The companion shares it and is never the match. */
+  const seen = phone ? await idsFor(kv, phoneKey(phone)) : [];
+  if (vipMode) seen.push(...await idsFor(kv, emailKey(email)));
+  for (const id of new Set(seen)) {
     const p = await getPerson(kv, id);
     if (!p || p.linkToken !== String(body.k) || !sameName(p, draftName)) continue;
+    if (isCompanion(p)) continue;
     /* A pass that was taken back is not a second row waiting to be noticed.
        Somebody whose accreditation was revoked and who fills the form in
        again is asking to be considered again, so they are stored fresh and
@@ -2029,8 +2191,10 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
   }
 
   const expected = await expectedFor(kv, link.team);
+  /* The cap counts registrations, not seats: a special guest bringing one
+     person is still one invitation answered. */
   const onLink = (await allPeople(kv)).filter(p =>
-    p.linkToken === String(body.k) && p.status !== 'rejected');
+    p.linkToken === String(body.k) && p.status !== 'rejected' && !isCompanion(p));
   if (onLink.length >= hardCap(link.expected || expected)) return no('inactive', 'cap');
 
   /* Forty a day from one address. High enough that a team lead typing in
@@ -2069,7 +2233,16 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
     } : null,
     plusOneOf: plus1 ? plus1.artistId : null,
     plus1TokenUsed: plus1 ? String(body.k) : null,
-    vip: null,
+    vip: vipMode ? {
+      salutation: String(body.salutation || '').trim().slice(0, 40),
+      organisation: String(body.organisation || '').trim().slice(0, 120),
+      jobTitle: String(body.jobTitle || '').trim().slice(0, 120),
+      bringsGuest: body.attending === 'guest',
+      guestId: null,
+      guestName: '',
+      guestOf: null,
+      guestOfName: '',
+    } : null,
     wallToken: null,
     status: 'pending',
     decidedBy: null,
@@ -2088,9 +2261,45 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
   person.flags = await flagsFor(kv, env, person, team, link);
   if (hidden) person.flags.unshift('hidden_field_filled');
 
+  /* The person they bring. A person of their own, because the pass is in
+     their own name, and pending like anybody else: an approver decides, and
+     by default decides for both at once. Same email, because the pass goes
+     to whoever registered them. No phone, no organisation. */
+  let companion = null;
+  if (vipMode && person.vip.bringsGuest) {
+    const g = body.guest || {};
+    companion = {
+      ...person,
+      id: newPersonId(),
+      firstName: String(g.firstName).trim().slice(0, 60),
+      lastName: String(g.lastName).trim().slice(0, 60),
+      phone: null,
+      vip: {
+        salutation: '', organisation: '', jobTitle: '', bringsGuest: false,
+        guestId: null, guestName: '',
+        guestOf: person.id,
+        guestOfName: `${person.firstName} ${person.lastName}`,
+        /* Who the emails about this pass are addressed to. */
+        host: {
+          salutation: person.vip.salutation,
+          firstName: person.firstName,
+          lastName: person.lastName,
+        },
+      },
+      flags: hidden ? ['hidden_field_filled'] : [],
+      steps: { ticket: null, discount: null, brevo: null, email: null, whatsapp: null },
+    };
+    person.vip.guestId = companion.id;
+    person.vip.guestName = `${companion.firstName} ${companion.lastName}`;
+  }
+
   await putPerson(kv, person);
-  await addIdTo(kv, phoneKey(phone), person.id);
+  if (phone) await addIdTo(kv, phoneKey(phone), person.id);
   await addIdTo(kv, emailKey(email), person.id);
+  if (companion) {
+    await putPerson(kv, companion);
+    await addIdTo(kv, emailKey(email), companion.id);
+  }
 
   /* The +1 token burns at submit, not at approval: the link is the artist's
      one guest, and the guest is now named. A rejection puts it back. */
@@ -2101,7 +2310,8 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
 
   await logSubmission(kv, {
     ...about, outcome: hidden ? 'flagged' : 'stored', personId: person.id,
-    hidden, reason: hidden ? 'hidden_field_filled' : '',
+    hidden,
+    reason: hidden ? 'hidden_field_filled' : (companion ? `with guest ${person.vip.guestName}` : ''),
   });
 
   /* Both of these reach a real person, so on a dry run they only reach Ravi.
@@ -2111,13 +2321,13 @@ export async function register(env, kv, body, { ip = '', plus1 = null } = {}) {
   if (hidden) {
     console.log('accred: held mail and brevo for flagged', person.id);
   } else if (!dryRun(env) || isTestAddress(env, email)) {
-    await sendMail(env, receivedMail(person, team));
+    await sendMail(env, vipMode ? vipReceivedMail(person) : receivedMail(person, team));
     await pushToBrevo(env, person, team);
   } else {
     console.log('accred dry-run: skipped received mail and brevo for', person.id);
   }
 
-  return { ok: true, person, flagged: Boolean(hidden) };
+  return { ok: true, person, companion, flagged: Boolean(hidden) };
 }
 
 /* ------------------------------------------------------------------- diya */
@@ -2142,11 +2352,11 @@ export async function teamMemberFor(kv, phone) {
   for (const id of ids) {
     const person = await getPerson(kv, id);
     if (!person) continue;
-    if (person.status === 'approved') {
-      const team = teamOf(person.team);
-      if (!team || team.inviteOnly) continue;
-      return { person, team };
-    }
+    const team = teamOf(person.team);
+    /* Not even "waiting for approval": a special guest who writes to Diya
+       is an ordinary visitor as far as she is concerned. */
+    if (!team || team.inviteOnly) continue;
+    if (person.status === 'approved') return { person, team };
     if (person.status === 'pending' || person.status === 'approving') pending = true;
   }
   return pending ? { pending: true } : null;
